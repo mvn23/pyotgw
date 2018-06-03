@@ -290,7 +290,7 @@ OTGW_MODE = 'otgw_mode'
 OTGW_DHW_OVRD = 'otgw_dhw_ovrd'
 OTGW_ABOUT = 'otgw_about'
 OTGW_BUILD = 'otgw_build'
-OTGW_CLOCK = 'otgw_clock'
+OTGW_CLOCKMHZ = 'otgw_clockmhz'
 OTGW_LED_A = 'otgw_led_a'
 OTGW_LED_B = 'otgw_led_b'
 OTGW_LED_C = 'otgw_led_c'
@@ -302,12 +302,16 @@ OTGW_GPIO_B = 'otgw_gpio_b'
 OTGW_GPIO_A_STATE = 'otgw_gpio_a_state'
 OTGW_GPIO_B_STATE = 'otgw_gpio_b_state'
 OTGW_SB_TEMP = 'otgw_setback_temp'
-OTGW_SETP_OVRD = 'otgw_setpoint_ovrd'
+OTGW_SETP_OVRD_MODE = 'otgw_setpoint_ovrd_mode'
 OTGW_SMART_PWR = 'otgw_smart_pwr'
 OTGW_THRM_DETECT = 'otgw_thermostat_detect'
 OTGW_IGNORE_TRANSITIONS = 'otgw_ignore_transitions'
 OTGW_OVRD_HB = 'otgw_ovrd_high_byte'
 OTGW_VREF = 'otgw_vref'
+
+OTGW_SETP_OVRD_TEMPORARY = 'T'
+OTGW_SETP_OVRD_PERMANENT = 'C'
+OTGW_SETP_OVRD_DISABLED = 'N'
 
 # Not-yet-implemented and untracked features should be set to None
 OTGW_CMDS = {
@@ -366,13 +370,13 @@ OTGW_REPORT_DHW_SETTING = 'W'
 OTGW_REPORTS = {
     OTGW_REPORT_ABOUT               : OTGW_ABOUT,
     OTGW_REPORT_BUILDDATE           : OTGW_BUILD,
-    OTGW_REPORT_CLOCKMHZ            : OTGW_CLOCK,
+    OTGW_REPORT_CLOCKMHZ            : OTGW_CLOCKMHZ,
     OTGW_REPORT_GPIO_FUNCS          : [OTGW_GPIO_A, OTGW_GPIO_B],
     OTGW_REPORT_GPIO_STATES         : [OTGW_GPIO_A_STATE, OTGW_GPIO_B_STATE],
     OTGW_REPORT_LED_FUNCS           : [OTGW_LED_A, OTGW_LED_B, OTGW_LED_C,
                                        OTGW_LED_D, OTGW_LED_E, OTGW_LED_F],
     OTGW_REPORT_GW_MODE             : OTGW_MODE,
-    OTGW_REPORT_SETPOINT_OVRD       : OTGW_SETP_OVRD,
+    OTGW_REPORT_SETPOINT_OVRD       : OTGW_SETP_OVRD_MODE,
     OTGW_REPORT_SMART_PWR           : OTGW_SMART_PWR,
     OTGW_REPORT_THERMOSTAT_DETECT   : OTGW_THRM_DETECT,
     OTGW_REPORT_SETBACK_TEMP        : OTGW_SB_TEMP,

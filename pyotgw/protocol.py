@@ -22,6 +22,8 @@ import struct
 from asyncio.queues import QueueFull
 from pyotgw.vars import *
 
+from datetime import datetime
+
 
 class protocol(asyncio.Protocol):
     '''
@@ -30,14 +32,15 @@ class protocol(asyncio.Protocol):
     '''
     
     def connection_made(self, transport):
-        self._cmdq = asyncio.Queue()
-        self._updateq = asyncio.Queue()
-        self._cmd_lock = asyncio.Lock()
         self.transport = transport
+        self.loop = transport.loop
+        self._cmd_lock = asyncio.Lock(loop=self.loop)
+        self._cmdq = asyncio.Queue(loop=self.loop)
+        self._updateq = asyncio.Queue(loop=self.loop)
         self._readbuf = ''
         self._notify = []
         self.status = {}
-        
+
 
     def data_received(self, data):
         # DIY line buffering...
@@ -114,6 +117,10 @@ class protocol(asyncio.Protocol):
                 # Master changes room setpoint, support by the boiler
                 # is not mandatory, but we want the data regardless
                 self.status[DATA_ROOM_SETPOINT] = self._get_f8_8(msb, lsb)
+                if (self.status.get(OTGW_SETP_OVRD_MODE) !=
+                        OTGW_SETP_OVRD_PERMANENT):
+                    self.status[OTGW_SETP_OVRD_MODE] = OTGW_SETP_OVRD_DISABLED
+                    del self.status[DATA_ROOM_SETPOINT_OVRD]
             elif msgid == MSG_TRSET2:
                 # Master changes room setpoint 2, support by the boiler
                 # is not mandatory, but we want the data regardless
@@ -320,8 +327,9 @@ class protocol(asyncio.Protocol):
         while True:
             stat = await self._updateq.get()
             if len(self._notify) > 0:
-                await asyncio.wait([
-                    coro(stat) for coro in self._notify])
+                self.status["date"] = datetime.now()
+                asyncio.gather(*[coro(stat) for coro in self._notify],
+                               loop=self.loop)
         
     
     async def issue_cmd(self, cmd, value):
@@ -336,10 +344,17 @@ class protocol(asyncio.Protocol):
                     if match.group(1) in OTGW_ERRS:
                         raise OTGW_ERRS[msg]
                     ret = match.group(1)
-                    if cmd in [OTGW_CMD_SUMMARY]:  # Expects a second line
+                    if cmd is OTGW_CMD_SUMMARY and ret is '1':
+                        # Expects a second line
                         part2 = await self._cmdq.get()
                         ret = [ret, part2]
                     return ret
+                elif cmd is OTGW_CMD_MODE and value is 'R':
+                    # Device was reset, msg contains build info
+                    while not re.match(r'OpenTherm Gateway \d+\.\d+\.\d+',
+                                       msg):
+                        msg = await self._cmdq.get()
+                    return True
                 else:
                     print("pyotgw: Unknown message",
                           "in command queue: {}".format(msg))

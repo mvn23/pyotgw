@@ -26,6 +26,7 @@ import serial
 import serial_asyncio
 
 from datetime import datetime
+from functools import partial as fcpartial
 from pyotgw.vars import *
 
 class pyotgw:
@@ -42,6 +43,8 @@ class pyotgw:
                       stopbits=serial.STOPBITS_ONE, timeout=30):
         '''
         Connect to Opentherm Gateway at @port.
+        Initializes the parameters obtained from the PS= and PR=
+        commands and returns the status dict with the obtained values. 
         
         This method is a coroutine
         '''
@@ -49,23 +52,23 @@ class pyotgw:
             loop, otgw.protocol, port, baudrate, bytesize, parity, stopbits, timeout)
         self._transport = transport
         self._protocol = protocol
-        asyncio.ensure_future(protocol._report())
+        self.loop = loop
+        await self.get_reports()
+        await self.get_status()
+        asyncio.ensure_future(protocol._report(), loop=self.loop)
+        return self._protocol.status
 
         
-    async def get_room_temp(self):
+    def get_room_temp(self):
         '''
         Get the current room temperature.
-        
-        This method is a coroutine
         '''
         return self._protocol.status.get(DATA_ROOM_TEMP)
     
     
-    async def get_target_temp(self):
+    def get_target_temp(self):
         '''
         Get the target temperature.
-        
-        This method is a coroutine
         '''
         if self._protocol.status.get(DATA_ROOM_SETPOINT_OVRD, 0) > 0:
             return self._protocol.status.get(DATA_ROOM_SETPOINT_OVRD)
@@ -75,7 +78,7 @@ class pyotgw:
     async def set_target_temp(self, temp, temporary=True,
                               timeout=OTGW_DEFAULT_TIMEOUT):
         '''
-        Set the target temperature.
+        Set the thermostat setpoint.
         kwarg @temporary specifies whether or not the thermostat
             program may override this temperature.
         
@@ -85,40 +88,54 @@ class pyotgw:
                else OTGW_CMD_TARGET_TEMP_CONST)
         value = '{:2.1f}'.format(temp)
         ret = float(await asyncio.wait_for(
-            self._protocol.issue_cmd(cmd, value), timeout))
-        self._protocol.status[DATA_ROOM_SETPOINT_OVRD] = (ret if ret > 0
-                                                               else None)
+            self._protocol.issue_cmd(cmd, value), timeout, loop=self.loop))
+        if ret == 0:
+            self._protocol.status[OTGW_SETP_OVRD_MODE] = (
+                OTGW_SETP_OVRD_DISABLED)
+            del self._protocol.status[DATA_ROOM_SETPOINT_OVRD]
+        elif ret > 0:
+            self._protocol.status[OTGW_SETP_OVRD_MODE] = (
+                OTGW_SETP_OVRD_TEMPORARY if temporary
+                else OTGW_SETP_OVRD_PERMANENT)
+            self._protocol.status[DATA_ROOM_SETPOINT_OVRD] = (ret if ret > 0
+                                                              else None)
+        return ret
         
     
-    async def get_outside_temp(self):
+    def get_outside_temp(self):
         '''
         Returns the outside temperature as known in the gateway.
-        
-        This method is a coroutine
         '''
         return self._protocol.status.get(DATA_OUTSIDE_TEMP)
     
     
     async def set_outside_temp(self, temp, timeout=OTGW_DEFAULT_TIMEOUT):
         '''
-        Provide an outside air temperature to the thermostat.
-        Returns the accepted value or None if a previous value has been
-        unset (@temp > 64)
+        Configures the outside temperature to send to the thermostat.
+        Allowed values are between -40.0 and +64.0, although
+        thermostats may not display the full range. Specify a value
+        above 64 (suggestion: 99) to clear a previously configured
+        value.
+        Returns the accepted value on success or None on failure.
         
         This method is a coroutine
         '''
         cmd = OTGW_CMD_OUTSIDE_TEMP
+        if temp < -40:
+            return None
         value = '{:2.1f}'.format(temp)
         ret = float(await asyncio.wait_for(
-            self._protocol.issue_cmd(cmd, value), timeout))
+            self._protocol.issue_cmd(cmd, value), timeout, loop=self.loop))
         self._protocol.status[DATA_OUTSIDE_TEMP] = (None if ret > 64 else ret)
-        return self._protocol.status[DATA_OUTSIDE_TEMP]
+        return ret
     
     
     async def set_clock(self, date=datetime.now(),
                         timeout=OTGW_DEFAULT_TIMEOUT):
         '''
-        Set the time and day of week to be sent to the thermostat.
+        Change the time and day of the week of the thermostat. The
+        gateway will send the specified time and day of the week in
+        response to the next time and date message from the thermostat.
         @date is a :datetime: object which defaults to now()
         Returns the response from the gateway with format HH:MM/DOW,
         where DOW is a single digit: 1=Monday, 7=Sunday.
@@ -128,61 +145,459 @@ class pyotgw:
         cmd = OTGW_CMD_SET_CLOCK
         value = "{}/{}".format(date.strftime('%H:%M'), date.isoweekday())
         ret = await asyncio.wait_for(self._protocol.issue_cmd(cmd, value),
-                                     timeout)
+                                     timeout, loop=self.loop)
         return ret
         
     
-    async def get_hot_water_ovrd(self):
+    def get_hot_water_ovrd(self):
         '''
         Returns the current hot water override mode if set, otherwise
         None.
-        
-        This method is a coroutine
         '''
         return self._protocol.status.get(OTGW_DHW_OVRD)
     
-    
-    async def get_status(self):
+    async def get_reports(self):
         '''
-        Updates the pyotgw object with the information from the PR and
-        PS commands and return the complete status dict.
+        Update the pyotgw object with the information from all of the
+        PR commands and return the updated status dict.
         
         This method is a coroutine
         '''
         cmd = OTGW_CMD_REPORT
+        reports = {}
         for value in OTGW_REPORTS.keys():
-            ret = await asyncio.wait_for(self._protocol.issue_cmd(cmd, value))
-            
-            
-            #if isinstance(OTGW_REPORTS[value], list):
-                
+            ret = await asyncio.wait_for(self._protocol.issue_cmd(cmd, value),
+                                         OTGW_DEFAULT_TIMEOUT, loop=self.loop)
+            reports[value] = ret[2:]
+        self._protocol.status[OTGW_ABOUT] = reports.get(OTGW_REPORT_ABOUT)
+        self._protocol.status[OTGW_BUILD] = reports.get(OTGW_REPORT_BUILDDATE)
+        self._protocol.status[OTGW_CLOCKMHZ] = reports.get(
+            OTGW_REPORT_CLOCKMHZ)
+        if reports.get(OTGW_REPORT_GPIO_FUNCS) is not None:
+            self._protocol.status[OTGW_GPIO_A] = int(reports.get(
+                OTGW_REPORT_GPIO_FUNCS)[0])
+            self._protocol.status[OTGW_GPIO_B] = int(reports.get(
+                OTGW_REPORT_GPIO_FUNCS)[1])
+        if reports.get(OTGW_REPORT_GPIO_STATES) is not None:
+            self._protocol.status[OTGW_GPIO_A_STATE] = int(reports.get(
+                OTGW_REPORT_GPIO_STATES)[0])
+            self._protocol.status[OTGW_GPIO_B_STATE] = int(reports.get(
+                OTGW_REPORT_GPIO_STATES)[1])
+        if reports.get(OTGW_REPORT_LED_FUNCS) is not None:
+            self._protocol.status[OTGW_LED_A] = reports.get(
+                OTGW_REPORT_LED_FUNCS)[0]
+            self._protocol.status[OTGW_LED_B] = reports.get(
+                OTGW_REPORT_LED_FUNCS)[1]
+            self._protocol.status[OTGW_LED_C] = reports.get(
+                OTGW_REPORT_LED_FUNCS)[2]
+            self._protocol.status[OTGW_LED_D] = reports.get(
+                OTGW_REPORT_LED_FUNCS)[3]
+            self._protocol.status[OTGW_LED_E] = reports.get(
+                OTGW_REPORT_LED_FUNCS)[4]
+            self._protocol.status[OTGW_LED_F] = reports.get(
+                OTGW_REPORT_LED_FUNCS)[5]
+        self._protocol.status[OTGW_MODE] = reports.get(OTGW_REPORT_GW_MODE)
+        if reports.get(OTGW_REPORT_SETPOINT_OVRD) is not None:
+            self._protocol.status[OTGW_SETP_OVRD_MODE] = str.upper(
+                reports.get(OTGW_REPORT_SETPOINT_OVRD)[0])
+            if (self._protocol.status[OTGW_SETP_OVRD_MODE] !=
+                    OTGW_SETP_OVRD_DISABLED):
+                self._protocol.status[DATA_ROOM_SETPOINT_OVRD] = float(
+                    reports.get(OTGW_REPORT_SETPOINT_OVRD)[1:])
+        self._protocol.status[OTGW_SMART_PWR] = reports.get(
+            OTGW_REPORT_SMART_PWR)
+        self._protocol.status[OTGW_THRM_DETECT] = reports.get(
+            OTGW_REPORT_THERMOSTAT_DETECT)
+        self._protocol.status[OTGW_SB_TEMP] = reports.get(
+            OTGW_REPORT_SETBACK_TEMP)
+        if reports.get(OTGW_REPORT_TWEAKS) is not None:
+            self._protocol.status[OTGW_IGNORE_TRANSITIONS] = int(reports.get(
+                OTGW_REPORT_TWEAKS)[0])
+            self._protocol.status[OTGW_OVRD_HB] = int(reports.get(
+                OTGW_REPORT_TWEAKS)[1])
+        self._protocol.status[OTGW_VREF] = int(reports.get(OTGW_REPORT_VREF))
+        self._protocol.status[OTGW_DHW_OVRD] = reports.get(
+            OTGW_REPORT_DHW_SETTING)
+        return self._protocol.status
+        
+        
+    async def get_status(self):
+        '''
+        Update the pyotgw object with the information from the PS
+        command and return the updated status dict.
+        
+        This method is a coroutine
+        '''
+        cmd = OTGW_CMD_SUMMARY
+        ret = await asyncio.wait_for(self._protocol.issue_cmd(cmd, 1),
+                                     OTGW_DEFAULT_TIMEOUT, loop=self.loop)
+        asyncio.ensure_future(self._protocol.issue_cmd(cmd, 0),
+                              loop=self.loop)
+        fields = ret[1].split(',')
+        
+        device_status = fields[0].split('/')
+        master_status = device_status[0]
+        self._protocol.status[DATA_MASTER_CH_ENABLED] = int(
+            master_status[7])
+        self._protocol.status[DATA_MASTER_DHW_ENABLED] = int(
+            master_status[6])
+        self._protocol.status[DATA_MASTER_COOLING_ENABLED] = int(
+            master_status[5])
+        self._protocol.status[DATA_MASTER_OTC_ENABLED] = int(
+            master_status[4])
+        self._protocol.status[DATA_MASTER_CH2_ENABLED] = int(
+            master_status[3])
+        slave_status = device_status[1]
+        self._protocol.status[DATA_SLAVE_FAULT_IND] = int(
+            slave_status[7])
+        self._protocol.status[DATA_SLAVE_CH_ACTIVE] = int(
+            slave_status[6])
+        self._protocol.status[DATA_SLAVE_DHW_ACTIVE] = int(
+            slave_status[5])
+        self._protocol.status[DATA_SLAVE_FLAME_ON] = int(
+            slave_status[4])
+        self._protocol.status[DATA_SLAVE_COOLING_ACTIVE] = int(
+            slave_status[3])
+        self._protocol.status[DATA_SLAVE_CH2_ACTIVE] = int(
+            slave_status[2])
+        self._protocol.status[DATA_SLAVE_DIAG_IND] = int(
+            slave_status[1])
+        
+        self._protocol.status[DATA_CONTROL_SETPOINT] = float(fields[1])
+        
+        remote_params = fields[2].split('/')
+        self._protocol.status[DATA_REMOTE_TRANSFER_DHW] = int(
+            remote_params[0][7])
+        self._protocol.status[DATA_REMOTE_TRANSFER_MAX_CH] = int(
+            remote_params[0][6])
+        self._protocol.status[DATA_REMOTE_RW_DHW] = int(
+            remote_params[1][7])
+        self._protocol.status[DATA_REMOTE_RW_MAX_CH] = int(
+            remote_params[1][6])
+        
+        self._protocol.status[DATA_SLAVE_MAX_RELATIVE_MOD] = float(
+            fields[3])
+        
+        capmodlimits = fields[4].split('/')
+        self._protocol.status[DATA_SLAVE_MAX_CAPACITY] = int(
+            capmodlimits[0])
+        self._protocol.status[DATA_SLAVE_MIN_MOD_LEVEL] = int(
+            capmodlimits[1])
+        
+        self._protocol.status[DATA_ROOM_SETPOINT] = float(fields[5])
+        self._protocol.status[DATA_REL_MOD_LEVEL] = float(fields[6])
+        self._protocol.status[DATA_CH_WATER_PRESS] = float(fields[7])
+        self._protocol.status[DATA_ROOM_TEMP] = float(fields[8])
+        self._protocol.status[DATA_CH_WATER_TEMP] = float(fields[9])
+        self._protocol.status[DATA_DHW_TEMP] = float(fields[10])
+        self._protocol.status[DATA_OUTSIDE_TEMP] = float(fields[11])
+        self._protocol.status[DATA_RETURN_WATER_TEMP] = float(fields[12])
+        
+        dhw_setp_bounds = fields[13].split('/')
+        self._protocol.status[DATA_SLAVE_DHW_MAX_SETP] = int(
+            dhw_setp_bounds[0])
+        self._protocol.status[DATA_SLAVE_DHW_MIN_SETP] = int(
+            dhw_setp_bounds[1])
+        
+        ch_setp_bounds = fields[14].split('/')
+        self._protocol.status[DATA_SLAVE_CH_MAX_SETP] = int(ch_setp_bounds[0])
+        self._protocol.status[DATA_SLAVE_CH_MIN_SETP] = int(ch_setp_bounds[1])
+        
+        self._protocol.status[DATA_DHW_SETPOINT] = float(fields[15])
+        self._protocol.status[DATA_MAX_CH_SETPOINT] = float(fields[16])
+        
+        self._protocol.status[DATA_CH_BURNER_STARTS] = int(fields[17])
+        self._protocol.status[DATA_CH_PUMP_STARTS] = int(fields[18])
+        self._protocol.status[DATA_DHW_PUMP_STARTS] = int(fields[19])
+        self._protocol.status[DATA_DHW_BURNER_STARTS]  = int(fields[20])
+        self._protocol.status[DATA_CH_BURNER_HOURS] = int(fields[21])
+        self._protocol.status[DATA_CH_PUMP_HOURS] = int(fields[22])
+        self._protocol.status[DATA_DHW_PUMP_HOURS] = int(fields[23])
+        self._protocol.status[DATA_DHW_BURNER_HOURS] = int(fields[24])
+        return self._protocol.status
+        
     
     async def set_hot_water_ovrd(self, state, timeout=OTGW_DEFAULT_TIMEOUT):
         '''
-        Set the hot water override mode of the gateway.
+        Control the domestic hot water enable option. If the boiler has
+        been configured to let the room unit control when to keep a
+        small amount of water preheated, this command can influence
+        that.
         @state should be 0 or 1 to enable the override in off or on
         state, or any other single character to disable the override.
-        Returns the accepted value or None if the override was
-        disabled.
+        Returns the accepted value, 'A' if the override is disabled
+        or None on failure.
         
         This method is a coroutine
         '''
         cmd = OTGW_CMD_HOT_WATER
         ret = await asyncio.wait_for(self._protocol.issue_cmd(cmd, state),
-                                     timeout)
-        self._protocol.status[OTGW_DHW_OVRD] = (int(ret) if ret
-                                                    in ['0', '1'] else None)
-        return self._protocol.status[OTGW_DHW_OVRD]
+                                     timeout, loop=self.loop)
+        if ret is 'A':
+            del self._protocol.status[OTGW_DHW_OVRD]
+        elif ret in ['0', '1']:
+            self._protocol.status[OTGW_DHW_OVRD] = int(ret)
+        return ret
 
+
+    def get_mode(self):
+        '''
+        Return the last known gateway operating mode. Returns "G" for
+        Gateway mode or "M" for Monitor mode.
+        '''
+        return self._protocol.status.get(OTGW_MODE)
     
-    async def subscribe(self, coro):
+    
+    async def set_mode(self, mode, timeout=OTGW_DEFAULT_TIMEOUT):
+        '''
+        Set the operating mode to either "Gateway" mode (:mode: = "G"
+        or 1) or "Monitor" mode (:mode: = "M" or 0), or use this method
+        to reset the device (:mode: = "R").
+        Returns the newly activated mode, or the full renewed status
+        dict after a reset.
+        
+        This method is a coroutine
+        '''
+        cmd = OTGW_CMD_MODE
+        ret = await asyncio.wait_for(self._protocol.issue_cmd(cmd, mode),
+                                     timeout, loop=self.loop)
+        if mode is 'R':
+            self._protocol.status = {}
+            await self.get_reports()
+            await self.get_status()
+            return self._protocol.status
+        else:
+            self._protocol.status[OTGW_MODE] = ret
+        return ret
+        
+        
+    def get_led_mode(self, led_id):
+        '''
+        Returns the led mode for led :led_id:.
+        '''
+        return self._protocol.status.get("OTGW_LED_{}".format(led_id))
+        
+        
+    async def set_led_mode(self, led_id, mode, timeout=OTGW_DEFAULT_TIMEOUT):
+        '''
+        This command can be used to configure the functions of the six
+        LEDs (A-F) that can optionally be connected to pins
+        RB3/RB4/RB6/RB7 and the GPIO pins of the PIC. The following
+        functions are currently available:
+        
+        R Receiving an Opentherm message from the thermostat or boiler
+        X Transmitting an Opentherm message to the thermostat or boiler
+        T Transmitting or receiving a message on the master interface
+        B Transmitting or receiving a message on the slave interface
+        O Remote setpoint override is active
+        F Flame is on
+        H Central heating is on
+        W Hot water is on
+        C Comfort mode (Domestic Hot Water Enable) is on
+        E Transmission error has been detected
+        M Boiler requires maintenance
+        P Raised power mode active on thermostat interface. 
+        
+        Returns the new mode for the specified led, or None on failure.
+        
+        This method is a coroutine
+        '''
+        if led_id in "ABCDEF" and mode in "RXTBOFHWCEMP":
+            cmd = "OTGW_CMD_LED_{}".format(led_id)
+            ret = await asyncio.wait_for(self._protocol.issue_cmd(cmd, mode),
+                                         timeout, loop=self.loop)
+            return ret
+        else:
+            return None
+        
+        
+    def get_gpio_mode(self, gpio_id):
+        '''
+        Returns the gpio mode for gpio :gpio_id:.
+        '''
+        return self._protocol.status.get("OTGW_GPIO_{}".format(gpio_id))
+        
+        
+    async def set_gpio_mode(self, gpio_id, mode, timeout=OTGW_DEFAULT_TIMEOUT):
+        '''
+        These commands configure the functions of the two GPIO pins of
+        the gateway. The following functions are available:
+
+        0 No function, default for both ports on a freshly flashed chip
+        1 Ground - A permanently low output (0V). Could be used for a
+            power LED
+        2 Vcc - A permanently high output (5V). Can be used as a
+            short-proof power supply for some external circuitry used
+            by the other GPIO port
+        3 LED E - An additional LED if you want to present more than 4
+            LED functions
+        4 LED F - An additional LED if you want to present more than 5
+            LED functions
+        5 Home - Set thermostat to setback temperature when pulled low
+        6 Away - Set thermostat to setback temperature when pulled high
+        7 DS1820 (GPIO port B only) - Data line for a DS18S20 or
+            DS18B20 temperature sensor used to measure the outside
+            temperature. A 4k7 resistor should be connected between
+            GPIO port B and Vcc 
+        
+        Returns the new mode for the specified gpio, or None on
+        failure.
+        
+        This method is a coroutine
+        '''
+        if gpio_id in "AB" and mode in range(8):
+            if mode == 7 and gpio_id != "B":
+                return None
+            cmd = "OTGW_CMD_GPIO_{}".format(gpio_id)
+            ret = await asyncio.wait_for(self._protocol.issue_cmd(cmd, mode),
+                                         timeout, loop=self.loop)
+            return ret
+        else:
+            return None
+        
+    
+    def get_setback_temp(self):
+        '''
+        Returns the last known setback temperature from the device.
+        '''
+        return self._protocol.status.get(OTGW_SB_TEMP)
+    
+    
+    async def set_setback_temp(self, sb_temp, timeout=OTGW_DEFAULT_TIMEOUT):
+        '''
+        Configure the setback temperature to use in combination with
+        GPIO functions HOME (5) and AWAY (6).
+        Returns the new setback temperature, or None on failure.
+        
+        This method is a coroutine
+        '''
+        cmd = OTGW_CMD_SETBACK
+        ret = await asyncio.wait_for(self._protocol.issue_cmd(cmd, sb_temp),
+                                     timeout, loop=self.loop)
+        return ret
+        
+        
+    async def add_alternative(self, alt, timeout=OTGW_DEFAULT_TIMEOUT):
+        '''
+        Add the specified Data-ID to the list of alternative commands
+        to send to the boiler instead of a Data-ID that is known to be
+        unsupported by the boiler. Alternative Data-IDs will always be
+        sent to the boiler in a Read-Data request message with the
+        data-value set to zero. The table of alternative Data-IDs is
+        stored in non-volatile memory so it will persist even if the
+        gateway has been powered off. Data-ID values from 1 to 255 are
+        allowed.
+        Returns the ID that was added to the list, or None on failure.
+        
+        This method is a coroutine
+        '''
+        cmd = OTGW_CMD_ADD_ALT
+        alt = int(alt)
+        if alt < 1 or alt > 255:
+            return None
+        ret = await asyncio.wait_for(self._protocol.issue_cmd(cmd, alt),
+                                     timeout, loop=self.loop)
+        return ret
+
+
+    async def del_alternative(self, alt, timeout=OTGW_DEFAULT_TIMEOUT):
+        '''
+        Remove the specified Data-ID from the list of alternative
+        commands. Only one occurrence is deleted. If the Data-ID
+        appears multiple times in the list of alternative commands,
+        this command must be repeated to delete all occurrences. The
+        table of alternative Data-IDs is stored in non-volatile memory
+        so it will persist even if the gateway has been powered off.
+        Data-ID values from 1 to 255 are allowed.
+        Returns the ID that was removed from the list, or None on
+        failure.
+        
+        This method is a coroutine
+        '''
+        cmd = OTGW_CMD_DEL_ALT
+        alt = int(alt)
+        if alt < 1 or alt > 255:
+            return None
+        ret = await asyncio.wait_for(self._protocol.issue_cmd(cmd, alt),
+                                     timeout, loop=self.loop)
+        return ret
+
+
+    async def add_unknown_id(self, unknown_id, timeout=OTGW_DEFAULT_TIMEOUT):
+        '''
+        Inform the gateway that the boiler doesn't support the
+        specified Data-ID, even if the boiler doesn't indicate that
+        by returning an Unknown-DataId response. Using this command
+        allows the gateway to send an alternative Data-ID to the boiler
+        instead.
+        Returns the added ID, or None on failure.
+        
+        This method is a coroutine
+        '''
+        cmd = OTGW_CMD_UNKNOWN_ID
+        unknown_id = int(unknown_id)
+        if unknown_id < 1 or unknown_id > 255:
+            return None
+        ret = await asyncio.wait_for(self._protocol.issue_cmd(cmd,
+                                        unknown_id), timeout, loop=self.loop)
+        return ret
+
+
+    async def del_unknown_id(self, unknown_id, timeout=OTGW_DEFAULT_TIMEOUT):
+        '''
+        Start forwarding the specified Data-ID to the boiler again.
+        This command resets the counter used to determine if the
+        specified Data-ID is supported by the boiler.
+        Returns the ID that was removed, or None on failure.
+        
+        This method is a coroutine
+        '''
+        cmd = OTGW_CMD_KNOWN_ID
+        unknown_id = int(unknown_id)
+        if unknown_id < 1 or unknown_id > 255:
+            return None
+        ret = await asyncio.wait_for(self._protocol.issue_cmd(cmd,
+                                        unknown_id), timeout, loop=self.loop)
+        return ret
+
+
+    async def prio_message(self, data_id, timeout=OTGW_DEFAULT_TIMEOUT):
+        '''
+        NOT IMPLEMENTED YET!
+        Specify a one-time priority message to be sent to the boiler at
+        the first opportunity. If the specified message returns the
+        number of Transparent Slave Parameters (TSPs) or Fault History
+        Buffers (FHBs), the gateway will proceed to request those TSPs
+        or FHBs.
+        
+        This method is a coroutine
+        '''
+        ### TODO: implement this, including FHB/TSP processing
+        return
+
+
+    async def set_response(self, data_id, data, timeout=OTGW_DEFAULT_TIMEOUT):
+        '''
+        Configure a response to send back to the thermostat instead of
+        the response produced by the boiler.
+        @data is a list of either one or two hex byte values
+        Returns the data ID for which the response was set, or None on
+        failure.
+        
+        This method is a coroutine
+        '''
+        ### TODO: implement this
+        return
+
+
+    def subscribe(self, coro):
         '''
         Subscribe to status updates from the Opentherm Gateway.
         Can only be used after connect()
         @coro is a coroutine which will be called with a single
         argument (status) when a status change occurs.
-        
-        This method is a coroutine
+        Returns True on success, False if not connected or already
+        subscribed.
         '''
         if (coro not in self._protocol._notify
                 and self._protocol is not None):
@@ -191,18 +606,17 @@ class pyotgw:
         return False
     
 
-    async def unsubscribe(self, coro):
+    def unsubscribe(self, coro):
         '''
         Unsubscribe from status updates from the Opentherm Gateway.
         Can only be used after connect()
-        @coro is a coroutine which has been subscribed with sunscribe()
+        @coro is a coroutine which has been subscribed with subscribe()
         earlier.
-        
-        This method is a coroutine
+        Returns True on success, false if not connected or subscribed.
         '''
         if coro in self._protocol._notify and self._protocol is not None:
             self._protocol._notify.remove(coro)
             return True
         return False
 
-        
+
