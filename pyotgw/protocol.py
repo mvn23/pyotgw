@@ -120,7 +120,8 @@ class protocol(asyncio.Protocol):
                 if (self.status.get(OTGW_SETP_OVRD_MODE) !=
                         OTGW_SETP_OVRD_PERMANENT):
                     self.status[OTGW_SETP_OVRD_MODE] = OTGW_SETP_OVRD_DISABLED
-                    del self.status[DATA_ROOM_SETPOINT_OVRD]
+                    if self.status.get(DATA_ROOM_SETPOINT_OVRD) is not None:
+                        del self.status[DATA_ROOM_SETPOINT_OVRD]
             elif msgid == MSG_TRSET2:
                 # Master changes room setpoint 2, support by the boiler
                 # is not mandatory, but we want the data regardless

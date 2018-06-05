@@ -312,6 +312,9 @@ OTGW_VREF = 'otgw_vref'
 OTGW_SETP_OVRD_TEMPORARY = 'T'
 OTGW_SETP_OVRD_PERMANENT = 'C'
 OTGW_SETP_OVRD_DISABLED = 'N'
+OTGW_MODE_MONITOR = 'M'
+OTGW_MODE_GATEWAY = 'G'
+OTGW_MODE_RESET = 'R'
 
 # Not-yet-implemented and untracked features should be set to None
 OTGW_CMDS = {

@@ -26,7 +26,6 @@ import serial
 import serial_asyncio
 
 from datetime import datetime
-from functools import partial as fcpartial
 from pyotgw.vars import *
 
 class pyotgw:
@@ -92,7 +91,7 @@ class pyotgw:
         if ret == 0:
             self._protocol.status[OTGW_SETP_OVRD_MODE] = (
                 OTGW_SETP_OVRD_DISABLED)
-            del self._protocol.status[DATA_ROOM_SETPOINT_OVRD]
+            self._protocol.status[DATA_ROOM_SETPOINT_OVRD] = None
         elif ret > 0:
             self._protocol.status[OTGW_SETP_OVRD_MODE] = (
                 OTGW_SETP_OVRD_TEMPORARY if temporary
@@ -334,7 +333,7 @@ class pyotgw:
         ret = await asyncio.wait_for(self._protocol.issue_cmd(cmd, state),
                                      timeout, loop=self.loop)
         if ret is 'A':
-            del self._protocol.status[OTGW_DHW_OVRD]
+            self._protocol.status[OTGW_DHW_OVRD] = None
         elif ret in ['0', '1']:
             self._protocol.status[OTGW_DHW_OVRD] = int(ret)
         return ret
@@ -350,9 +349,10 @@ class pyotgw:
     
     async def set_mode(self, mode, timeout=OTGW_DEFAULT_TIMEOUT):
         '''
-        Set the operating mode to either "Gateway" mode (:mode: = "G"
-        or 1) or "Monitor" mode (:mode: = "M" or 0), or use this method
-        to reset the device (:mode: = "R").
+        Set the operating mode to either "Gateway" mode (:mode: =
+        OTGW_MODE_GATEWAY or 1) or "Monitor" mode (:mode: =
+        OTGW_MODE_MONITOR or 0), or use this method to reset the device
+        (:mode: = OTGW_MODE_RESET).
         Returns the newly activated mode, or the full renewed status
         dict after a reset.
         
@@ -361,7 +361,7 @@ class pyotgw:
         cmd = OTGW_CMD_MODE
         ret = await asyncio.wait_for(self._protocol.issue_cmd(cmd, mode),
                                      timeout, loop=self.loop)
-        if mode is 'R':
+        if mode is OTGW_MODE_RESET:
             self._protocol.status = {}
             await self.get_reports()
             await self.get_status()
@@ -578,6 +578,7 @@ class pyotgw:
 
     async def set_response(self, data_id, data, timeout=OTGW_DEFAULT_TIMEOUT):
         '''
+        NOT IMPLEMENTED YET!
         Configure a response to send back to the thermostat instead of
         the response produced by the boiler.
         @data is a list of either one or two hex byte values
@@ -588,6 +589,120 @@ class pyotgw:
         '''
         ### TODO: implement this
         return
+    
+    
+    async def clear_response(self, data_id, timeout=OTGW_DEFAULT_TIMEOUT):
+        '''
+        Clear a previously configured response to send back to the
+        thermostat for :data_id:.
+        Returns the data ID for which the response was cleared, or None
+        on failure.
+        
+        This method is a coroutine
+        '''
+        ### TODO: implement this
+        return
+    
+    
+    async def set_max_ch_setpoint(self, temperature,
+                                  timeout=OTGW_DEFAULT_TIMEOUT):
+        '''
+        Set the maximum central heating setpoint. This command is only
+        available with boilers that support this function.
+        Returns the newly accepted setpoint, or None on failure.
+        
+        This method is a coroutine
+        '''
+        cmd = OTGW_CMD_SET_MAX
+        ret = await asyncio.wait_for(self._protocol.issue_cmd(cmd,
+                                        temperature), timeout, loop=self.loop)
+        return ret
+
+
+    async def set_max_dhw_setpoint(self, temperature,
+                                   timeout=OTGW_DEFAULT_TIMEOUT):
+        '''
+        Set the domestic hot water setpoint. This command is only
+        available with boilers that support this function.
+        Returns the newly accepted setpoint, or None on failure.
+        
+        This method is a coroutine
+        '''
+        cmd = OTGW_CMD_SET_WATER
+        ret = await asyncio.wait_for(self._protocol.issue_cmd(cmd,
+                                        temperature), timeout, loop=self.loop)
+        return ret
+
+
+    async def set_max_relative_mod(self, max_mod,
+                                       timeout=OTGW_DEFAULT_TIMEOUT):
+        '''
+        Override the maximum relative modulation from the thermostat.
+        Valid values are 0 through 100. Clear the setting by specifying
+        a non-numeric value.
+        Returns the newly accepted value, '-' if a previous value was
+        cleared, or None on failure.
+        
+        This method is a coroutine
+        '''
+        if (isinstance(max_mod, int) and max_mod >= 0 and max_mod <= 100) or
+                not isinstance(max_mod, int):
+            cmd = OTGW_CMD_MAX_MOD
+            ret = await asyncio.wait_for(self._protocol.issue_cmd(cmd,
+                                        max_mod), timeout, loop=self.loop)
+            return ret
+        else:
+            return None
+
+
+    async def set_control_setpoint(self, setpoint,
+                                   timeout=OTGW_DEFAULT_TIMEOUT):
+        '''
+        Manipulate the control setpoint being sent to the boiler. Set
+        to 0 to pass along the value specified by the thermostat.
+        Returns the newly accepted value, or None on failure.
+        
+        This method is a coroutine
+        '''
+        cmd = OTGW_CMD_CONTROL_SETPOINT
+        ret = await asyncio.wait_for(self._protocol.issue_cmd(cmd,
+                                        setpoint), timeout, loop=self.loop)
+        return ret
+
+
+    async def set_ch_enable_bit(self, ch_bit, timeout=OTGW_DEFAULT_TIMEOUT):
+        '''
+        Control the CH enable status bit when overriding the control
+        setpoint. By default the CH enable bit is set after a call to
+        set_control_setpoint with a value other than 0. With this
+        method, the bit can be manipulated.
+        @ch_bit can be a boolean, or 0 or 1.
+        Returns the newly accepted value (0 or 1), or None on failure.
+        
+        This method is a coroutine
+        '''
+        if not ch_bit in [True, False, 1, 0]:
+            return None
+        cmd = OTGW_CMD_CONTROL_HEATING
+        ch_bit = 1 if ch_bit else 0
+        ret = await asyncio.wait_for(self._protocol.issue_cmd(cmd,
+                                        ch_bit), timeout, loop=self.loop)
+        return ret
+    
+    
+    async def set_ventilation(self, pct, timeout=OTGW_DEFAULT_TIMEOUT):
+        '''
+        Configure a ventilation setpoint override value (0-100%).
+        Returns the newly accepted value, or None on failure.
+        
+        This method is a coroutine
+        '''
+        if (isinstance(pct, int) and pct >= 0 and pct <= 100):
+            cmd = OTGW_CMD_MAX_MOD
+            ret = await asyncio.wait_for(self._protocol.issue_cmd(cmd,
+                                        pct), timeout, loop=self.loop)
+            return ret
+        return None
 
 
     def subscribe(self, coro):
