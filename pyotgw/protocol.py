@@ -26,12 +26,16 @@ from datetime import datetime
 
 
 class protocol(asyncio.Protocol):
-    '''
+    """
     Implementation of the Opentherm Gateway protocol to be used with
     asyncio connections.
-    '''
+    """
     
     def connection_made(self, transport):
+        """
+        Gets called when a connection to the gateway is established.
+        Initialise the protocol object.
+        """
         self.transport = transport
         self.loop = transport.loop
         self._cmd_lock = asyncio.Lock(loop=self.loop)
@@ -43,6 +47,11 @@ class protocol(asyncio.Protocol):
 
 
     def data_received(self, data):
+        """
+        Gets called when new data is received on the serial interface.
+        Perform line buffering and call line_received() with complete
+        lines.
+        """
         # DIY line buffering...
         self._readbuf += data.decode()
         while '\r\n' in self._readbuf:
@@ -51,6 +60,11 @@ class protocol(asyncio.Protocol):
     
 
     def line_received(self, line):
+        """
+        Gets called by data_received() when a complete line is
+        received.
+        Inspect the received line and process or queue accordingly.
+        """
         pattern = r'^(T|B|R|A|E)([0-9A-F]{8})$'
         msg = re.match(pattern, line)
         try:
@@ -66,6 +80,10 @@ class protocol(asyncio.Protocol):
             
                     
     def _handle_response(self, resp):
+        """
+        Handle command response and update applicable status
+        variables where necessary.
+        """
         ans, _, val = resp.partition(": ")
         if val is not None and ans in OTGW_CMDS:
             if OTGW_CMDS[ans] is not None:
@@ -73,6 +91,9 @@ class protocol(asyncio.Protocol):
 
     
     def _dissect_msg(self, match):
+        """
+        Split messages into bytes and return a tuple of bytes.
+        """
         recvfrom = match.group(1)
         frame = bytes.fromhex(match.group(2))
         if recvfrom is 'E':
@@ -91,14 +112,18 @@ class protocol(asyncio.Protocol):
 
     
     def _get_msgtype(self, byte):
-        '''
-        Returns the message type of Opentherm messages according to
+        """
+        Return the message type of Opentherm messages according to
         byte 1.
-        '''
+        """
         return (byte >> 4) & 0x7
     
     
     def _process_msg(self, msgtype, msgid, msb, lsb):
+        """
+        Process message and update status variables where necessary.
+        Add status to queue if it was changed in the process.
+        """
         oldstatus = dict(self.status)
         if msgtype in (READ_DATA, WRITE_DATA):
             # Data sent from thermostat
@@ -117,11 +142,6 @@ class protocol(asyncio.Protocol):
                 # Master changes room setpoint, support by the boiler
                 # is not mandatory, but we want the data regardless
                 self.status[DATA_ROOM_SETPOINT] = self._get_f8_8(msb, lsb)
-                if (self.status.get(OTGW_SETP_OVRD_MODE) !=
-                        OTGW_SETP_OVRD_PERMANENT):
-                    self.status[OTGW_SETP_OVRD_MODE] = OTGW_SETP_OVRD_DISABLED
-                    if self.status.get(DATA_ROOM_SETPOINT_OVRD) is not None:
-                        del self.status[DATA_ROOM_SETPOINT_OVRD]
             elif msgid == MSG_TRSET2:
                 # Master changes room setpoint 2, support by the boiler
                 # is not mandatory, but we want the data regardless
@@ -190,7 +210,9 @@ class protocol(asyncio.Protocol):
                 self.status[DATA_CONTROL_SETPOINT_2] = self._get_f8_8(msb, lsb)
             elif msgid == MSG_TROVRD:
                 # OTGW (or downstream device) reports remote override
-                self.status[DATA_ROOM_SETPOINT_OVRD] = self._get_f8_8(msb, lsb)
+                ovrd_value = self._get_f8_8(msb, lsb)
+                self.status[DATA_ROOM_SETPOINT_OVRD] = (
+                        ovrd_value if ovrd_value > 0 else None)
             elif msgid == MSG_MAXRMOD:
                 # Slave reports maximum modulation level
                 self.status[DATA_SLAVE_MAX_RELATIVE_MOD] = self._get_f8_8(
@@ -294,6 +316,9 @@ class protocol(asyncio.Protocol):
 
 
     def _get_flag8(self, byte):
+        """
+        Split a byte into a list of 8 bits (1/0).
+        """
         ret = [0, 0, 0, 0, 0, 0, 0, 0]
         byte = byte[0]
         for i in range(0, 8):
@@ -303,28 +328,49 @@ class protocol(asyncio.Protocol):
     
     
     def _get_u8(self, byte):
+        """
+        Convert a byte into an unsigned int.
+        """
         return struct.unpack('>B', byte)[0]
 
     
     def _get_s8(self, byte):
+        """
+        Convert a byte into a signed int.
+        """
         return struct.unpack('>b', byte)[0]
     
     
     def _get_f8_8(self, msb, lsb):
+        """
+        Convert 2 bytes into an OpenTherm f8_8 (float) value.
+        """
         return float(self._get_s16(msb, lsb)/256)
 
     
     def _get_u16(self, msb, lsb):
+        """
+        Convert 2 bytes into an unsigned int.
+        """
         buf = struct.pack('>BB', self._get_u8(msb), self._get_u8(lsb))
         return int(struct.unpack('>H', buf)[0])
 
     
     def _get_s16(self, msb, lsb):
+        """
+        Convert 2 bytes into a signed int.
+        """
         buf = struct.pack('>bB', self._get_s8(msb), self._get_u8(lsb))
         return int(struct.unpack('>h', buf)[0])
     
     
     async def _report(self):
+        """
+        Call all subscribed coroutines in _notify whenever a status
+        update occurs.
+
+        This method is a coroutine
+        """
         while True:
             stat = await self._updateq.get()
             if len(self._notify) > 0:
@@ -334,6 +380,11 @@ class protocol(asyncio.Protocol):
         
     
     async def issue_cmd(self, cmd, value):
+        """
+        Issue a command, then await and return the return value.
+
+        This method is a coroutine
+        """
         with (await self._cmd_lock):
             self.transport.write('{}={}\r\n'
                                  .format(cmd, value).encode('ascii'))

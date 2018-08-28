@@ -318,11 +318,11 @@ OTGW_MODE_RESET = 'R'
 
 # Not-yet-implemented and untracked features should be set to None
 OTGW_CMDS = {
-    OTGW_CMD_TARGET_TEMP        : DATA_ROOM_SETPOINT_OVRD,
-    OTGW_CMD_TARGET_TEMP_CONST  : DATA_ROOM_SETPOINT_OVRD,
-    OTGW_CMD_OUTSIDE_TEMP       : DATA_OUTSIDE_TEMP,
+    OTGW_CMD_TARGET_TEMP        : None,
+    OTGW_CMD_TARGET_TEMP_CONST  : None,
+    OTGW_CMD_OUTSIDE_TEMP       : None,
     OTGW_CMD_SET_CLOCK          : None,
-    OTGW_CMD_HOT_WATER          : DATA_DHW_SETPOINT,
+    OTGW_CMD_HOT_WATER          : None,
     OTGW_CMD_REPORT             : None,
     OTGW_CMD_SUMMARY            : None,
     OTGW_CMD_MODE               : OTGW_MODE,
@@ -349,10 +349,10 @@ OTGW_CMDS = {
     OTGW_CMD_CONTROL_HEATING    : None,
     OTGW_CMD_VENT               : None,
     OTGW_CMD_RST_CNT            : None,
-    OTGW_CMD_IGNORE_TRANS       : None,
-    OTGW_CMD_OVRD_HIGH          : None,
-    OTGW_CMD_OVRD_THRMST        : None,
-    OTGW_CMD_VREF               : None,
+    OTGW_CMD_IGNORE_TRANS       : OTGW_IGNORE_TRANSITIONS,
+    OTGW_CMD_OVRD_HIGH          : OTGW_OVRD_HB,
+    OTGW_CMD_OVRD_THRMST        : OTGW_THRM_DETECT,
+    OTGW_CMD_VREF               : OTGW_VREF,
 }
 
 OTGW_REPORT_ABOUT = 'A'
