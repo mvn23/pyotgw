@@ -10,14 +10,14 @@ def read(fname):
 
 setup(
     name = "pyotgw",
-    version = "0.1",
+    version = "0.1a",
     author = "Milan van Nugteren",
     author_email = "milan at network23 dot nl",
     description = ("A library to interface with the opentherm gateway through serial"
                     "or network connection."),
     license = "GPLv3+",
     keywords = "opentherm gateway otgw",
-    url = "https://network23.nl/pyotgw",
+    url = "https://github.com/mvn23/pyotgw",
     packages=['pyotgw'],
     long_description=read('README'),
     install_requires=[
@@ -25,7 +25,7 @@ setup(
         'logging',
     ],
     classifiers=[
-        "Development Status :: 1 - Planning",
+        "Development Status :: 3 - Alpha",
         "Topic :: Software Development :: Libraries",
         "License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)",
     ],
