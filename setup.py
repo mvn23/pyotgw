@@ -10,10 +10,10 @@ def read(fname):
 
 setup(
     name = "pyotgw",
-    version = "0.1a",
+    version = "0.1b0",
     author = "Milan van Nugteren",
-    author_email = "milan at network23 dot nl",
-    description = ("A library to interface with the opentherm gateway through serial"
+    author_email = "milan@network23.nl",
+    description = ("A library to interface with the opentherm gateway through serial "
                     "or network connection."),
     license = "GPLv3+",
     keywords = "opentherm gateway otgw",
@@ -22,10 +22,9 @@ setup(
     long_description=read('README'),
     install_requires=[
         'pyserial-asyncio',
-        'logging',
     ],
     classifiers=[
-        "Development Status :: 3 - Alpha",
+        "Development Status :: 4 - Beta",
         "Topic :: Software Development :: Libraries",
         "License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)",
     ],

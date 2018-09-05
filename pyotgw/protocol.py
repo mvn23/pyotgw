@@ -20,9 +20,9 @@ import asyncio
 import re
 import struct
 from asyncio.queues import QueueFull
-from pyotgw.vars import *
-
 from datetime import datetime
+
+from pyotgw.vars import *
 
 
 class protocol(asyncio.Protocol):
@@ -211,8 +211,10 @@ class protocol(asyncio.Protocol):
             elif msgid == MSG_TROVRD:
                 # OTGW (or downstream device) reports remote override
                 ovrd_value = self._get_f8_8(msb, lsb)
-                self.status[DATA_ROOM_SETPOINT_OVRD] = (
-                        ovrd_value if ovrd_value > 0 else None)
+                if ovrd_value > 0:
+                    self.status[DATA_ROOM_SETPOINT_OVRD] = ovrd_value
+                elif self.status.get(DATA_ROOM_SETPOINT_OVRD):
+                    del self.status[DATA_ROOM_SETPOINT_OVRD]
             elif msgid == MSG_MAXRMOD:
                 # Slave reports maximum modulation level
                 self.status[DATA_SLAVE_MAX_RELATIVE_MOD] = self._get_f8_8(
