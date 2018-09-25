@@ -30,7 +30,7 @@ class protocol(asyncio.Protocol):
     Implementation of the Opentherm Gateway protocol to be used with
     asyncio connections.
     """
-    
+
     def connection_made(self, transport):
         """
         Gets called when a connection to the gateway is established.
@@ -45,7 +45,6 @@ class protocol(asyncio.Protocol):
         self._notify = []
         self.status = {}
 
-
     def data_received(self, data):
         """
         Gets called when new data is received on the serial interface.
@@ -57,7 +56,6 @@ class protocol(asyncio.Protocol):
         while '\r\n' in self._readbuf:
             line, _, self._readbuf = self._readbuf.partition('\r\n')
             self.line_received(line)
-    
 
     def line_received(self, line):
         """
@@ -77,8 +75,7 @@ class protocol(asyncio.Protocol):
                 self._cmdq.put_nowait(line)
         except QueueFull:
             print('pyotgw: Queue full, discarded message: {}'.format(line))
-            
-                    
+
     def _handle_response(self, resp):
         """
         Handle command response and update applicable status
@@ -89,7 +86,6 @@ class protocol(asyncio.Protocol):
             if OTGW_CMDS[ans] is not None:
                 setattr(self, OTGW_CMDS[ans], val)
 
-    
     def _dissect_msg(self, match):
         """
         Split messages into bytes and return a tuple of bytes.
@@ -110,15 +106,13 @@ class protocol(asyncio.Protocol):
             return (msgtype, data_id, data_msb, data_lsb)
         return (None, None, None, None)
 
-    
     def _get_msgtype(self, byte):
         """
         Return the message type of Opentherm messages according to
         byte 1.
         """
         return (byte >> 4) & 0x7
-    
-    
+
     def _process_msg(self, msgtype, msgid, msb, lsb):
         """
         Process message and update status variables where necessary.
@@ -130,7 +124,7 @@ class protocol(asyncio.Protocol):
             if msgid == MSG_STATUS:
                 # Master sends status
                 thermo_status = self._get_flag8(msb)
-                self.status[DATA_MASTER_CH_ENABLED] = thermo_status[0] 
+                self.status[DATA_MASTER_CH_ENABLED] = thermo_status[0]
                 self.status[DATA_MASTER_DHW_ENABLED] = thermo_status[1]
                 self.status[DATA_MASTER_COOLING_ENABLED] = thermo_status[2]
                 self.status[DATA_MASTER_OTC_ENABLED] = thermo_status[3]
@@ -161,12 +155,12 @@ class protocol(asyncio.Protocol):
             if msgid == MSG_STATUS:
                 # Slave reports status
                 boiler_status = self._get_flag8(lsb)
-                self.status[DATA_SLAVE_FAULT_IND] = boiler_status[0] 
-                self.status[DATA_SLAVE_CH_ACTIVE] = boiler_status[1] 
-                self.status[DATA_SLAVE_DHW_ACTIVE] = boiler_status[2] 
-                self.status[DATA_SLAVE_FLAME_ON] = boiler_status[3] 
-                self.status[DATA_SLAVE_COOLING_ACTIVE] = boiler_status[4] 
-                self.status[DATA_SLAVE_CH2_ACTIVE] = boiler_status[5] 
+                self.status[DATA_SLAVE_FAULT_IND] = boiler_status[0]
+                self.status[DATA_SLAVE_CH_ACTIVE] = boiler_status[1]
+                self.status[DATA_SLAVE_DHW_ACTIVE] = boiler_status[2]
+                self.status[DATA_SLAVE_FLAME_ON] = boiler_status[3]
+                self.status[DATA_SLAVE_COOLING_ACTIVE] = boiler_status[4]
+                self.status[DATA_SLAVE_CH2_ACTIVE] = boiler_status[5]
                 self.status[DATA_SLAVE_DIAG_IND] = boiler_status[6]
             elif msgid == MSG_TSET:
                 # Slave confirms CH water setpoint
@@ -218,7 +212,7 @@ class protocol(asyncio.Protocol):
             elif msgid == MSG_MAXRMOD:
                 # Slave reports maximum modulation level
                 self.status[DATA_SLAVE_MAX_RELATIVE_MOD] = self._get_f8_8(
-                        msb, lsb)
+                    msb, lsb)
             elif msgid == MSG_MAXCAPMINMOD:
                 # Slave reports max capaxity and min modulation level
                 self.status[DATA_SLAVE_MAX_CAPACITY] = self._get_u8(msb)
@@ -316,7 +310,6 @@ class protocol(asyncio.Protocol):
         if self.status != oldstatus:
             self._updateq.put_nowait(self.status)
 
-
     def _get_flag8(self, byte):
         """
         Split a byte into a list of 8 bits (1/0).
@@ -327,29 +320,25 @@ class protocol(asyncio.Protocol):
             ret[i] = (byte & 1)
             byte = byte >> 1
         return ret
-    
-    
+
     def _get_u8(self, byte):
         """
         Convert a byte into an unsigned int.
         """
         return struct.unpack('>B', byte)[0]
 
-    
     def _get_s8(self, byte):
         """
         Convert a byte into a signed int.
         """
         return struct.unpack('>b', byte)[0]
-    
-    
+
     def _get_f8_8(self, msb, lsb):
         """
         Convert 2 bytes into an OpenTherm f8_8 (float) value.
         """
-        return float(self._get_s16(msb, lsb)/256)
+        return float(self._get_s16(msb, lsb) / 256)
 
-    
     def _get_u16(self, msb, lsb):
         """
         Convert 2 bytes into an unsigned int.
@@ -357,15 +346,13 @@ class protocol(asyncio.Protocol):
         buf = struct.pack('>BB', self._get_u8(msb), self._get_u8(lsb))
         return int(struct.unpack('>H', buf)[0])
 
-    
     def _get_s16(self, msb, lsb):
         """
         Convert 2 bytes into a signed int.
         """
         buf = struct.pack('>bB', self._get_s8(msb), self._get_u8(lsb))
         return int(struct.unpack('>h', buf)[0])
-    
-    
+
     async def _report(self):
         """
         Call all subscribed coroutines in _notify whenever a status
@@ -379,17 +366,16 @@ class protocol(asyncio.Protocol):
                 self.status["date"] = datetime.now()
                 asyncio.gather(*[coro(stat) for coro in self._notify],
                                loop=self.loop)
-        
-    
+
     async def issue_cmd(self, cmd, value):
         """
         Issue a command, then await and return the return value.
 
         This method is a coroutine
         """
-        with (await self._cmd_lock):
-            self.transport.write('{}={}\r\n'
-                                 .format(cmd, value).encode('ascii'))
+        with await self._cmd_lock:
+            self.transport.write(
+                '{}={}\r\n'.format(cmd, value).encode('ascii'))
             expect = r'^{}:\s*([^$]+)$'.format(cmd)
             while True:
                 msg = await self._cmdq.get()
@@ -405,13 +391,10 @@ class protocol(asyncio.Protocol):
                     return ret
                 elif cmd is OTGW_CMD_MODE and value is 'R':
                     # Device was reset, msg contains build info
-                    while not re.match(r'OpenTherm Gateway \d+\.\d+\.\d+',
-                                       msg):
+                    while not re.match(
+                            r'OpenTherm Gateway \d+\.\d+\.\d+', msg):
                         msg = await self._cmdq.get()
                     return True
                 else:
                     print("pyotgw: Unknown message",
                           "in command queue: {}".format(msg))
-                
-                
-    

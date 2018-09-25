@@ -55,17 +55,17 @@ MSG_SVER = b'\x7F'
 
 
 # MSG_STATUS
-DATA_MASTER_CH_ENABLED = 'master_ch_enabled' 
-DATA_MASTER_DHW_ENABLED = 'master_dhw_enabled' 
-DATA_MASTER_COOLING_ENABLED = 'master_cooling_enabled' 
-DATA_MASTER_OTC_ENABLED = 'master_otc_enabled' 
-DATA_MASTER_CH2_ENABLED = 'master_ch2_enabled' 
-DATA_SLAVE_FAULT_IND = 'slave_fault_indication' 
-DATA_SLAVE_CH_ACTIVE = 'slave_ch_active' 
-DATA_SLAVE_DHW_ACTIVE = 'slave_dhw_active' 
-DATA_SLAVE_FLAME_ON = 'slave_flame_on' 
-DATA_SLAVE_COOLING_ACTIVE = 'slave_cooling_active' 
-DATA_SLAVE_CH2_ACTIVE = 'slave_ch2_active' 
+DATA_MASTER_CH_ENABLED = 'master_ch_enabled'
+DATA_MASTER_DHW_ENABLED = 'master_dhw_enabled'
+DATA_MASTER_COOLING_ENABLED = 'master_cooling_enabled'
+DATA_MASTER_OTC_ENABLED = 'master_otc_enabled'
+DATA_MASTER_CH2_ENABLED = 'master_ch2_enabled'
+DATA_SLAVE_FAULT_IND = 'slave_fault_indication'
+DATA_SLAVE_CH_ACTIVE = 'slave_ch_active'
+DATA_SLAVE_DHW_ACTIVE = 'slave_dhw_active'
+DATA_SLAVE_FLAME_ON = 'slave_flame_on'
+DATA_SLAVE_COOLING_ACTIVE = 'slave_cooling_active'
+DATA_SLAVE_CH2_ACTIVE = 'slave_ch2_active'
 DATA_SLAVE_DIAG_IND = 'slave_diagnostic_indication'
 
 # MSG_TSET
@@ -250,41 +250,41 @@ UNKNOWN_DATAID = 0x7
 
 OTGW_DEFAULT_TIMEOUT = 10
 
-OTGW_CMD_TARGET_TEMP         = 'TT'
-OTGW_CMD_TARGET_TEMP_CONST   = 'TC'
-OTGW_CMD_OUTSIDE_TEMP        = 'OT'
-OTGW_CMD_SET_CLOCK           = 'SC'
-OTGW_CMD_HOT_WATER           = 'HW'
-OTGW_CMD_REPORT              = 'PR'
-OTGW_CMD_SUMMARY             = 'PS'
-OTGW_CMD_MODE                = 'GW'
-OTGW_CMD_LED_A               = 'LA'
-OTGW_CMD_LED_B               = 'LB'
-OTGW_CMD_LED_C               = 'LC'
-OTGW_CMD_LED_D               = 'LD'
-OTGW_CMD_LED_E               = 'LE'
-OTGW_CMD_LED_F               = 'LF'
-OTGW_CMD_GPIO_A              = 'GA'
-OTGW_CMD_GPIO_B              = 'GB'
-OTGW_CMD_SETBACK             = 'SB'
-OTGW_CMD_ADD_ALT             = 'AA'
-OTGW_CMD_DEL_ALT             = 'DA'
-OTGW_CMD_UNKNOWN_ID          = 'UI'
-OTGW_CMD_KNOWN_ID            = 'KI'
-OTGW_CMD_PRIO_MSG            = 'PM'
-OTGW_CMD_SET_RESP            = 'SR'
-OTGW_CMD_CLR_RESP            = 'CR'
-OTGW_CMD_SET_MAX             = 'SH'
-OTGW_CMD_SET_WATER           = 'SW'
-OTGW_CMD_MAX_MOD             = 'MM'
-OTGW_CMD_CONTROL_SETPOINT    = 'CS'
-OTGW_CMD_CONTROL_HEATING     = 'CH'
-OTGW_CMD_VENT                = 'VS'
-OTGW_CMD_RST_CNT             = 'RS'
-OTGW_CMD_IGNORE_TRANS        = 'IT'
-OTGW_CMD_OVRD_HIGH           = 'OH'
-OTGW_CMD_OVRD_THRMST         = 'FT'
-OTGW_CMD_VREF                = 'VR'
+OTGW_CMD_TARGET_TEMP = 'TT'
+OTGW_CMD_TARGET_TEMP_CONST = 'TC'
+OTGW_CMD_OUTSIDE_TEMP = 'OT'
+OTGW_CMD_SET_CLOCK = 'SC'
+OTGW_CMD_HOT_WATER = 'HW'
+OTGW_CMD_REPORT = 'PR'
+OTGW_CMD_SUMMARY = 'PS'
+OTGW_CMD_MODE = 'GW'
+OTGW_CMD_LED_A = 'LA'
+OTGW_CMD_LED_B = 'LB'
+OTGW_CMD_LED_C = 'LC'
+OTGW_CMD_LED_D = 'LD'
+OTGW_CMD_LED_E = 'LE'
+OTGW_CMD_LED_F = 'LF'
+OTGW_CMD_GPIO_A = 'GA'
+OTGW_CMD_GPIO_B = 'GB'
+OTGW_CMD_SETBACK = 'SB'
+OTGW_CMD_ADD_ALT = 'AA'
+OTGW_CMD_DEL_ALT = 'DA'
+OTGW_CMD_UNKNOWN_ID = 'UI'
+OTGW_CMD_KNOWN_ID = 'KI'
+OTGW_CMD_PRIO_MSG = 'PM'
+OTGW_CMD_SET_RESP = 'SR'
+OTGW_CMD_CLR_RESP = 'CR'
+OTGW_CMD_SET_MAX = 'SH'
+OTGW_CMD_SET_WATER = 'SW'
+OTGW_CMD_MAX_MOD = 'MM'
+OTGW_CMD_CONTROL_SETPOINT = 'CS'
+OTGW_CMD_CONTROL_HEATING = 'CH'
+OTGW_CMD_VENT = 'VS'
+OTGW_CMD_RST_CNT = 'RS'
+OTGW_CMD_IGNORE_TRANS = 'IT'
+OTGW_CMD_OVRD_HIGH = 'OH'
+OTGW_CMD_OVRD_THRMST = 'FT'
+OTGW_CMD_VREF = 'VR'
 
 OTGW_MODE = 'otgw_mode'
 OTGW_DHW_OVRD = 'otgw_dhw_ovrd'
@@ -318,41 +318,41 @@ OTGW_MODE_RESET = 'R'
 
 # Not-yet-implemented and untracked features should be set to None
 OTGW_CMDS = {
-    OTGW_CMD_TARGET_TEMP        : None,
-    OTGW_CMD_TARGET_TEMP_CONST  : None,
-    OTGW_CMD_OUTSIDE_TEMP       : None,
-    OTGW_CMD_SET_CLOCK          : None,
-    OTGW_CMD_HOT_WATER          : None,
-    OTGW_CMD_REPORT             : None,
-    OTGW_CMD_SUMMARY            : None,
-    OTGW_CMD_MODE               : OTGW_MODE,
-    OTGW_CMD_LED_A              : OTGW_LED_A,
-    OTGW_CMD_LED_B              : OTGW_LED_B,
-    OTGW_CMD_LED_C              : OTGW_LED_C,
-    OTGW_CMD_LED_D              : OTGW_LED_D,
-    OTGW_CMD_LED_E              : OTGW_LED_E,
-    OTGW_CMD_LED_F              : OTGW_LED_F,
-    OTGW_CMD_GPIO_A             : OTGW_GPIO_A,
-    OTGW_CMD_GPIO_B             : OTGW_GPIO_B,
-    OTGW_CMD_SETBACK            : OTGW_SB_TEMP,
-    OTGW_CMD_ADD_ALT            : None,
-    OTGW_CMD_DEL_ALT            : None,
-    OTGW_CMD_UNKNOWN_ID         : None,
-    OTGW_CMD_KNOWN_ID           : None,
-    OTGW_CMD_PRIO_MSG           : None,
-    OTGW_CMD_SET_RESP           : None,
-    OTGW_CMD_CLR_RESP           : None,
-    OTGW_CMD_SET_MAX            : None,
-    OTGW_CMD_SET_WATER          : None,
-    OTGW_CMD_MAX_MOD            : None,
-    OTGW_CMD_CONTROL_SETPOINT   : None,
-    OTGW_CMD_CONTROL_HEATING    : None,
-    OTGW_CMD_VENT               : None,
-    OTGW_CMD_RST_CNT            : None,
-    OTGW_CMD_IGNORE_TRANS       : OTGW_IGNORE_TRANSITIONS,
-    OTGW_CMD_OVRD_HIGH          : OTGW_OVRD_HB,
-    OTGW_CMD_OVRD_THRMST        : OTGW_THRM_DETECT,
-    OTGW_CMD_VREF               : OTGW_VREF,
+    OTGW_CMD_TARGET_TEMP: None,
+    OTGW_CMD_TARGET_TEMP_CONST: None,
+    OTGW_CMD_OUTSIDE_TEMP: None,
+    OTGW_CMD_SET_CLOCK: None,
+    OTGW_CMD_HOT_WATER: None,
+    OTGW_CMD_REPORT: None,
+    OTGW_CMD_SUMMARY: None,
+    OTGW_CMD_MODE: OTGW_MODE,
+    OTGW_CMD_LED_A: OTGW_LED_A,
+    OTGW_CMD_LED_B: OTGW_LED_B,
+    OTGW_CMD_LED_C: OTGW_LED_C,
+    OTGW_CMD_LED_D: OTGW_LED_D,
+    OTGW_CMD_LED_E: OTGW_LED_E,
+    OTGW_CMD_LED_F: OTGW_LED_F,
+    OTGW_CMD_GPIO_A: OTGW_GPIO_A,
+    OTGW_CMD_GPIO_B: OTGW_GPIO_B,
+    OTGW_CMD_SETBACK: OTGW_SB_TEMP,
+    OTGW_CMD_ADD_ALT: None,
+    OTGW_CMD_DEL_ALT: None,
+    OTGW_CMD_UNKNOWN_ID: None,
+    OTGW_CMD_KNOWN_ID: None,
+    OTGW_CMD_PRIO_MSG: None,
+    OTGW_CMD_SET_RESP: None,
+    OTGW_CMD_CLR_RESP: None,
+    OTGW_CMD_SET_MAX: None,
+    OTGW_CMD_SET_WATER: None,
+    OTGW_CMD_MAX_MOD: None,
+    OTGW_CMD_CONTROL_SETPOINT: None,
+    OTGW_CMD_CONTROL_HEATING: None,
+    OTGW_CMD_VENT: None,
+    OTGW_CMD_RST_CNT: None,
+    OTGW_CMD_IGNORE_TRANS: OTGW_IGNORE_TRANSITIONS,
+    OTGW_CMD_OVRD_HIGH: OTGW_OVRD_HB,
+    OTGW_CMD_OVRD_THRMST: OTGW_THRM_DETECT,
+    OTGW_CMD_VREF: OTGW_VREF,
 }
 
 OTGW_REPORT_ABOUT = 'A'
@@ -371,45 +371,44 @@ OTGW_REPORT_VREF = 'V'
 OTGW_REPORT_DHW_SETTING = 'W'
 
 OTGW_REPORTS = {
-    OTGW_REPORT_ABOUT               : OTGW_ABOUT,
-    OTGW_REPORT_BUILDDATE           : OTGW_BUILD,
-    OTGW_REPORT_CLOCKMHZ            : OTGW_CLOCKMHZ,
-    OTGW_REPORT_GPIO_FUNCS          : [OTGW_GPIO_A, OTGW_GPIO_B],
-    OTGW_REPORT_GPIO_STATES         : [OTGW_GPIO_A_STATE, OTGW_GPIO_B_STATE],
-    OTGW_REPORT_LED_FUNCS           : [OTGW_LED_A, OTGW_LED_B, OTGW_LED_C,
-                                       OTGW_LED_D, OTGW_LED_E, OTGW_LED_F],
-    OTGW_REPORT_GW_MODE             : OTGW_MODE,
-    OTGW_REPORT_SETPOINT_OVRD       : OTGW_SETP_OVRD_MODE,
-    OTGW_REPORT_SMART_PWR           : OTGW_SMART_PWR,
-    OTGW_REPORT_THERMOSTAT_DETECT   : OTGW_THRM_DETECT,
-    OTGW_REPORT_SETBACK_TEMP        : OTGW_SB_TEMP,
-    OTGW_REPORT_TWEAKS              : [OTGW_IGNORE_TRANSITIONS, OTGW_OVRD_HB],
-    OTGW_REPORT_VREF                : OTGW_VREF,
-    OTGW_REPORT_DHW_SETTING         : OTGW_DHW_OVRD
+    OTGW_REPORT_ABOUT: OTGW_ABOUT,
+    OTGW_REPORT_BUILDDATE: OTGW_BUILD,
+    OTGW_REPORT_CLOCKMHZ: OTGW_CLOCKMHZ,
+    OTGW_REPORT_GPIO_FUNCS: [OTGW_GPIO_A, OTGW_GPIO_B],
+    OTGW_REPORT_GPIO_STATES: [OTGW_GPIO_A_STATE, OTGW_GPIO_B_STATE],
+    OTGW_REPORT_LED_FUNCS: [OTGW_LED_A, OTGW_LED_B, OTGW_LED_C,
+                            OTGW_LED_D, OTGW_LED_E, OTGW_LED_F],
+    OTGW_REPORT_GW_MODE: OTGW_MODE,
+    OTGW_REPORT_SETPOINT_OVRD: OTGW_SETP_OVRD_MODE,
+    OTGW_REPORT_SMART_PWR: OTGW_SMART_PWR,
+    OTGW_REPORT_THERMOSTAT_DETECT: OTGW_THRM_DETECT,
+    OTGW_REPORT_SETBACK_TEMP: OTGW_SB_TEMP,
+    OTGW_REPORT_TWEAKS: [OTGW_IGNORE_TRANSITIONS, OTGW_OVRD_HB],
+    OTGW_REPORT_VREF: OTGW_VREF,
+    OTGW_REPORT_DHW_SETTING: OTGW_DHW_OVRD
 }
 
-NO_GOOD         = 'NG'
-SYNTAX_ERR      = 'SE'
-BAD_VALUE       = 'BV'
-OUT_OF_RANGE    = 'OR'
-NO_SPACE        = 'NS'
-NOT_FOUND       = 'NF'
-OVERRUN_ERR     = 'OE'
+NO_GOOD = 'NG'
+SYNTAX_ERR = 'SE'
+BAD_VALUE = 'BV'
+OUT_OF_RANGE = 'OR'
+NO_SPACE = 'NS'
+NOT_FOUND = 'NF'
+OVERRUN_ERR = 'OE'
 
 OTGW_ERRS = {
-    NO_GOOD:        RuntimeError("No Good: The command code is unknown."),
-    SYNTAX_ERR:     SyntaxError("Syntax Error: The command contained an"
-                                + " unexpected character or was incomplete."),
-    BAD_VALUE:      ValueError("Bad Value: The command contained a data value"
-                               + " that is not allowed."),
-    OUT_OF_RANGE:   RuntimeError("Out of Range: A number was specified"
-                                 + " outside of the allowed range."), 
-    NO_SPACE:       RuntimeError("No Space: The alternative Data-ID could not"
-                                 + " be added because the table is full."),
-    NOT_FOUND:      RuntimeError("Not Found: The specified alternative"
-                                 + " Data-ID could not be removed because it"
-                                 + " does not exist in the table."),
-    OVERRUN_ERR:    RuntimeError("Overrun Error: The processor was busy and"
-                                 + " failed to process all received"
-                                 + " characters."),
+    NO_GOOD: RuntimeError("No Good: The command code is unknown."),
+    SYNTAX_ERR: SyntaxError("Syntax Error: The command contained an " +
+                            "unexpected character or was incomplete."),
+    BAD_VALUE: ValueError("Bad Value: The command contained a data value " +
+                          "that is not allowed."),
+    OUT_OF_RANGE: RuntimeError("Out of Range: A number was specified " +
+                               "outside of the allowed range."),
+    NO_SPACE: RuntimeError("No Space: The alternative Data-ID could not be " +
+                           "added because the table is full."),
+    NOT_FOUND: RuntimeError("Not Found: The specified alternative Data-ID " +
+                            "could not be removed because it does not " +
+                            "exist in the table."),
+    OVERRUN_ERR: RuntimeError("Overrun Error: The processor was busy and " +
+                              "failed to process all received characters.")
 }
