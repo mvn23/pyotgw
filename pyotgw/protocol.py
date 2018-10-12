@@ -71,20 +71,9 @@ class protocol(asyncio.Protocol):
                 if lsb is not None:
                     self._process_msg(mtype, mid, msb, lsb)
             else:
-                self._handle_response(line)
                 self._cmdq.put_nowait(line)
         except QueueFull:
             print('pyotgw: Queue full, discarded message: {}'.format(line))
-
-    def _handle_response(self, resp):
-        """
-        Handle command response and update applicable status
-        variables where necessary.
-        """
-        ans, _, val = resp.partition(": ")
-        if val is not None and ans in OTGW_CMDS:
-            if OTGW_CMDS[ans] is not None:
-                setattr(self, OTGW_CMDS[ans], val)
 
     def _dissect_msg(self, match):
         """
@@ -278,7 +267,7 @@ class protocol(asyncio.Protocol):
                 self.status[DATA_OEM_DIAG] = self._get_u16(msb, lsb)
             elif msgid == MSG_BURNSTARTS:
                 # Slave reports burner starts
-                self.status[DATA_CH_BURNER_STARTS] = self._get_u16(msb, lsb)
+                self.status[DATA_TOTAL_BURNER_STARTS] = self._get_u16(msb, lsb)
             elif msgid == MSG_CHPUMPSTARTS:
                 # Slave reports CH pump starts
                 self.status[DATA_CH_PUMP_STARTS] = self._get_u16(msb, lsb)
@@ -288,9 +277,9 @@ class protocol(asyncio.Protocol):
             elif msgid == MSG_DHWBURNSTARTS:
                 # Slave reports DHW burner starts
                 self.status[DATA_DHW_BURNER_STARTS] = self._get_u16(msb, lsb)
-            elif msgid == MSG_CHBURNHRS:
+            elif msgid == MSG_BURNHRS:
                 # Slave reports CH burner hours
-                self.status[DATA_CH_BURNER_HOURS] = self._get_u16(msb, lsb)
+                self.status[DATA_TOTAL_BURNER_HOURS] = self._get_u16(msb, lsb)
             elif msgid == MSG_CHPUMPHRS:
                 # Slave reports CH pump hours
                 self.status[DATA_CH_PUMP_HOURS] = self._get_u16(msb, lsb)

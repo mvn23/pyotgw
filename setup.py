@@ -12,7 +12,7 @@ def read(fname):
 
 setup(
     name="pyotgw",
-    version="0.2b0",
+    version="0.2b1",
     author="Milan van Nugteren",
     author_email="milan@network23.nl",
     description=("A library to interface with the opentherm gateway through "
