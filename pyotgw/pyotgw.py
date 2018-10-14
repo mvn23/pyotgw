@@ -19,12 +19,12 @@
 
 
 import asyncio
-import pyotgw.protocol as otgw
 import serial
 import serial_asyncio
-
 from datetime import datetime
-from pyotgw.vars import *
+
+from . import protocol as otgw
+from .vars import *
 
 
 class pyotgw:

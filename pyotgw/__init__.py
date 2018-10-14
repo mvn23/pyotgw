@@ -15,5 +15,5 @@
 #
 # Copyright 2018 Milan van Nugteren
 #
-from pyotgw.pyotgw import pyotgw
-from pyotgw.vars import *
+from .pyotgw import pyotgw
+from .vars import *

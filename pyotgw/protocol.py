@@ -22,7 +22,7 @@ import struct
 from asyncio.queues import QueueFull
 from datetime import datetime
 
-from pyotgw.vars import *
+from .vars import *
 
 
 class protocol(asyncio.Protocol):
