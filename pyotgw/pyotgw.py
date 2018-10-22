@@ -19,18 +19,23 @@
 
 
 import asyncio
+import logging
 import serial
 import serial_asyncio
+from asyncio import TimeoutError
 from datetime import datetime
 
 from . import protocol as otgw
 from .vars import *
+
+_LOGGER = logging.getLogger(__name__)
 
 
 class pyotgw:
 
     def __init__(self):
         """Create a pyotgw object."""
+        self._connected = False
         return
 
     async def connect(self, loop, port, baudrate=9600,
@@ -46,9 +51,11 @@ class pyotgw:
         transport, protocol = await serial_asyncio.create_serial_connection(
             loop, otgw.protocol, port, baudrate, bytesize, parity,
             stopbits, timeout)
+        _LOGGER.debug("Connected to serial device on %s", port)
         self._transport = transport
         self._protocol = protocol
         self.loop = loop
+        self._connected = True
         await self.get_reports()
         await self.get_status()
         asyncio.ensure_future(protocol._report(), loop=self.loop)
@@ -58,12 +65,16 @@ class pyotgw:
         """
         Get the current room temperature.
         """
+        if not self._connected:
+            return
         return self._protocol.status.get(DATA_ROOM_TEMP)
 
     def get_target_temp(self):
         """
         Get the target temperature.
         """
+        if not self._connected:
+            return
         temp_ovrd = self._protocol.status.get(DATA_ROOM_SETPOINT_OVRD)
         if temp_ovrd:
             return temp_ovrd
@@ -105,6 +116,8 @@ class pyotgw:
         """
         Return the outside temperature as known in the gateway.
         """
+        if not self._connected:
+            return
         return self._protocol.status.get(DATA_OUTSIDE_TEMP)
 
     async def set_outside_temp(self, temp, timeout=OTGW_DEFAULT_TIMEOUT):
@@ -150,6 +163,8 @@ class pyotgw:
         Return the current hot water override mode if set, otherwise
         None.
         """
+        if not self._connected:
+            return
         return self._protocol.status.get(OTGW_DHW_OVRD)
 
     async def get_reports(self):
@@ -166,6 +181,8 @@ class pyotgw:
             if ret is None:
                 continue
             reports[value] = ret[2:]
+        if reports == {}:
+            return
         ovrd_mode = str.upper(reports[OTGW_REPORT_SETPOINT_OVRD][0])
         status = {
             OTGW_ABOUT: reports[OTGW_REPORT_ABOUT],
@@ -208,8 +225,9 @@ class pyotgw:
         cmd = OTGW_CMD_SUMMARY
         ret = await self._wait_for_cmd(cmd, 1)
         # Return to 'reporting' mode
-        asyncio.ensure_future(self._protocol.issue_cmd(cmd, 0),
-                              loop=self.loop)
+        asyncio.ensure_future(self._wait_for_cmd(cmd, 0), loop=self.loop)
+        if ret is None:
+            return
         fields = ret[1].split(',')
         device_status = fields[0].split('/')
         master_status = device_status[0]
@@ -291,6 +309,8 @@ class pyotgw:
         Return the last known gateway operating mode. Return "G" for
         Gateway mode or "M" for Monitor mode.
         """
+        if not self._connected:
+            return
         return self._protocol.status[OTGW_MODE]
 
     async def set_mode(self, mode, timeout=OTGW_DEFAULT_TIMEOUT):
@@ -306,6 +326,8 @@ class pyotgw:
         """
         cmd = OTGW_CMD_MODE
         ret = await self._wait_for_cmd(cmd, mode, timeout)
+        if ret is None:
+            return
         if mode is OTGW_MODE_RESET:
             self._protocol.status = {}
             await self.get_reports()
@@ -319,6 +341,8 @@ class pyotgw:
         Return the led mode for led :led_id:.
         @led_id Character in range A-F
         """
+        if not self._connected:
+            return
         return self._protocol.status.get("OTGW_LED_{}".format(led_id))
 
     async def set_led_mode(self, led_id, mode, timeout=OTGW_DEFAULT_TIMEOUT):
@@ -359,6 +383,8 @@ class pyotgw:
         Return the gpio mode for gpio :gpio_id:.
         @gpio_id Character A or B.
         """
+        if not self._connected:
+            return
         return self._protocol.status.get("OTGW_GPIO_{}".format(gpio_id))
 
     async def set_gpio_mode(self, gpio_id, mode, timeout=OTGW_DEFAULT_TIMEOUT):
@@ -404,7 +430,9 @@ class pyotgw:
         """
         Return the last known setback temperature from the device.
         """
-        return self._protocol.status[OTGW_SB_TEMP]
+        if not self._connected:
+            return
+        return self._protocol.status.get(OTGW_SB_TEMP)
 
     async def set_setback_temp(self, sb_temp, timeout=OTGW_DEFAULT_TIMEOUT):
         """
@@ -685,6 +713,17 @@ class pyotgw:
 
         This method is a coroutine.
         """
-        return await asyncio.wait_for(self._protocol.issue_cmd(cmd, value),
-                                      timeout,
-                                      loop=self.loop)
+        if not self._connected:
+            return
+        try:
+            return await asyncio.wait_for(self._protocol.issue_cmd(cmd, value),
+                                          timeout,
+                                          loop=self.loop)
+        except TimeoutError:
+            _LOGGER.error("Timed out waiting for command: %s, value: %s. Are "
+                          "you connecting to the OpenTherm Gateway?", cmd,
+                          value)
+            return None
+        except (RuntimeError, SyntaxError, ValueError) as exc:
+            _LOGGER.error("Command %s with value %s raised exception: %s", cmd,
+                          value, exc)

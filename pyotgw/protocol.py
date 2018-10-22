@@ -368,9 +368,13 @@ class protocol(asyncio.Protocol):
             expect = r'^{}:\s*([^$]+)$'.format(cmd)
             while True:
                 msg = await self._cmdq.get()
+                if msg in OTGW_ERRS:
+                    # Some errors appear by themselves on one line.
+                    raise OTGW_ERRS[msg]
                 match = re.match(expect, msg)
                 if match:
                     if match.group(1) in OTGW_ERRS:
+                        # Some errors are considered a response.
                         raise OTGW_ERRS[msg]
                     ret = match.group(1)
                     if cmd is OTGW_CMD_SUMMARY and ret is '1':
