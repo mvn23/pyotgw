@@ -17,12 +17,15 @@
 #
 
 import asyncio
+import logging
 import re
 import struct
 from asyncio.queues import QueueFull
 from datetime import datetime
 
 from .vars import *
+
+_LOGGER = logging.getLogger(__name__)
 
 
 class protocol(asyncio.Protocol):
@@ -41,7 +44,7 @@ class protocol(asyncio.Protocol):
         self._cmd_lock = asyncio.Lock(loop=self.loop)
         self._cmdq = asyncio.Queue(loop=self.loop)
         self._updateq = asyncio.Queue(loop=self.loop)
-        self._readbuf = ''
+        self._readbuf = b''
         self._notify = []
         self.status = {}
 
@@ -52,10 +55,16 @@ class protocol(asyncio.Protocol):
         lines.
         """
         # DIY line buffering...
-        self._readbuf += data.decode()
-        while '\r\n' in self._readbuf:
-            line, _, self._readbuf = self._readbuf.partition('\r\n')
-            self.line_received(line)
+        newline = b'\r\n'
+        eot = b'\x04'
+        self._readbuf += data
+        while newline in self._readbuf:
+            line, _, self._readbuf = self._readbuf.partition(newline)
+            if line:
+                if eot in line:
+                    # Discard everything before EOT
+                    _, _, line = line.partition(eot)
+                self.line_received(line.decode('ascii'))
 
     def line_received(self, line):
         """
@@ -65,15 +74,16 @@ class protocol(asyncio.Protocol):
         """
         pattern = r'^(T|B|R|A|E)([0-9A-F]{8})$'
         msg = re.match(pattern, line)
-        try:
-            if msg:
-                mtype, mid, msb, lsb = self._dissect_msg(msg)
-                if lsb is not None:
-                    self._process_msg(mtype, mid, msb, lsb)
-            else:
+        if msg:
+            mtype, mid, msb, lsb = self._dissect_msg(msg)
+            if lsb is not None:
+                self._process_msg(mtype, mid, msb, lsb)
+        else:
+            try:
                 self._cmdq.put_nowait(line)
-        except QueueFull:
-            print('pyotgw: Queue full, discarded message: {}'.format(line))
+            except QueueFull:
+                _LOGGER.error('pyotgw: Queue full, discarded message: %s',
+                              line)
 
     def _dissect_msg(self, match):
         """
@@ -372,7 +382,13 @@ class protocol(asyncio.Protocol):
                     # Some errors appear by themselves on one line.
                     raise OTGW_ERRS[msg]
                 match = re.match(expect, msg)
-                if match:
+                if cmd is OTGW_CMD_MODE and value is 'R':
+                    # Device was reset, msg contains build info
+                    while not re.match(
+                            r'OpenTherm Gateway \d+\.\d+\.\d+', msg):
+                        msg = await self._cmdq.get()
+                    return True
+                elif match:
                     if match.group(1) in OTGW_ERRS:
                         # Some errors are considered a response.
                         raise OTGW_ERRS[msg]
@@ -382,12 +398,6 @@ class protocol(asyncio.Protocol):
                         part2 = await self._cmdq.get()
                         ret = [ret, part2]
                     return ret
-                elif cmd is OTGW_CMD_MODE and value is 'R':
-                    # Device was reset, msg contains build info
-                    while not re.match(
-                            r'OpenTherm Gateway \d+\.\d+\.\d+', msg):
-                        msg = await self._cmdq.get()
-                    return True
                 else:
-                    print("pyotgw: Unknown message",
-                          "in command queue: {}".format(msg))
+                    _LOGGER.error("pyotgw: Unknown message in command queue: "
+                                  "%s", msg)
