@@ -21,7 +21,6 @@ import logging
 import re
 import struct
 from asyncio.queues import QueueFull
-from datetime import datetime
 
 from .vars import *
 
@@ -46,6 +45,7 @@ class protocol(asyncio.Protocol):
         self._updateq = asyncio.Queue(loop=self.loop)
         self._readbuf = b''
         self._notify = []
+        self._received_lines = -1
         self.status = {}
 
     def data_received(self, data):
@@ -64,6 +64,10 @@ class protocol(asyncio.Protocol):
                 if eot in line:
                     # Discard everything before EOT
                     _, _, line = line.partition(eot)
+                if self._received_lines == -1:
+                    # Discard the first line, may be incomplete.
+                    self._received_lines += 1
+                    continue
                 self.line_received(line.decode('ascii'))
 
     def line_received(self, line):
@@ -72,6 +76,7 @@ class protocol(asyncio.Protocol):
         received.
         Inspect the received line and process or queue accordingly.
         """
+        self._received_lines += 1
         pattern = r'^(T|B|R|A|E)([0-9A-F]{8})$'
         msg = re.match(pattern, line)
         if msg:
@@ -117,7 +122,6 @@ class protocol(asyncio.Protocol):
         Process message and update status variables where necessary.
         Add status to queue if it was changed in the process.
         """
-        oldstatus = dict(self.status)
         if msgtype in (READ_DATA, WRITE_DATA):
             # Data sent from thermostat
             if msgid == MSG_STATUS:
@@ -306,8 +310,7 @@ class protocol(asyncio.Protocol):
                 # Slave reports product type and version
                 self.status[DATA_SLAVE_PRODUCT_TYPE] = self._get_u8(msb)
                 self.status[DATA_SLAVE_PRODUCT_VERSION] = self._get_u8(lsb)
-        if self.status != oldstatus:
-            self._updateq.put_nowait(self.status)
+        self._updateq.put_nowait(self.status)
 
     def _get_flag8(self, byte):
         """
@@ -360,9 +363,9 @@ class protocol(asyncio.Protocol):
         This method is a coroutine
         """
         while True:
+            oldstatus = dict(self.status)
             stat = await self._updateq.get()
-            if len(self._notify) > 0:
-                self.status["date"] = datetime.now()
+            if len(self._notify) > 0 and oldstatus != stat:
                 asyncio.gather(*[coro(stat) for coro in self._notify],
                                loop=self.loop)
 

@@ -97,23 +97,23 @@ class pyotgw:
         cmd = (OTGW_CMD_TARGET_TEMP if temporary
                else OTGW_CMD_TARGET_TEMP_CONST)
         value = '{:2.1f}'.format(temp)
+        status = {}
         ret = await self._wait_for_cmd(cmd, value, timeout)
         if ret is None:
             return
         ret = float(ret)
-        if ret == 0:
-            self._protocol.status[OTGW_SETP_OVRD_MODE] = (
-                OTGW_SETP_OVRD_DISABLED
-            )
-            self._protocol.status[DATA_ROOM_SETPOINT_OVRD] = None
-            return ret
-        if ret > 0:
-            if temporary:
-                ovrd_mode = OTGW_SETP_OVRD_TEMPORARY
+        if 0 <= ret <= 30:
+            if ret == 0:
+                status[OTGW_SETP_OVRD_MODE] = OTGW_SETP_OVRD_DISABLED
+                status[DATA_ROOM_SETPOINT_OVRD] = None
             else:
-                ovrd_mode = OTGW_SETP_OVRD_PERMANENT
-            self._protocol.status[OTGW_SETP_OVRD_MODE] = ovrd_mode
-            self._protocol.status[DATA_ROOM_SETPOINT_OVRD] = ret
+                if temporary:
+                    ovrd_mode = OTGW_SETP_OVRD_TEMPORARY
+                else:
+                    ovrd_mode = OTGW_SETP_OVRD_PERMANENT
+                status[OTGW_SETP_OVRD_MODE] = ovrd_mode
+                status[DATA_ROOM_SETPOINT_OVRD] = ret
+            self._update_status(status)
             return ret
 
     def get_outside_temp(self):
@@ -131,19 +131,26 @@ class pyotgw:
         thermostats may not display the full range. Specify a value
         above 64 (suggestion: 99) to clear a previously configured
         value.
-        Return the accepted value on success or None on failure.
+        Return the accepted value on success, '-' if a previously
+        configured value has been cleared or None on failure.
 
         This method is a coroutine
         """
         cmd = OTGW_CMD_OUTSIDE_TEMP
+        status = {}
         if temp < -40:
             return None
         value = '{:2.1f}'.format(temp)
         ret = await self._wait_for_cmd(cmd, value, timeout)
         if ret is None:
             return
-        ret = float(ret)
-        self._protocol.status[DATA_OUTSIDE_TEMP] = (None if ret > 64 else ret)
+        if ret not in ['-', None]:
+            ret = float(ret)
+        if ret == '-':
+            status[DATA_OUTSIDE_TEMP] = None
+        else:
+            status[DATA_OUTSIDE_TEMP] = ret
+        self._update_status(status)
         return ret
 
     async def set_clock(self, date=datetime.now(),
@@ -212,11 +219,12 @@ class pyotgw:
             OTGW_VREF: int(reports[OTGW_REPORT_VREF]),
             OTGW_DHW_OVRD: reports[OTGW_REPORT_DHW_SETTING]
         }
-        if (ovrd_mode != OTGW_SETP_OVRD_DISABLED and
-                reports[OTGW_REPORT_SETPOINT_OVRD]):
+        if (ovrd_mode != OTGW_SETP_OVRD_DISABLED
+                and reports[OTGW_REPORT_SETPOINT_OVRD]):
             status[DATA_ROOM_SETPOINT_OVRD] = float(
                 reports[OTGW_REPORT_SETPOINT_OVRD][1:])
         self._protocol.status.update(status)
+        self._protocol._updateq.put_nowait(self._protocol.status)
         return self._protocol.status
 
     async def get_status(self):
@@ -284,7 +292,7 @@ class pyotgw:
             DATA_DHW_PUMP_HOURS: int(fields[23]),
             DATA_DHW_BURNER_HOURS: int(fields[24])
         }
-        self._protocol.status.update(status)
+        self._update_status(status)
         return self._protocol.status
 
     async def set_hot_water_ovrd(self, state, timeout=OTGW_DEFAULT_TIMEOUT):
@@ -301,11 +309,13 @@ class pyotgw:
         This method is a coroutine
         """
         cmd = OTGW_CMD_HOT_WATER
+        status = {}
         ret = await self._wait_for_cmd(cmd, state, timeout)
         if ret is 'A':
-            self._protocol.status[OTGW_DHW_OVRD] = None
+            status[OTGW_DHW_OVRD] = None
         elif ret in ['0', '1']:
-            self._protocol.status[OTGW_DHW_OVRD] = int(ret)
+            status[OTGW_DHW_OVRD] = int(ret)
+        self._update_status(status)
         return ret
 
     def get_mode(self):
@@ -329,6 +339,7 @@ class pyotgw:
         This method is a coroutine
         """
         cmd = OTGW_CMD_MODE
+        status = {}
         ret = await self._wait_for_cmd(cmd, mode, timeout)
         if ret is None:
             return
@@ -337,7 +348,8 @@ class pyotgw:
             await self.get_reports()
             await self.get_status()
             return self._protocol.status
-        self._protocol.status[OTGW_MODE] = ret
+        status[OTGW_MODE] = ret
+        self._update_status(status)
         return ret
 
     def get_led_mode(self, led_id):
@@ -375,11 +387,13 @@ class pyotgw:
         """
         if led_id in "ABCDEF" and mode in "RXTBOFHWCEMP":
             cmd = globals().get("OTGW_CMD_LED_{}".format(led_id))
+            status = {}
             ret = await self._wait_for_cmd(cmd, mode, timeout)
             if ret is None:
                 return
             var = globals().get("OTGW_LED_{}".format(led_id))
-            self._protocol.status[var] = ret
+            status[var] = ret
+            self._update_status(status)
             return ret
 
     def get_gpio_mode(self, gpio_id):
@@ -422,14 +436,17 @@ class pyotgw:
             if mode == 7 and gpio_id != "B":
                 return None
             cmd = globals().get("OTGW_CMD_GPIO_{}".format(gpio_id))
+            status = {}
             ret = await self._wait_for_cmd(cmd, mode, timeout)
             if ret is None:
                 return
             ret = int(ret)
             var = globals().get("OTGW_GPIO_{}".format(gpio_id))
-            self._protocol.status[var] = ret
-            await self._poll_gpio(self._protocol.status.get(OTGW_GPIO_A)
-                                  or self._protocol.status.get(OTGW_GPIO_B))
+            status[var] = ret
+            self._update_status(status)
+            asyncio.ensure_future(
+                self._poll_gpio(self._protocol.status.get(OTGW_GPIO_A)
+                                or self._protocol.status.get(OTGW_GPIO_B)))
             return ret
 
     def get_setback_temp(self):
@@ -449,11 +466,13 @@ class pyotgw:
         This method is a coroutine
         """
         cmd = OTGW_CMD_SETBACK
+        status = {}
         ret = await self._wait_for_cmd(cmd, sb_temp, timeout)
         if ret is None:
             return
         ret = float(ret)
-        self._protocol.status[OTGW_SB_TEMP] = ret
+        status[OTGW_SB_TEMP] = ret
+        self._update_status(status)
         return ret
 
     async def add_alternative(self, alt, timeout=OTGW_DEFAULT_TIMEOUT):
@@ -586,15 +605,17 @@ class pyotgw:
         This method is a coroutine
         """
         cmd = OTGW_CMD_SET_MAX
+        status = {}
         ret = await self._wait_for_cmd(cmd, temperature, timeout)
         if ret is None:
             return
         ret = float(ret)
-        self._protocol.status[DATA_MAX_CH_SETPOINT] = ret
+        status[DATA_MAX_CH_SETPOINT] = ret
+        self._update_status(status)
         return ret
 
     async def set_dhw_setpoint(self, temperature,
-                                   timeout=OTGW_DEFAULT_TIMEOUT):
+                               timeout=OTGW_DEFAULT_TIMEOUT):
         """
         Set the domestic hot water setpoint. This command is only
         available with boilers that support this function.
@@ -603,11 +624,13 @@ class pyotgw:
         This method is a coroutine
         """
         cmd = OTGW_CMD_SET_WATER
+        status = {}
         ret = await self._wait_for_cmd(cmd, temperature, timeout)
         if ret is None:
             return
         ret = float(ret)
-        self._protocol.status[DATA_DHW_SETPOINT] = ret
+        status[DATA_DHW_SETPOINT] = ret
+        self._update_status(status)
         return ret
 
     async def set_max_relative_mod(self, max_mod,
@@ -624,10 +647,15 @@ class pyotgw:
         if isinstance(max_mod, int) and not 0 <= max_mod <= 100:
             return None
         cmd = OTGW_CMD_MAX_MOD
+        status = {}
         ret = await self._wait_for_cmd(cmd, max_mod, timeout)
         if ret not in ['-', None]:
             ret = int(ret)
-            self._protocol.status[DATA_SLAVE_MAX_RELATIVE_MOD] = ret
+        if ret == '-':
+            status[DATA_SLAVE_MAX_RELATIVE_MOD] = None
+        else:
+            status[DATA_SLAVE_MAX_RELATIVE_MOD] = ret
+        self._update_status(status)
         return ret
 
     async def set_control_setpoint(self, setpoint,
@@ -640,11 +668,13 @@ class pyotgw:
         This method is a coroutine
         """
         cmd = OTGW_CMD_CONTROL_SETPOINT
+        status = {}
         ret = await self._wait_for_cmd(cmd, setpoint, timeout)
         if ret is None:
             return
         ret = int(ret)
-        self._protocol.status[DATA_CONTROL_SETPOINT] = ret
+        status[DATA_CONTROL_SETPOINT] = ret
+        self._update_status(status)
         return ret
 
     async def set_ch_enable_bit(self, ch_bit, timeout=OTGW_DEFAULT_TIMEOUT):
@@ -661,11 +691,13 @@ class pyotgw:
         if ch_bit not in [0, 1]:
             return None
         cmd = OTGW_CMD_CONTROL_HEATING
+        status = {}
         ret = await self._wait_for_cmd(cmd, ch_bit, timeout)
         if ret is None:
             return
         ret = int(ret)
-        self._protocol.status[DATA_MASTER_CH_ENABLED] = ret
+        status[DATA_MASTER_CH_ENABLED] = ret
+        self._update_status(status)
         return ret
 
     async def set_ventilation(self, pct, timeout=OTGW_DEFAULT_TIMEOUT):
@@ -679,11 +711,13 @@ class pyotgw:
         if not 0 <= pct <= 100:
             return None
         cmd = OTGW_CMD_MAX_MOD
+        status = {}
         ret = await self._wait_for_cmd(cmd, pct, timeout)
         if ret is None:
             return
         ret = int(ret)
-        self._protocol.status[DATA_COOLING_CONTROL] = ret
+        status[DATA_COOLING_CONTROL] = ret
+        self._update_status(status)
         return ret
 
     def subscribe(self, coro):
@@ -746,30 +780,32 @@ class pyotgw:
                 """Poll GPIO state every @interval seconds."""
                 while True:
                     try:
-                        oldstatus = dict(self._protocol.status)
                         pios = None
                         ret = await self._wait_for_cmd(
                             OTGW_CMD_REPORT, OTGW_REPORT_GPIO_STATES)
                         if ret:
                             pios = ret[2:]
-                            self._protocol.status.update({
+                            status = {
                                 OTGW_GPIO_A_STATE: int(pios[0]),
                                 OTGW_GPIO_B_STATE: int(pios[1]),
-                            })
-                            if oldstatus != self._protocol.status:
-                                self._protocol._updateq.put_nowait(
-                                    self._protocol.status)
+                            }
+                            self._update_status(status)
                         await asyncio.sleep(interval)
                     except asyncio.CancelledError:
-                        self._protocol.status.update({
+                        status = {
                             OTGW_GPIO_A_STATE: 0,
                             OTGW_GPIO_B_STATE: 0,
-                        })
-                        self._protocol._updateq.put_nowait(
-                            self._protocol.status)
+                        }
+                        self._update_status(status)
                         self._gpio_task = None
                         break
             self._gpio_task = asyncio.ensure_future(polling_routine(interval),
                                                     loop=self.loop)
         elif not poll and self._gpio_task is not None:
             self._gpio_task.cancel()
+
+    def _update_status(self, update):
+        """Update the status dict and push it to subscribers."""
+        if isinstance(update, dict):
+            self._protocol.status.update(update)
+            self._protocol._updateq.put_nowait(self._protocol.status)

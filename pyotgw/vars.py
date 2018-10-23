@@ -359,17 +359,17 @@ OVERRUN_ERR = 'OE'
 
 OTGW_ERRS = {
     NO_GOOD: RuntimeError("No Good: The command code is unknown."),
-    SYNTAX_ERR: SyntaxError("Syntax Error: The command contained an " +
+    SYNTAX_ERR: SyntaxError("Syntax Error: The command contained an "
                             "unexpected character or was incomplete."),
-    BAD_VALUE: ValueError("Bad Value: The command contained a data value " +
-                          "that is not allowed."),
-    OUT_OF_RANGE: RuntimeError("Out of Range: A number was specified " +
-                               "outside of the allowed range."),
-    NO_SPACE: RuntimeError("No Space: The alternative Data-ID could not be " +
+    BAD_VALUE: ValueError("Bad Value: The command contained a data value that "
+                          "is not allowed."),
+    OUT_OF_RANGE: RuntimeError("Out of Range: A number was specified outside "
+                               "of the allowed range."),
+    NO_SPACE: RuntimeError("No Space: The alternative Data-ID could not be "
                            "added because the table is full."),
-    NOT_FOUND: RuntimeError("Not Found: The specified alternative Data-ID " +
-                            "could not be removed because it does not " +
-                            "exist in the table."),
-    OVERRUN_ERR: RuntimeError("Overrun Error: The processor was busy and " +
+    NOT_FOUND: RuntimeError("Not Found: The specified alternative Data-ID "
+                            "could not be removed because it does not exist "
+                            "in the table."),
+    OVERRUN_ERR: RuntimeError("Overrun Error: The processor was busy and "
                               "failed to process all received characters.")
 }
