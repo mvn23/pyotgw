@@ -56,9 +56,13 @@ class pyotgw:
         self._protocol = protocol
         self.loop = loop
         self._connected = True
+        self._gpio_task = None
         await self.get_reports()
         await self.get_status()
         asyncio.ensure_future(protocol._report(), loop=self.loop)
+        if (self._protocol.status.get(OTGW_GPIO_A)
+                or self._protocol.status.get(OTGW_GPIO_B)):
+            await self._poll_gpio(True)
         return self._protocol.status
 
     def get_room_temp(self):
@@ -422,8 +426,10 @@ class pyotgw:
             if ret is None:
                 return
             ret = int(ret)
-            var = globals().get("OTGW_GPIO_{}_STATE".format(gpio_id))
+            var = globals().get("OTGW_GPIO_{}".format(gpio_id))
             self._protocol.status[var] = ret
+            await self._poll_gpio(self._protocol.status.get(OTGW_GPIO_A)
+                                  or self._protocol.status.get(OTGW_GPIO_B))
             return ret
 
     def get_setback_temp(self):
@@ -727,3 +733,43 @@ class pyotgw:
         except (RuntimeError, SyntaxError, ValueError) as exc:
             _LOGGER.error("Command %s with value %s raised exception: %s", cmd,
                           value, exc)
+
+    async def _poll_gpio(self, poll, interval=10):
+        """
+        Start or stop polling GPIO states.
+
+        GPIO states aren't being pushed by the gateway, we need to poll
+        if we want updates.
+        """
+        if poll and self._gpio_task is None:
+            async def polling_routine(interval):
+                """Poll GPIO state every @interval seconds."""
+                while True:
+                    try:
+                        oldstatus = dict(self._protocol.status)
+                        pios = None
+                        ret = await self._wait_for_cmd(
+                            OTGW_CMD_REPORT, OTGW_REPORT_GPIO_STATES)
+                        if ret:
+                            pios = ret[2:]
+                            self._protocol.status.update({
+                                OTGW_GPIO_A_STATE: int(pios[0]),
+                                OTGW_GPIO_B_STATE: int(pios[1]),
+                            })
+                            if oldstatus != self._protocol.status:
+                                self._protocol._updateq.put_nowait(
+                                    self._protocol.status)
+                        await asyncio.sleep(interval)
+                    except asyncio.CancelledError:
+                        self._protocol.status.update({
+                            OTGW_GPIO_A_STATE: 0,
+                            OTGW_GPIO_B_STATE: 0,
+                        })
+                        self._protocol._updateq.put_nowait(
+                            self._protocol.status)
+                        self._gpio_task = None
+                        break
+            self._gpio_task = asyncio.ensure_future(polling_routine(interval),
+                                                    loop=self.loop)
+        elif not poll and self._gpio_task is not None:
+            self._gpio_task.cancel()
