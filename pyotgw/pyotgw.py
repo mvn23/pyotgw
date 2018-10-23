@@ -63,7 +63,7 @@ class pyotgw:
         if (self._protocol.status.get(OTGW_GPIO_A)
                 or self._protocol.status.get(OTGW_GPIO_B)):
             await self._poll_gpio(True)
-        return self._protocol.status
+        return dict(self._protocol.status)
 
     def get_room_temp(self):
         """
@@ -147,7 +147,7 @@ class pyotgw:
         if ret not in ['-', None]:
             ret = float(ret)
         if ret == '-':
-            status[DATA_OUTSIDE_TEMP] = None
+            status[DATA_OUTSIDE_TEMP] = 0.0
         else:
             status[DATA_OUTSIDE_TEMP] = ret
         self._update_status(status)
@@ -190,10 +190,9 @@ class pyotgw:
         for value in OTGW_REPORTS.keys():
             ret = await self._wait_for_cmd(cmd, value)
             if ret is None:
+                reports[value] = None
                 continue
             reports[value] = ret[2:]
-        if reports == {}:
-            return
         ovrd_mode = str.upper(reports[OTGW_REPORT_SETPOINT_OVRD][0])
         status = {
             OTGW_ABOUT: reports[OTGW_REPORT_ABOUT],
@@ -223,9 +222,8 @@ class pyotgw:
                 and reports[OTGW_REPORT_SETPOINT_OVRD]):
             status[DATA_ROOM_SETPOINT_OVRD] = float(
                 reports[OTGW_REPORT_SETPOINT_OVRD][1:])
-        self._protocol.status.update(status)
-        self._protocol._updateq.put_nowait(self._protocol.status)
-        return self._protocol.status
+        self._update_status(status)
+        return dict(self._protocol.status)
 
     async def get_status(self):
         """
@@ -293,7 +291,7 @@ class pyotgw:
             DATA_DHW_BURNER_HOURS: int(fields[24])
         }
         self._update_status(status)
-        return self._protocol.status
+        return dict(self._protocol.status)
 
     async def set_hot_water_ovrd(self, state, timeout=OTGW_DEFAULT_TIMEOUT):
         """
@@ -325,7 +323,7 @@ class pyotgw:
         """
         if not self._connected:
             return
-        return self._protocol.status[OTGW_MODE]
+        return self._protocol.status.get(OTGW_MODE)
 
     async def set_mode(self, mode, timeout=OTGW_DEFAULT_TIMEOUT):
         """
@@ -347,7 +345,7 @@ class pyotgw:
             self._protocol.status = {}
             await self.get_reports()
             await self.get_status()
-            return self._protocol.status
+            return dict(self._protocol.status)
         status[OTGW_MODE] = ret
         self._update_status(status)
         return ret
@@ -710,7 +708,7 @@ class pyotgw:
         """
         if not 0 <= pct <= 100:
             return None
-        cmd = OTGW_CMD_MAX_MOD
+        cmd = OTGW_CMD_VENT
         status = {}
         ret = await self._wait_for_cmd(cmd, pct, timeout)
         if ret is None:

@@ -45,7 +45,7 @@ class protocol(asyncio.Protocol):
         self._updateq = asyncio.Queue(loop=self.loop)
         self._readbuf = b''
         self._notify = []
-        self._received_lines = -1
+        self._received_lines = 0
         self.status = {}
 
     def data_received(self, data):
@@ -64,10 +64,6 @@ class protocol(asyncio.Protocol):
                 if eot in line:
                     # Discard everything before EOT
                     _, _, line = line.partition(eot)
-                if self._received_lines == -1:
-                    # Discard the first line, may be incomplete.
-                    self._received_lines += 1
-                    continue
                 self.line_received(line.decode('ascii'))
 
     def line_received(self, line):
@@ -83,6 +79,10 @@ class protocol(asyncio.Protocol):
             mtype, mid, msb, lsb = self._dissect_msg(msg)
             if lsb is not None:
                 self._process_msg(mtype, mid, msb, lsb)
+        elif re.match(r'^[0-9A-F]{1,8}$', line) and self._received_lines == 1:
+            # Partial message on fresh connection. Ignore.
+            self._received_lines = 0
+            pass
         else:
             try:
                 self._cmdq.put_nowait(line)
@@ -366,7 +366,8 @@ class protocol(asyncio.Protocol):
             oldstatus = dict(self.status)
             stat = await self._updateq.get()
             if len(self._notify) > 0 and oldstatus != stat:
-                asyncio.gather(*[coro(stat) for coro in self._notify],
+                # Each client gets its own copy of the dict.
+                asyncio.gather(*[coro(dict(stat)) for coro in self._notify],
                                loop=self.loop)
 
     async def issue_cmd(self, cmd, value):
@@ -384,23 +385,26 @@ class protocol(asyncio.Protocol):
                 if msg in OTGW_ERRS:
                     # Some errors appear by themselves on one line.
                     raise OTGW_ERRS[msg]
-                match = re.match(expect, msg)
                 if cmd is OTGW_CMD_MODE and value is 'R':
                     # Device was reset, msg contains build info
                     while not re.match(
                             r'OpenTherm Gateway \d+\.\d+\.\d+', msg):
                         msg = await self._cmdq.get()
                     return True
-                elif match:
+                match = re.match(expect, msg)
+                if match:
                     if match.group(1) in OTGW_ERRS:
                         # Some errors are considered a response.
-                        raise OTGW_ERRS[msg]
+                        raise OTGW_ERRS[match.group(1)]
                     ret = match.group(1)
                     if cmd is OTGW_CMD_SUMMARY and ret is '1':
                         # Expects a second line
                         part2 = await self._cmdq.get()
                         ret = [ret, part2]
                     return ret
-                else:
-                    _LOGGER.error("pyotgw: Unknown message in command queue: "
-                                  "%s", msg)
+                if re.match(r'Error 0[1-4]', msg):
+                    _LOGGER.warning("Received %s. If this happens during a "
+                                    "reset of the gateway it can be safely "
+                                    "ignored.", msg)
+                    return
+                _LOGGER.warning("Unknown message in command queue: %s", msg)
