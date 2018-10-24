@@ -96,8 +96,11 @@ class protocol(asyncio.Protocol):
         """
         recvfrom = match.group(1)
         frame = bytes.fromhex(match.group(2))
-        if recvfrom is 'E':
-            print("pyotgw: Received erroneous message, ignoring:", frame)
+        # Ignore output to the thermostat ('A'). Causes issues when
+        # overriding values sent to the boiler.
+        if recvfrom in ['A', 'E']:
+            if recvfrom is 'E':
+                print("pyotgw: Received erroneous message, ignoring:", frame)
             return (None, None, None, None)
         msgtype = self._get_msgtype(frame[0])
         if msgtype in (READ_ACK, WRITE_ACK, READ_DATA, WRITE_DATA):

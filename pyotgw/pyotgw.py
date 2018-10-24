@@ -670,7 +670,7 @@ class pyotgw:
         ret = await self._wait_for_cmd(cmd, setpoint, timeout)
         if ret is None:
             return
-        ret = int(ret)
+        ret = float(ret)
         status[DATA_CONTROL_SETPOINT] = ret
         self._update_status(status)
         return ret
