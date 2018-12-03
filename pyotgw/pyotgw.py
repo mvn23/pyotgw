@@ -36,30 +36,68 @@ class pyotgw:
     def __init__(self):
         """Create a pyotgw object."""
         self._connected = False
+        self._conn_error = False
         return
 
     async def connect(self, loop, port, baudrate=9600,
                       bytesize=serial.EIGHTBITS, parity=serial.PARITY_NONE,
-                      stopbits=serial.STOPBITS_ONE, timeout=30):
+                      stopbits=serial.STOPBITS_ONE, connection_timeout=10,
+                      inactivity_timeout=5):
         """
         Connect to Opentherm Gateway at @port.
         Initialize the parameters obtained from the PS= and PR=
         commands and returns the status dict with the obtained values.
+        If called while connected, reconnect to the gateway.
 
         This method is a coroutine
         """
-        transport, protocol = await serial_asyncio.create_serial_connection(
-            loop, otgw.protocol, port, baudrate, bytesize, parity,
-            stopbits, timeout)
+        if self._connected:
+            # We are actually reconnecting, cleanup first.
+            _LOGGER.debug("Reconnecting to serial device on %s", port)
+            if self._gpio_task:
+                self._gpio_task.cancel()
+            if self._report_task:
+                self._report_task.cancel()
+            self._transport.close()
+            self._protocol.status = {}
+            self._connected = False
+        self.loop = loop
+        try:
+            transport, protocol = (
+                await serial_asyncio.create_serial_connection(
+                    loop, otgw.protocol, port, baudrate, bytesize, parity,
+                    stopbits, connection_timeout))
+        except serial.serialutil.SerialException as e:
+            if not self._conn_error:
+                _LOGGER.error(
+                    "Could not connect to serial device on %s. "
+                    "Will keep trying. Reported error was: %s", port, e)
+                self._conn_error = True
+            await asyncio.sleep(5)
+            return await self.connect(loop, port, baudrate, bytesize, parity,
+                                      stopbits, connection_timeout,
+                                      inactivity_timeout)
+        self._conn_error = False
         _LOGGER.debug("Connected to serial device on %s", port)
         self._transport = transport
         self._protocol = protocol
-        self.loop = loop
         self._connected = True
+        if 0 < inactivity_timeout < 3:
+            _LOGGER.error("Inactivity timeout too low. Should be at least 3 "
+                          "seconds, got %d", inactivity_timeout)
+        if inactivity_timeout >= 3:
+            def reconnect():
+                """Reconnect to the OpenTherm Gateway."""
+                _LOGGER.debug("Scheduling reconnect...")
+                self.loop.create_task(self.connect(
+                    loop, port, baudrate, bytesize, parity, stopbits,
+                    connection_timeout, inactivity_timeout))
+            self.loop.create_task(
+                self._protocol.setup_watchdog(reconnect, inactivity_timeout))
         self._gpio_task = None
+        self._report_task = self.loop.create_task(protocol._report())
         await self.get_reports()
         await self.get_status()
-        asyncio.ensure_future(protocol._report(), loop=self.loop)
         if (self._protocol.status.get(OTGW_GPIO_A)
                 or self._protocol.status.get(OTGW_GPIO_B)):
             await self._poll_gpio(True)
@@ -193,33 +231,48 @@ class pyotgw:
                 reports[value] = None
                 continue
             reports[value] = ret[2:]
-        ovrd_mode = str.upper(reports[OTGW_REPORT_SETPOINT_OVRD][0])
         status = {
-            OTGW_ABOUT: reports[OTGW_REPORT_ABOUT],
-            OTGW_BUILD: reports[OTGW_REPORT_BUILDDATE],
-            OTGW_CLOCKMHZ: reports[OTGW_REPORT_CLOCKMHZ],
-            OTGW_GPIO_A: int(reports[OTGW_REPORT_GPIO_FUNCS][0]),
-            OTGW_GPIO_B: int(reports[OTGW_REPORT_GPIO_FUNCS][1]),
-            OTGW_GPIO_A_STATE: int(reports[OTGW_REPORT_GPIO_STATES][0]),
-            OTGW_GPIO_B_STATE: int(reports[OTGW_REPORT_GPIO_STATES][1]),
-            OTGW_LED_A: reports[OTGW_REPORT_LED_FUNCS][0],
-            OTGW_LED_B: reports[OTGW_REPORT_LED_FUNCS][1],
-            OTGW_LED_C: reports[OTGW_REPORT_LED_FUNCS][2],
-            OTGW_LED_D: reports[OTGW_REPORT_LED_FUNCS][3],
-            OTGW_LED_E: reports[OTGW_REPORT_LED_FUNCS][4],
-            OTGW_LED_F: reports[OTGW_REPORT_LED_FUNCS][5],
-            OTGW_MODE: reports[OTGW_REPORT_GW_MODE],
-            OTGW_SETP_OVRD_MODE: ovrd_mode,
-            OTGW_SMART_PWR: reports[OTGW_REPORT_SMART_PWR],
-            OTGW_THRM_DETECT: reports[OTGW_REPORT_THERMOSTAT_DETECT],
-            OTGW_SB_TEMP: float(reports[OTGW_REPORT_SETBACK_TEMP]),
-            OTGW_IGNORE_TRANSITIONS: int(reports[OTGW_REPORT_TWEAKS][0]),
-            OTGW_OVRD_HB: int(reports[OTGW_REPORT_TWEAKS][1]),
-            OTGW_VREF: int(reports[OTGW_REPORT_VREF]),
-            OTGW_DHW_OVRD: reports[OTGW_REPORT_DHW_SETTING]
+            OTGW_ABOUT: reports.get(OTGW_REPORT_ABOUT),
+            OTGW_BUILD: reports.get(OTGW_REPORT_BUILDDATE),
+            OTGW_CLOCKMHZ: reports.get(OTGW_REPORT_CLOCKMHZ),
+            OTGW_MODE: reports.get(OTGW_REPORT_GW_MODE),
+            OTGW_SMART_PWR: reports.get(OTGW_REPORT_SMART_PWR),
+            OTGW_THRM_DETECT: reports.get(OTGW_REPORT_THERMOSTAT_DETECT),
+            OTGW_DHW_OVRD: reports.get(OTGW_REPORT_DHW_SETTING),
         }
-        if (ovrd_mode != OTGW_SETP_OVRD_DISABLED
-                and reports[OTGW_REPORT_SETPOINT_OVRD]):
+        ovrd_mode = reports.get(OTGW_REPORT_SETPOINT_OVRD)
+        if ovrd_mode is not None:
+            ovrd_mode = str.upper(ovrd_mode[0])
+            status.update({OTGW_SETP_OVRD_MODE: ovrd_mode})
+        gpio_funcs = reports.get(OTGW_REPORT_GPIO_FUNCS)
+        if gpio_funcs is not None:
+            status.update({
+                OTGW_GPIO_A: int(gpio_funcs[0]),
+                OTGW_GPIO_B: int(gpio_funcs[1]),
+            })
+        led_funcs = reports.get(OTGW_REPORT_LED_FUNCS)
+        if led_funcs is not None:
+            status.update({
+                OTGW_LED_A: led_funcs[0],
+                OTGW_LED_B: led_funcs[1],
+                OTGW_LED_C: led_funcs[2],
+                OTGW_LED_D: led_funcs[3],
+                OTGW_LED_E: led_funcs[4],
+                OTGW_LED_F: led_funcs[5],
+            })
+        tweaks = reports.get(OTGW_REPORT_TWEAKS)
+        if tweaks is not None:
+            status.update({
+                OTGW_IGNORE_TRANSITIONS: int(tweaks[0]),
+                OTGW_OVRD_HB: int(tweaks[1]),
+            })
+        sb_temp = reports.get(OTGW_REPORT_SETBACK_TEMP)
+        if sb_temp is not None:
+            status.update({OTGW_SB_TEMP: float(sb_temp)})
+        vref = reports.get(OTGW_REPORT_VREF)
+        if vref is not None:
+            status.update({OTGW_VREF: int(vref)})
+        if (ovrd_mode is not None and ovrd_mode != OTGW_SETP_OVRD_DISABLED):
             status[DATA_ROOM_SETPOINT_OVRD] = float(
                 reports[OTGW_REPORT_SETPOINT_OVRD][1:])
         self._update_status(status)
@@ -797,8 +850,7 @@ class pyotgw:
                         self._update_status(status)
                         self._gpio_task = None
                         break
-            self._gpio_task = asyncio.ensure_future(polling_routine(interval),
-                                                    loop=self.loop)
+            self._gpio_task = self.loop.create_task(polling_routine(interval))
         elif not poll and self._gpio_task is not None:
             self._gpio_task.cancel()
 

@@ -46,6 +46,7 @@ class protocol(asyncio.Protocol):
         self._readbuf = b''
         self._notify = []
         self._received_lines = 0
+        self._watchdog_task = None
         self.status = {}
 
     def data_received(self, data):
@@ -66,6 +67,23 @@ class protocol(asyncio.Protocol):
                     _, _, line = line.partition(eot)
                 self.line_received(line.decode('ascii'))
 
+    async def setup_watchdog(self, cb, timeout):
+        """Trigger a reconnect after @timeout seconds of inactivity."""
+        self._watchdog_timeout = timeout
+        self._watchdog_cb = cb
+        self._watchdog_task = self.loop.create_task(self._watchdog(timeout))
+
+    async def _inform_watchdog(self):
+        if self._watchdog_task is not None:
+            self._watchdog_task.cancel()
+            self._watchdog_task = self.loop.create_task(self._watchdog(
+                self._watchdog_timeout))
+
+    async def _watchdog(self, timeout):
+        await asyncio.sleep(timeout, loop=self.loop)
+        _LOGGER.debug("Watchdog triggered!")
+        self._watchdog_cb()
+
     def line_received(self, line):
         """
         Gets called by data_received() when a complete line is
@@ -73,6 +91,7 @@ class protocol(asyncio.Protocol):
         Inspect the received line and process or queue accordingly.
         """
         self._received_lines += 1
+        self.loop.create_task(self._inform_watchdog())
         pattern = r'^(T|B|R|A|E)([0-9A-F]{8})$'
         msg = re.match(pattern, line)
         if msg:
@@ -377,22 +396,35 @@ class protocol(asyncio.Protocol):
                 asyncio.gather(*[coro(dict(stat)) for coro in self._notify],
                                loop=self.loop)
 
-    async def issue_cmd(self, cmd, value):
+    async def issue_cmd(self, cmd, value, retry=3):
         """
         Issue a command, then await and return the return value.
 
         This method is a coroutine
         """
-        with await self._cmd_lock:
+        async with self._cmd_lock:
             self.transport.write(
                 '{}={}\r\n'.format(cmd, value).encode('ascii'))
             expect = r'^{}:\s*([^$]+)$'.format(cmd)
-            while True:
-                msg = await self._cmdq.get()
+
+            async def send_again(err):
+                """Resend the command."""
+                nonlocal retry
+                _LOGGER.warning("Command %s failed with %s, retrying...", cmd,
+                                err)
+                retry -= 1
+                self.transport.write(
+                    '{}={}\r\n'.format(cmd, value).encode('ascii'))
+
+            async def process(msg):
+                """Process a possible response."""
                 if msg in OTGW_ERRS:
                     # Some errors appear by themselves on one line.
-                    raise OTGW_ERRS[msg]
-                if cmd is OTGW_CMD_MODE and value is 'R':
+                    if retry == 0:
+                        raise OTGW_ERRS[msg]
+                    await send_again(msg)
+                    return
+                if cmd == OTGW_CMD_MODE and value == 'R':
                     # Device was reset, msg contains build info
                     while not re.match(
                             r'OpenTherm Gateway \d+\.\d+\.\d+', msg):
@@ -402,9 +434,12 @@ class protocol(asyncio.Protocol):
                 if match:
                     if match.group(1) in OTGW_ERRS:
                         # Some errors are considered a response.
-                        raise OTGW_ERRS[match.group(1)]
+                        if retry == 0:
+                            raise OTGW_ERRS[match.group(1)]
+                        await send_again(msg)
+                        return
                     ret = match.group(1)
-                    if cmd is OTGW_CMD_SUMMARY and ret is '1':
+                    if cmd == OTGW_CMD_SUMMARY and ret == '1':
                         # Expects a second line
                         part2 = await self._cmdq.get()
                         ret = [ret, part2]
@@ -415,3 +450,10 @@ class protocol(asyncio.Protocol):
                                     "ignored.", msg)
                     return
                 _LOGGER.warning("Unknown message in command queue: %s", msg)
+                await send_again(msg)
+
+            while True:
+                msg = await self._cmdq.get()
+                ret = await process(msg)
+                if ret is not None:
+                    return ret
