@@ -44,9 +44,10 @@ class protocol(asyncio.Protocol):
         self._cmdq = asyncio.Queue(loop=self.loop)
         self._updateq = asyncio.Queue(loop=self.loop)
         self._readbuf = b''
-        self._notify = []
+        self._update_cb = None
         self._received_lines = 0
         self._watchdog_task = None
+        self._report_task = None
         self.status = {}
 
     def data_received(self, data):
@@ -383,7 +384,7 @@ class protocol(asyncio.Protocol):
 
     async def _report(self):
         """
-        Call all subscribed coroutines in _notify whenever a status
+        Call _update_cb with the status dict as an argument whenever a status
         update occurs.
 
         This method is a coroutine
@@ -391,10 +392,17 @@ class protocol(asyncio.Protocol):
         while True:
             oldstatus = dict(self.status)
             stat = await self._updateq.get()
-            if len(self._notify) > 0 and oldstatus != stat:
+            if self._update_cb is not None and oldstatus != stat:
                 # Each client gets its own copy of the dict.
-                asyncio.gather(*[coro(dict(stat)) for coro in self._notify],
-                               loop=self.loop)
+                self.loop.create_task(self._update_cb(dict(stat)))
+
+    async def set_update_cb(self, cb):
+        """Register the update callback."""
+        if self._report_task is not None and not self._report_task.cancelled():
+            self.loop.create_task(self._report_task.cancel())
+        self._update_cb = cb
+        if cb is not None:
+            self._report_task = self.loop.create_task(self._report())
 
     async def issue_cmd(self, cmd, value, retry=3):
         """

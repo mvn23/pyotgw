@@ -37,6 +37,7 @@ class pyotgw:
         """Create a pyotgw object."""
         self._connected = False
         self._conn_error = False
+        self._notify = []
         return
 
     async def connect(self, loop, port, baudrate=9600,
@@ -56,8 +57,6 @@ class pyotgw:
             _LOGGER.debug("Reconnecting to serial device on %s", port)
             if self._gpio_task:
                 self._gpio_task.cancel()
-            if self._report_task:
-                self._report_task.cancel()
             self._transport.close()
             self._protocol.status = {}
             self._connected = False
@@ -82,6 +81,7 @@ class pyotgw:
         self._transport = transport
         self._protocol = protocol
         self._connected = True
+        self.loop.create_task(self._protocol.set_update_cb(self.send_report))
         if 0 < inactivity_timeout < 3:
             _LOGGER.error("Inactivity timeout too low. Should be at least 3 "
                           "seconds, got %d", inactivity_timeout)
@@ -95,7 +95,6 @@ class pyotgw:
             self.loop.create_task(
                 self._protocol.setup_watchdog(reconnect, inactivity_timeout))
         self._gpio_task = None
-        self._report_task = self.loop.create_task(protocol._report())
         await self.get_reports()
         await self.get_status()
         if (self._protocol.status.get(OTGW_GPIO_A)
@@ -780,8 +779,8 @@ class pyotgw:
         Return True on success, False if not connected or already
         subscribed.
         """
-        if self._protocol is not None and coro not in self._protocol._notify:
-            self._protocol._notify.append(coro)
+        if coro not in self._notify:
+            self._notify.append(coro)
             return True
         return False
 
@@ -793,10 +792,22 @@ class pyotgw:
         earlier.
         Return True on success, false if not connected or subscribed.
         """
-        if self._protocol is not None and coro in self._protocol._notify:
-            self._protocol._notify.remove(coro)
+        if coro in self._notify:
+            self._notify.remove(coro)
             return True
         return False
+
+    async def send_report(self, status):
+        """
+        Call all subscribed coroutines in _notify whenever a status
+        update occurs.
+
+        This method is a coroutine
+        """
+        if len(self._notify) > 0:
+            # Each client gets its own copy of the dict.
+            asyncio.gather(*[coro(dict(status)) for coro in self._notify],
+                           loop=self.loop)
 
     async def _wait_for_cmd(self, cmd, value, timeout=OTGW_DEFAULT_TIMEOUT):
         """
