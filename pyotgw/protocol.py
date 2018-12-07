@@ -411,6 +411,7 @@ class protocol(asyncio.Protocol):
         This method is a coroutine
         """
         async with self._cmd_lock:
+            _LOGGER.debug("Sending command: %s with value %s", cmd, value)
             self.transport.write(
                 '{}={}\r\n'.format(cmd, value).encode('ascii'))
             expect = r'^{}:\s*([^$]+)$'.format(cmd)
@@ -426,6 +427,8 @@ class protocol(asyncio.Protocol):
 
             async def process(msg):
                 """Process a possible response."""
+                _LOGGER.debug("Got possible response for command %s: %s", cmd,
+                              msg)
                 if msg in OTGW_ERRS:
                     # Some errors appear by themselves on one line.
                     if retry == 0:
