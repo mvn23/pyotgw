@@ -57,8 +57,6 @@ class pyotgw:
             _LOGGER.debug("Reconnecting to serial device on %s", port)
             if self._gpio_task:
                 self._gpio_task.cancel()
-            self._transport.close()
-            self._protocol.status = {}
             self._connected = False
         self.loop = loop
         try:
@@ -80,21 +78,21 @@ class pyotgw:
         _LOGGER.debug("Connected to serial device on %s", port)
         self._transport = transport
         self._protocol = protocol
-        self._connected = True
         self.loop.create_task(self._protocol.set_update_cb(self.send_report))
         if 0 < inactivity_timeout < 3:
             _LOGGER.error("Inactivity timeout too low. Should be at least 3 "
                           "seconds, got %d", inactivity_timeout)
         if inactivity_timeout >= 3:
-            def reconnect():
+            async def reconnect():
                 """Reconnect to the OpenTherm Gateway."""
                 _LOGGER.debug("Scheduling reconnect...")
-                self.loop.create_task(self.connect(
+                await self.connect(
                     loop, port, baudrate, bytesize, parity, stopbits,
-                    connection_timeout, inactivity_timeout))
+                    connection_timeout, inactivity_timeout)
             self.loop.create_task(
                 self._protocol.setup_watchdog(reconnect, inactivity_timeout))
         self._gpio_task = None
+        self._connected = True
         await self.get_reports()
         await self.get_status()
         if (self._protocol.status.get(OTGW_GPIO_A)
@@ -822,10 +820,9 @@ class pyotgw:
                                           timeout,
                                           loop=self.loop)
         except TimeoutError:
-            _LOGGER.error("Timed out waiting for command: %s, value: %s. Are "
-                          "you connecting to the OpenTherm Gateway?", cmd,
+            _LOGGER.error("Timed out waiting for command: %s, value: %s.", cmd,
                           value)
-            return None
+            return
         except (RuntimeError, SyntaxError, ValueError) as exc:
             _LOGGER.error("Command %s with value %s raised exception: %s", cmd,
                           value, exc)

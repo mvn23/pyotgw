@@ -49,6 +49,21 @@ class protocol(asyncio.Protocol):
         self._watchdog_task = None
         self._report_task = None
         self.status = {}
+        self.connected = True
+
+    def connection_lost(self, exc):
+        """
+        Gets called when the connection to the gateway is lost.
+        Tear down and clean up the protocol object.
+        """
+        _LOGGER.error("Disconnected: %s", exc)
+        self.connected = False
+        self.transport.close()
+        for q in [self._cmdq, self._updateq]:
+            while not q.empty():
+                q.get()
+        self._report_task.cancel()
+        self.status = {}
 
     def data_received(self, data):
         """
@@ -74,16 +89,32 @@ class protocol(asyncio.Protocol):
         self._watchdog_cb = cb
         self._watchdog_task = self.loop.create_task(self._watchdog(timeout))
 
+    async def cancel_watchdog(self):
+        """Cancel the watchdog task and related variables."""
+        if self._watchdog_task is not None:
+            _LOGGER.debug("Cancelling Watchdog task.")
+            self._watchdog_task.cancel()
+            try:
+                await self._watchdog_task
+            except asyncio.CancelledError:
+                self._watchdog_task = None
+
     async def _inform_watchdog(self):
+        """Inform the watchdog of activity."""
         if self._watchdog_task is not None:
             self._watchdog_task.cancel()
-            self._watchdog_task = self.loop.create_task(self._watchdog(
-                self._watchdog_timeout))
+            try:
+                await self._watchdog_task
+            except asyncio.CancelledError:
+                self._watchdog_task = self.loop.create_task(self._watchdog(
+                    self._watchdog_timeout))
 
     async def _watchdog(self, timeout):
+        """Trigger and cancel the watchdog after timeout. Call callback."""
         await asyncio.sleep(timeout, loop=self.loop)
         _LOGGER.debug("Watchdog triggered!")
-        self._watchdog_cb()
+        await self.cancel_watchdog()
+        await self._watchdog_cb()
 
     def line_received(self, line):
         """
@@ -411,6 +442,13 @@ class protocol(asyncio.Protocol):
         This method is a coroutine
         """
         async with self._cmd_lock:
+            if not self.connected:
+                _LOGGER.debug(
+                    "Serial transport closed, not sending command %s", cmd)
+                return
+            while not self._cmdq.empty():
+                _LOGGER.debug("Clearing leftover message from command queue:"
+                              " %s", self._cmdq.get())
             _LOGGER.debug("Sending command: %s with value %s", cmd, value)
             self.transport.write(
                 '{}={}\r\n'.format(cmd, value).encode('ascii'))
