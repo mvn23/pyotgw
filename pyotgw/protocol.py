@@ -41,6 +41,7 @@ class protocol(asyncio.Protocol):
         self.transport = transport
         self.loop = transport.loop
         self._cmd_lock = asyncio.Lock(loop=self.loop)
+        self._wd_lock = asyncio.Lock(loop=self.loop)
         self._cmdq = asyncio.Queue(loop=self.loop)
         self._updateq = asyncio.Queue(loop=self.loop)
         self._readbuf = b''
@@ -62,7 +63,10 @@ class protocol(asyncio.Protocol):
         for q in [self._cmdq, self._updateq]:
             while not q.empty():
                 q.get()
-        self._report_task.cancel()
+        if self._watchdog_task is not None:
+            self._watchdog_task.cancel()
+        if self._report_task is not None:
+            self._report_task.cancel()
         self.status = {}
 
     def data_received(self, data):
@@ -92,7 +96,7 @@ class protocol(asyncio.Protocol):
     async def cancel_watchdog(self):
         """Cancel the watchdog task and related variables."""
         if self._watchdog_task is not None:
-            _LOGGER.debug("Cancelling Watchdog task.")
+            _LOGGER.debug("Canceling Watchdog task.")
             self._watchdog_task.cancel()
             try:
                 await self._watchdog_task
@@ -101,7 +105,11 @@ class protocol(asyncio.Protocol):
 
     async def _inform_watchdog(self):
         """Inform the watchdog of activity."""
-        if self._watchdog_task is not None:
+        async with self._wd_lock:
+            if self._watchdog_task is None:
+                # Check within the Lock to deal with external cancel_watchdog
+                # calls with queued _inform_watchdog tasks.
+                return
             self._watchdog_task.cancel()
             try:
                 await self._watchdog_task
@@ -448,11 +456,14 @@ class protocol(asyncio.Protocol):
                 return
             while not self._cmdq.empty():
                 _LOGGER.debug("Clearing leftover message from command queue:"
-                              " %s", self._cmdq.get())
+                              " %s", await self._cmdq.get())
             _LOGGER.debug("Sending command: %s with value %s", cmd, value)
             self.transport.write(
                 '{}={}\r\n'.format(cmd, value).encode('ascii'))
-            expect = r'^{}:\s*([^$]+)$'.format(cmd)
+            if cmd == OTGW_CMD_REPORT:
+                expect = r'^{}:\s*({}=[^$]+)$'.format(cmd, value)
+            else:
+                expect = r'^{}:\s*([^$]+)$'.format(cmd)
 
             async def send_again(err):
                 """Resend the command."""

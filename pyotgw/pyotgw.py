@@ -58,6 +58,8 @@ class pyotgw:
             if self._gpio_task:
                 self._gpio_task.cancel()
             self._connected = False
+            self._transport.close()
+            await asyncio.sleep(3)
         self.loop = loop
         try:
             transport, protocol = (
