@@ -1,4 +1,6 @@
-pyotgw - A python library to interface with the OpenTherm Gateway
+# pyotgw
+
+A python library to interface with the OpenTherm Gateway
 
 See http://otgw.tclcode.com for the hardware.
 
