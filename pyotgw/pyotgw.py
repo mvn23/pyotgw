@@ -80,7 +80,7 @@ class pyotgw:
         _LOGGER.debug("Connected to serial device on %s", port)
         self._transport = transport
         self._protocol = protocol
-        self.loop.create_task(self._protocol.set_update_cb(self.send_report))
+        self.loop.create_task(self._protocol.set_update_cb(self._send_report))
         if 0 < inactivity_timeout < 3:
             _LOGGER.error("Inactivity timeout too low. Should be at least 3 "
                           "seconds, got %d", inactivity_timeout)
@@ -593,7 +593,7 @@ class pyotgw:
         Start forwarding the specified Data-ID to the boiler again.
         This command resets the counter used to determine if the
         specified Data-ID is supported by the boiler.
-        Return the ID that was removed, or None on failure.
+        Return the ID that was marked as supported, or None on failure.
 
         This method is a coroutine
         """
@@ -605,7 +605,7 @@ class pyotgw:
         if ret is not None:
             return int(ret)
 
-    async def prio_message(self, data_id, timeout=OTGW_DEFAULT_TIMEOUT):
+    async def prio_message(self, message, timeout=OTGW_DEFAULT_TIMEOUT):
         """
         NOT IMPLEMENTED YET!
         Specify a one-time priority message to be sent to the boiler at
@@ -797,7 +797,7 @@ class pyotgw:
             return True
         return False
 
-    async def send_report(self, status):
+    async def _send_report(self, status):
         """
         Call all subscribed coroutines in _notify whenever a status
         update occurs.
