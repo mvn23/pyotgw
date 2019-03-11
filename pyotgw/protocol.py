@@ -21,6 +21,7 @@ import logging
 import re
 import struct
 from asyncio.queues import QueueFull
+from queue import Empty
 
 from .vars import *
 
@@ -62,9 +63,17 @@ class protocol(asyncio.Protocol):
         self.transport.close()
         for q in [self._cmdq, self._updateq]:
             while not q.empty():
-                q.get()
-        if self._watchdog_task is not None:
-            self._watchdog_task.cancel()
+                try:
+                    q.get_nowait()
+                except Empty:
+                    continue
+
+        # If you cancel the watchdog task here, it never
+        # gets triggerd, and thus never reconnects. Commented for now.
+
+        # if self._watchdog_task is not None:
+        # self._watchdog_task.cancel()
+
         if self._report_task is not None:
             self._report_task.cancel()
         self.status = {}
