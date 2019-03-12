@@ -61,21 +61,21 @@ class pyotgw:
             self._transport.close()
             await asyncio.sleep(3)
         self.loop = loop
-        try:
-            transport, protocol = (
-                await serial_asyncio.create_serial_connection(
-                    loop, otgw.protocol, port, baudrate, bytesize, parity,
-                    stopbits, connection_timeout))
-        except serial.serialutil.SerialException as e:
-            if not self._conn_error:
-                _LOGGER.error(
-                    "Could not connect to serial device on %s. "
-                    "Will keep trying. Reported error was: %s", port, e)
-                self._conn_error = True
-            await asyncio.sleep(5)
-            return await self.connect(loop, port, baudrate, bytesize, parity,
-                                      stopbits, connection_timeout,
-                                      inactivity_timeout)
+        transport = None
+        while transport is None:
+            try:
+                transport, protocol = (
+                    await serial_asyncio.create_serial_connection(
+                        loop, otgw.protocol, port, baudrate, bytesize, parity,
+                        stopbits, connection_timeout))
+            except serial.serialutil.SerialException as e:
+                if not self._conn_error:
+                    _LOGGER.error(
+                        "Could not connect to serial device on %s. "
+                        "Will keep trying. Reported error was: %s", port, e)
+                    self._conn_error = True
+                transport = None
+                await asyncio.sleep(5)
         self._conn_error = False
         _LOGGER.debug("Connected to serial device on %s", port)
         self._transport = transport
