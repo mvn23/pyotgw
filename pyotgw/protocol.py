@@ -20,7 +20,7 @@ import asyncio
 import logging
 import re
 import struct
-from asyncio.queues import QueueFull
+from asyncio.queues import QueueFull, QueueEmpty
 
 from .vars import *
 
@@ -62,9 +62,11 @@ class protocol(asyncio.Protocol):
         self.transport.close()
         for q in [self._cmdq, self._updateq]:
             while not q.empty():
-                q.get()
-        if self._watchdog_task is not None:
-            self._watchdog_task.cancel()
+                try:
+                    q.get_nowait()
+                except QueueEmpty:
+                    continue
+
         if self._report_task is not None:
             self._report_task.cancel()
         self.status = {}
