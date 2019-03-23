@@ -87,7 +87,12 @@ class protocol(asyncio.Protocol):
                 if eot in line:
                     # Discard everything before EOT
                     _, _, line = line.partition(eot)
-                self.line_received(line.decode('ascii'))
+                try:
+                    decoded = line.decode('ascii')
+                except UnicodeDecodeError:
+                    _LOGGER.debug("Invalid data received, ignoring...")
+                    return
+                self.line_received(decoded)
 
     async def setup_watchdog(self, cb, timeout):
         """Trigger a reconnect after @timeout seconds of inactivity."""
