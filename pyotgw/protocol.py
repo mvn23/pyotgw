@@ -180,6 +180,10 @@ class protocol(asyncio.Protocol):
             if recvfrom is 'A' and data_id not in [MSG_TROVRD, MSG_TOUTSIDE,
                                                    MSG_ROVRD]:
                 return (None, None, None, None)
+            # Ignore upstream MSG_TROVRD if override is active on the gateway.
+            if (recvfrom is 'B' and data_id == MSG_TROVRD
+                    and self.status.get(DATA_ROOM_SETPOINT_OVRD)):
+                return (None, None, None, None)
             return (msgtype, data_id, data_msb, data_lsb)
         return (None, None, None, None)
 
