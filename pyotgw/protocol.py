@@ -43,12 +43,14 @@ class protocol(asyncio.Protocol):
         self._cmd_lock = asyncio.Lock(loop=self.loop)
         self._wd_lock = asyncio.Lock(loop=self.loop)
         self._cmdq = asyncio.Queue(loop=self.loop)
+        self._msgq = asyncio.Queue(loop=self.loop)
         self._updateq = asyncio.Queue(loop=self.loop)
         self._readbuf = b''
         self._update_cb = None
         self._received_lines = 0
-        self._watchdog_task = None
+        self._msg_task = self.loop.create_task(self._process_msgs())
         self._report_task = None
+        self._watchdog_task = None
         self.status = {}
         self.connected = True
 
@@ -60,15 +62,12 @@ class protocol(asyncio.Protocol):
         _LOGGER.error("Disconnected: %s", exc)
         self.connected = False
         self.transport.close()
-        for q in [self._cmdq, self._updateq]:
-            while not q.empty():
-                try:
-                    q.get_nowait()
-                except QueueEmpty:
-                    continue
-
         if self._report_task is not None:
             self._report_task.cancel()
+        self._msg_task.cancel()
+        for q in [self._cmdq, self._updateq, self.msgq]:
+            while not q.empty():
+                q.get_nowait()
         self.status = {}
 
     def data_received(self, data):
@@ -142,9 +141,9 @@ class protocol(asyncio.Protocol):
         pattern = r'^(T|B|R|A|E)([0-9A-F]{8})$'
         msg = re.match(pattern, line)
         if msg:
-            mtype, mid, msb, lsb = self._dissect_msg(msg)
+            src, mtype, mid, msb, lsb = self._dissect_msg(msg)
             if lsb is not None:
-                self._process_msg(mtype, mid, msb, lsb)
+                self._msgq.put_nowait((src, mtype, mid, msb, lsb))
         elif re.match(r'^[0-9A-F]{1,8}$', line) and self._received_lines == 1:
             # Partial message on fresh connection. Ignore.
             self._received_lines = 0
@@ -164,7 +163,7 @@ class protocol(asyncio.Protocol):
         frame = bytes.fromhex(match.group(2))
         if recvfrom is 'E':
             print("pyotgw: Received erroneous message, ignoring:", frame)
-            return (None, None, None, None)
+            return (None, None, None, None, None)
         msgtype = self._get_msgtype(frame[0])
         if msgtype in (READ_ACK, WRITE_ACK, READ_DATA, WRITE_DATA):
             # Some info is best read from the READ/WRITE_DATA messages
@@ -173,19 +172,8 @@ class protocol(asyncio.Protocol):
             data_id = frame[1:2]
             data_msb = frame[2:3]
             data_lsb = frame[3:4]
-            # Ignore output to the thermostat ('A') except MSG_TROVRD,
-            # MSG_TOUTSIDE and MSG_ROVRD as they may contain useful values.
-            # Other messages cause issues when overriding values sent to the
-            # boiler.
-            if recvfrom is 'A' and data_id not in [MSG_TROVRD, MSG_TOUTSIDE,
-                                                   MSG_ROVRD]:
-                return (None, None, None, None)
-            # Ignore upstream MSG_TROVRD if override is active on the gateway.
-            if (recvfrom is 'B' and data_id == MSG_TROVRD
-                    and self.status.get(DATA_ROOM_SETPOINT_OVRD)):
-                return (None, None, None, None)
-            return (msgtype, data_id, data_msb, data_lsb)
-        return (None, None, None, None)
+            return (recvfrom, msgtype, data_id, data_msb, data_lsb)
+        return (None, None, None, None, None)
 
     def _get_msgtype(self, byte):
         """
@@ -194,11 +182,31 @@ class protocol(asyncio.Protocol):
         """
         return (byte >> 4) & 0x7
 
-    def _process_msg(self, msgtype, msgid, msb, lsb):
+    async def _process_msgs(self):
+        """
+        Get messages from the queue and pass them to _process_msg().
+        Make sure we process one message at a time to keep them in sequence.
+        """
+        while True:
+            args = await self._msgq.get()
+            await self._process_msg(*args)
+
+    async def _process_msg(self, src, msgtype, msgid, msb, lsb):
         """
         Process message and update status variables where necessary.
         Add status to queue if it was changed in the process.
         """
+        # Ignore output to the thermostat ('A') except MSG_TROVRD,
+        # MSG_TOUTSIDE and MSG_ROVRD as they may contain useful values.
+        # Other messages cause issues when overriding values sent to the
+        # boiler.
+        if src is 'A' and msgid not in [MSG_TROVRD, MSG_TOUTSIDE,
+                                               MSG_ROVRD]:
+            return
+        # Ignore upstream MSG_TROVRD if override is active on the gateway.
+        if (src is 'B' and msgid == MSG_TROVRD
+                and self.status.get(DATA_ROOM_SETPOINT_OVRD)):
+            return
         if msgtype in (READ_DATA, WRITE_DATA):
             # Data sent from thermostat
             if msgid == MSG_STATUS:
@@ -287,6 +295,20 @@ class protocol(asyncio.Protocol):
                 ovrd_value = self._get_f8_8(msb, lsb)
                 if ovrd_value > 0:
                     self.status[DATA_ROOM_SETPOINT_OVRD] = ovrd_value
+                    # iSense quirk: the gateway keeps sending override value
+                    # even if the thermostat has cancelled the override.
+                    if self.status.get(OTGW_THRM_DETECT) == 'I':
+                        ovrd = await self.issue_cmd(
+                            OTGW_CMD_REPORT, OTGW_REPORT_SETPOINT_OVRD)
+                        match = re.match(r'^O=(N|[CT]([0-9]+.[0-9]+))$',
+                                         ovrd, re.IGNORECASE)
+                        if not match:
+                            return
+                        if match.group(1) in 'Nn':
+                            del self.status[DATA_ROOM_SETPOINT_OVRD]
+                        elif match.group(2):
+                            self.status[DATA_ROOM_SETPOINT_OVRD] = float(
+                                match.group(2))
                 elif self.status.get(DATA_ROOM_SETPOINT_OVRD):
                     del self.status[DATA_ROOM_SETPOINT_OVRD]
             elif msgid == MSG_MAXRMOD:
@@ -472,7 +494,7 @@ class protocol(asyncio.Protocol):
             self.transport.write(
                 '{}={}\r\n'.format(cmd, value).encode('ascii'))
             if cmd == OTGW_CMD_REPORT:
-                expect = r'^{}:\s*({}=[^$]+)$'.format(cmd, value)
+                expect = r'^{}:\s*([A-Z]{{2}}|{}=[^$]+)$'.format(cmd, value)
             else:
                 expect = r'^{}:\s*([^$]+)$'.format(cmd)
 
