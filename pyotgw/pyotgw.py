@@ -361,7 +361,7 @@ class pyotgw:
         cmd = OTGW_CMD_HOT_WATER
         status = {}
         ret = await self._wait_for_cmd(cmd, state, timeout)
-        if ret is 'A':
+        if ret == 'A':
             status[OTGW_DHW_OVRD] = None
         elif ret in ['0', '1']:
             status[OTGW_DHW_OVRD] = int(ret)

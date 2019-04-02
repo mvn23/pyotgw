@@ -20,7 +20,7 @@ import asyncio
 import logging
 import re
 import struct
-from asyncio.queues import QueueFull, QueueEmpty
+from asyncio.queues import QueueFull
 
 from .vars import *
 
@@ -152,8 +152,7 @@ class protocol(asyncio.Protocol):
             try:
                 self._cmdq.put_nowait(line)
             except QueueFull:
-                _LOGGER.error('pyotgw: Queue full, discarded message: %s',
-                              line)
+                _LOGGER.error('Queue full, discarded message: %s', line)
 
     def _dissect_msg(self, match):
         """
@@ -161,8 +160,8 @@ class protocol(asyncio.Protocol):
         """
         recvfrom = match.group(1)
         frame = bytes.fromhex(match.group(2))
-        if recvfrom is 'E':
-            print("pyotgw: Received erroneous message, ignoring:", frame)
+        if recvfrom == 'E':
+            _LOGGER.warning("Received erroneous message, ignoring: %s", frame)
             return (None, None, None, None, None)
         msgtype = self._get_msgtype(frame[0])
         if msgtype in (READ_ACK, WRITE_ACK, READ_DATA, WRITE_DATA):
@@ -189,6 +188,8 @@ class protocol(asyncio.Protocol):
         """
         while True:
             args = await self._msgq.get()
+            _LOGGER.debug('Processing: %s %02x %s %s %s', args[0], args[1],
+                          *[args[i].hex() for i in range(2, 5)])
             await self._process_msg(*args)
 
     async def _process_msg(self, src, msgtype, msgid, msb, lsb):
@@ -200,11 +201,11 @@ class protocol(asyncio.Protocol):
         # MSG_TOUTSIDE and MSG_ROVRD as they may contain useful values.
         # Other messages cause issues when overriding values sent to the
         # boiler.
-        if src is 'A' and msgid not in [MSG_TROVRD, MSG_TOUTSIDE,
-                                               MSG_ROVRD]:
+        if src == 'A' and msgid not in [MSG_TROVRD, MSG_TOUTSIDE,
+                                        MSG_ROVRD]:
             return
         # Ignore upstream MSG_TROVRD if override is active on the gateway.
-        if (src is 'B' and msgid == MSG_TROVRD
+        if (src == 'B' and msgid == MSG_TROVRD
                 and self.status.get(DATA_ROOM_SETPOINT_OVRD)):
             return
         if msgtype in (READ_DATA, WRITE_DATA):
@@ -294,7 +295,6 @@ class protocol(asyncio.Protocol):
                 # OTGW (or downstream device) reports remote override
                 ovrd_value = self._get_f8_8(msb, lsb)
                 if ovrd_value > 0:
-                    self.status[DATA_ROOM_SETPOINT_OVRD] = ovrd_value
                     # iSense quirk: the gateway keeps sending override value
                     # even if the thermostat has cancelled the override.
                     if self.status.get(OTGW_THRM_DETECT) == 'I':
@@ -309,6 +309,8 @@ class protocol(asyncio.Protocol):
                         elif match.group(2):
                             self.status[DATA_ROOM_SETPOINT_OVRD] = float(
                                 match.group(2))
+                    else:
+                        self.status[DATA_ROOM_SETPOINT_OVRD] = ovrd_value
                 elif self.status.get(DATA_ROOM_SETPOINT_OVRD):
                     del self.status[DATA_ROOM_SETPOINT_OVRD]
             elif msgid == MSG_MAXRMOD:
@@ -409,7 +411,7 @@ class protocol(asyncio.Protocol):
                 # Slave reports product type and version
                 self.status[DATA_SLAVE_PRODUCT_TYPE] = self._get_u8(msb)
                 self.status[DATA_SLAVE_PRODUCT_VERSION] = self._get_u8(lsb)
-        self._updateq.put_nowait(self.status)
+        self._updateq.put_nowait(dict(self.status))
 
     def _get_flag8(self, byte):
         """
