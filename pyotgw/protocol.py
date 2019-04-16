@@ -65,7 +65,7 @@ class protocol(asyncio.Protocol):
         if self._report_task is not None:
             self._report_task.cancel()
         self._msg_task.cancel()
-        for q in [self._cmdq, self._updateq, self.msgq]:
+        for q in [self._cmdq, self._updateq, self._msgq]:
             while not q.empty():
                 q.get_nowait()
         self.status = {}
