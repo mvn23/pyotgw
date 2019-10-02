@@ -93,6 +93,10 @@ class protocol(asyncio.Protocol):
                     return
                 self.line_received(decoded)
 
+    def watchdog_active(self):
+        """Return the current watchdog state."""
+        return self._watchdog_task is not None
+
     async def setup_watchdog(self, cb, timeout):
         """Trigger a reconnect after @timeout seconds of inactivity."""
         self._watchdog_timeout = timeout

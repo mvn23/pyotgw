@@ -102,6 +102,16 @@ class pyotgw:
             await self._poll_gpio(True)
         return dict(self._protocol.status)
 
+    async def disconnect(self):
+        """
+        Disconnect from the OpenTherm Gateway.
+        """
+        if self._transport.is_closing() or not self._connected:
+            return
+        if self._protocol.watchdog_active:
+            await self._protocol.cancel_watchdog()
+        self._transport.close()
+
     def get_room_temp(self):
         """
         Get the current room temperature.

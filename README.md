@@ -86,6 +86,12 @@ Returns a status dict with all known values.
 This method is a coroutine.
 
 ---
+##### pyotgw.disconnect(_self_)
+Disconnect from the OpenTherm Gateway and clean up the object.
+
+This method is a coroutine.
+
+---
 ##### pyotgw.del_alternative(_self_, alt, timeout=OTGW_DEFAULT_TIMEOUT)
 Remove the specified data-ID from the list of alternative commands.
 Only one occurrence is deleted. If the data-ID appears multiple times in the list of alternative commands, this command must be repeated to delete all occurrences. The table of alternative data-IDs is stored in non-volatile memory so it will persist even if the gateway has been powered off. 

@@ -12,7 +12,7 @@ def read(fname):
 
 setup(
     name="pyotgw",
-    version="0.4b4",
+    version="0.5b0",
     author="Milan van Nugteren",
     author_email="milan@network23.nl",
     description=("A library to interface with the opentherm gateway through "
@@ -22,6 +22,7 @@ setup(
     url="https://github.com/mvn23/pyotgw",
     packages=['pyotgw'],
     long_description=read('README.md'),
+    long_description_content_type="text/markdown",
     install_requires=[
         'pyserial-asyncio',
     ],
