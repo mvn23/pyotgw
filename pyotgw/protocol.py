@@ -59,7 +59,8 @@ class protocol(asyncio.Protocol):
         Gets called when the connection to the gateway is lost.
         Tear down and clean up the protocol object.
         """
-        _LOGGER.error("Disconnected: %s", exc)
+        if self.connected:
+            _LOGGER.error("Disconnected: %s", exc)
         self.connected = False
         self.transport.close()
         if self._report_task is not None:
@@ -69,6 +70,15 @@ class protocol(asyncio.Protocol):
             while not q.empty():
                 q.get_nowait()
         self.status = {}
+
+    async def disconnect(self):
+        """Disconnect gracefully."""
+        if self.watchdog_active():
+            await self.cancel_watchdog()
+        if self.transport.is_closing() or not self.connected:
+            return
+        self.connected = False
+        self.transport.close()
 
     def data_received(self, data):
         """
@@ -126,6 +136,7 @@ class protocol(asyncio.Protocol):
             except asyncio.CancelledError:
                 self._watchdog_task = self.loop.create_task(self._watchdog(
                     self._watchdog_timeout))
+                _LOGGER.debug("Watchdog reset!")
 
     async def _watchdog(self, timeout):
         """Trigger and cancel the watchdog after timeout. Call callback."""
@@ -141,6 +152,7 @@ class protocol(asyncio.Protocol):
         Inspect the received line and process or queue accordingly.
         """
         self._received_lines += 1
+        _LOGGER.debug("Received line %d: %s", self._received_lines, line)
         self.loop.create_task(self._inform_watchdog())
         pattern = r'^(T|B|R|A|E)([0-9A-F]{8})$'
         msg = re.match(pattern, line)
@@ -148,13 +160,17 @@ class protocol(asyncio.Protocol):
             src, mtype, mid, msb, lsb = self._dissect_msg(msg)
             if lsb is not None:
                 self._msgq.put_nowait((src, mtype, mid, msb, lsb))
+                _LOGGER.debug("Added line %d to message queue. Queue size: %d",
+                              self._received_lines, self._msgq.qsize())
         elif re.match(r'^[0-9A-F]{1,8}$', line) and self._received_lines == 1:
             # Partial message on fresh connection. Ignore.
             self._received_lines = 0
-            pass
+            _LOGGER.debug("Ignoring line: %s", line)
         else:
             try:
                 self._cmdq.put_nowait(line)
+                _LOGGER.debug("Added line %d to command queue. Queue size: %d",
+                              self._received_lines, self._cmdq.qsize())
             except QueueFull:
                 _LOGGER.error('Queue full, discarded message: %s', line)
 

@@ -106,11 +106,9 @@ class pyotgw:
         """
         Disconnect from the OpenTherm Gateway.
         """
-        if self._transport.is_closing() or not self._connected:
+        if not self._connected:
             return
-        if self._protocol.watchdog_active:
-            await self._protocol.cancel_watchdog()
-        self._transport.close()
+        await self._protocol.disconnect()
 
     def get_room_temp(self):
         """
