@@ -325,7 +325,8 @@ class protocol(asyncio.Protocol):
                         if not match:
                             return
                         if match.group(1) in 'Nn':
-                            del self.status[DATA_ROOM_SETPOINT_OVRD]
+                            if DATA_ROOM_SETPOINT_OVRD in self.status:
+                                del self.status[DATA_ROOM_SETPOINT_OVRD]
                         elif match.group(2):
                             self.status[DATA_ROOM_SETPOINT_OVRD] = float(
                                 match.group(2))
