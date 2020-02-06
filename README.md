@@ -94,7 +94,7 @@ This method is a coroutine.
 ---
 ##### pyotgw.del_alternative(_self_, alt, timeout=OTGW_DEFAULT_TIMEOUT)
 Remove the specified data-ID from the list of alternative commands.
-Only one occurrence is deleted. If the data-ID appears multiple times in the list of alternative commands, this command must be repeated to delete all occurrences. The table of alternative data-IDs is stored in non-volatile memory so it will persist even if the gateway has been powered off. 
+Only one occurrence is deleted. If the data-ID appears multiple times in the list of alternative commands, this command must be repeated to delete all occurrences. The table of alternative data-IDs is stored in non-volatile memory so it will persist even if the gateway has been powered off.
 This method supports the following arguments:
 - __alt__ The alternative data-ID to remove. Values from 1 to 255 are allowed.
 - __timeout__ The timeout for the request. Defaults to OTGW_DEFAULT_TIMEOUT (3 seconds).
@@ -126,7 +126,7 @@ Possible modes are:
 - __4.__ LED F - An additional LED if you want to present more than 5 LED functions.
 - __5.__ Home - Set thermostat to setback temperature when pulled low.
 - __6.__ Away - Set thermostat to setback temperature when pulled high.
-- __7.__ DS1820 (GPIO port B only) - Data line for a DS18S20 or DS18B20 temperature sensor used to measure the outside temperature. A 4k7 resistor should be connected between GPIO port B and Vcc. 
+- __7.__ DS1820 (GPIO port B only) - Data line for a DS18S20 or DS18B20 temperature sensor used to measure the outside temperature. A 4k7 resistor should be connected between GPIO port B and Vcc.
 
 This method supports the following arguments:
 - __gpio_id__ The GPIO pin for which the mode is requested. Either `A` or `B`.
@@ -154,7 +154,7 @@ Possible modes are:
 - __C__ Comfort mode (Domestic Hot Water Enable) is on
 - __E__ Transmission error has been detected
 - __M__ Boiler requires maintenance
-- __P__ Raised power mode active on thermostat interface. 
+- __P__ Raised power mode active on thermostat interface.
 
 This method supports the following arguments:
 - __led_id__ The LED for which the mode is requested. Must be a character in range `A-F`.
@@ -283,7 +283,7 @@ Possible modes are:
 - __4.__ LED F - An additional LED if you want to present more than 5 LED functions.
 - __5.__ Home - Set thermostat to setback temperature when pulled low.
 - __6.__ Away - Set thermostat to setback temperature when pulled high.
-- __7.__ DS1820 (GPIO port B only) - Data line for a DS18S20 or DS18B20 temperature sensor used to measure the outside temperature. A 4k7 resistor should be connected between GPIO port B and Vcc. 
+- __7.__ DS1820 (GPIO port B only) - Data line for a DS18S20 or DS18B20 temperature sensor used to measure the outside temperature. A 4k7 resistor should be connected between GPIO port B and Vcc.
 
 This method supports the following arguments:
 - __gpio_id__ The GPIO pin on which the mode is set. Either `A` or `B`.
@@ -322,7 +322,7 @@ Possible modes are:
 - __C__ Comfort mode (Domestic Hot Water Enable) is on
 - __E__ Transmission error has been detected
 - __M__ Boiler requires maintenance
-- __P__ Raised power mode active on thermostat interface. 
+- __P__ Raised power mode active on thermostat interface.
 
 This method supports the following arguments:
 - __led_id__ The LED for which the mode is set. Must be a character in the range `A-F`.
@@ -499,3 +499,10 @@ except KeyboardInterrupt:
   print("Exiting")
 
 ```
+
+### Development
+We use pre-commit to ensure a consistent code style, so `pip install pre_commit` and run
+```
+pre-commit install
+```
+in the repository.
