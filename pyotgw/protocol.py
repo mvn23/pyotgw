@@ -45,7 +45,7 @@ class protocol(asyncio.Protocol):
         self._cmdq = asyncio.Queue(loop=self.loop)
         self._msgq = asyncio.Queue(loop=self.loop)
         self._updateq = asyncio.Queue(loop=self.loop)
-        self._readbuf = b''
+        self._readbuf = b""
         self._update_cb = None
         self._received_lines = 0
         self._msg_task = self.loop.create_task(self._process_msgs())
@@ -87,8 +87,8 @@ class protocol(asyncio.Protocol):
         lines.
         """
         # DIY line buffering...
-        newline = b'\r\n'
-        eot = b'\x04'
+        newline = b"\r\n"
+        eot = b"\x04"
         self._readbuf += data
         while newline in self._readbuf:
             line, _, self._readbuf = self._readbuf.partition(newline)
@@ -97,7 +97,7 @@ class protocol(asyncio.Protocol):
                     # Discard everything before EOT
                     _, _, line = line.partition(eot)
                 try:
-                    decoded = line.decode('ascii')
+                    decoded = line.decode("ascii")
                 except UnicodeDecodeError:
                     _LOGGER.debug("Invalid data received, ignoring...")
                     return
@@ -134,8 +134,9 @@ class protocol(asyncio.Protocol):
             try:
                 await self._watchdog_task
             except asyncio.CancelledError:
-                self._watchdog_task = self.loop.create_task(self._watchdog(
-                    self._watchdog_timeout))
+                self._watchdog_task = self.loop.create_task(
+                    self._watchdog(self._watchdog_timeout)
+                )
                 _LOGGER.debug("Watchdog reset!")
 
     async def _watchdog(self, timeout):
@@ -154,25 +155,31 @@ class protocol(asyncio.Protocol):
         self._received_lines += 1
         _LOGGER.debug("Received line %d: %s", self._received_lines, line)
         self.loop.create_task(self._inform_watchdog())
-        pattern = r'^(T|B|R|A|E)([0-9A-F]{8})$'
+        pattern = r"^(T|B|R|A|E)([0-9A-F]{8})$"
         msg = re.match(pattern, line)
         if msg:
             src, mtype, mid, msb, lsb = self._dissect_msg(msg)
             if lsb is not None:
                 self._msgq.put_nowait((src, mtype, mid, msb, lsb))
-                _LOGGER.debug("Added line %d to message queue. Queue size: %d",
-                              self._received_lines, self._msgq.qsize())
-        elif re.match(r'^[0-9A-F]{1,8}$', line) and self._received_lines == 1:
+                _LOGGER.debug(
+                    "Added line %d to message queue. Queue size: %d",
+                    self._received_lines,
+                    self._msgq.qsize(),
+                )
+        elif re.match(r"^[0-9A-F]{1,8}$", line) and self._received_lines == 1:
             # Partial message on fresh connection. Ignore.
             self._received_lines = 0
             _LOGGER.debug("Ignoring line: %s", line)
         else:
             try:
                 self._cmdq.put_nowait(line)
-                _LOGGER.debug("Added line %d to command queue. Queue size: %d",
-                              self._received_lines, self._cmdq.qsize())
+                _LOGGER.debug(
+                    "Added line %d to command queue. Queue size: %d",
+                    self._received_lines,
+                    self._cmdq.qsize(),
+                )
             except QueueFull:
-                _LOGGER.error('Queue full, discarded message: %s', line)
+                _LOGGER.error("Queue full, discarded message: %s", line)
 
     def _dissect_msg(self, match):
         """
@@ -180,7 +187,7 @@ class protocol(asyncio.Protocol):
         """
         recvfrom = match.group(1)
         frame = bytes.fromhex(match.group(2))
-        if recvfrom == 'E':
+        if recvfrom == "E":
             _LOGGER.warning("Received erroneous message, ignoring: %s", frame)
             return (None, None, None, None, None)
         msgtype = self._get_msgtype(frame[0])
@@ -208,8 +215,12 @@ class protocol(asyncio.Protocol):
         """
         while True:
             args = await self._msgq.get()
-            _LOGGER.debug('Processing: %s %02x %s %s %s', args[0], args[1],
-                          *[args[i].hex() for i in range(2, 5)])
+            _LOGGER.debug(
+                "Processing: %s %02x %s %s %s",
+                args[0],
+                args[1],
+                *[args[i].hex() for i in range(2, 5)],
+            )
             await self._process_msg(*args)
 
     async def _process_msg(self, src, msgtype, msgid, msb, lsb):
@@ -221,12 +232,14 @@ class protocol(asyncio.Protocol):
         # MSG_TOUTSIDE and MSG_ROVRD as they may contain useful values.
         # Other messages cause issues when overriding values sent to the
         # boiler.
-        if src == 'A' and msgid not in [MSG_TROVRD, MSG_TOUTSIDE,
-                                        MSG_ROVRD]:
+        if src == "A" and msgid not in [MSG_TROVRD, MSG_TOUTSIDE, MSG_ROVRD]:
             return
         # Ignore upstream MSG_TROVRD if override is active on the gateway.
-        if (src == 'B' and msgid == MSG_TROVRD
-                and self.status.get(DATA_ROOM_SETPOINT_OVRD)):
+        if (
+            src == "B"
+            and msgid == MSG_TROVRD
+            and self.status.get(DATA_ROOM_SETPOINT_OVRD)
+        ):
             return
         if msgtype in (READ_DATA, WRITE_DATA):
             # Data sent from thermostat
@@ -317,27 +330,27 @@ class protocol(asyncio.Protocol):
                 if ovrd_value > 0:
                     # iSense quirk: the gateway keeps sending override value
                     # even if the thermostat has cancelled the override.
-                    if self.status.get(OTGW_THRM_DETECT) == 'I':
+                    if self.status.get(OTGW_THRM_DETECT) == "I":
                         ovrd = await self.issue_cmd(
-                            OTGW_CMD_REPORT, OTGW_REPORT_SETPOINT_OVRD)
-                        match = re.match(r'^O=(N|[CT]([0-9]+.[0-9]+))$',
-                                         ovrd, re.IGNORECASE)
+                            OTGW_CMD_REPORT, OTGW_REPORT_SETPOINT_OVRD
+                        )
+                        match = re.match(
+                            r"^O=(N|[CT]([0-9]+.[0-9]+))$", ovrd, re.IGNORECASE
+                        )
                         if not match:
                             return
-                        if match.group(1) in 'Nn':
+                        if match.group(1) in "Nn":
                             if DATA_ROOM_SETPOINT_OVRD in self.status:
                                 del self.status[DATA_ROOM_SETPOINT_OVRD]
                         elif match.group(2):
-                            self.status[DATA_ROOM_SETPOINT_OVRD] = float(
-                                match.group(2))
+                            self.status[DATA_ROOM_SETPOINT_OVRD] = float(match.group(2))
                     else:
                         self.status[DATA_ROOM_SETPOINT_OVRD] = ovrd_value
                 elif self.status.get(DATA_ROOM_SETPOINT_OVRD):
                     del self.status[DATA_ROOM_SETPOINT_OVRD]
             elif msgid == MSG_MAXRMOD:
                 # Slave reports maximum modulation level
-                self.status[DATA_SLAVE_MAX_RELATIVE_MOD] = self._get_f8_8(
-                    msb, lsb)
+                self.status[DATA_SLAVE_MAX_RELATIVE_MOD] = self._get_f8_8(msb, lsb)
             elif msgid == MSG_MAXCAPMINMOD:
                 # Slave reports max capaxity and min modulation level
                 self.status[DATA_SLAVE_MAX_CAPACITY] = self._get_u8(msb)
@@ -441,7 +454,7 @@ class protocol(asyncio.Protocol):
         ret = [0, 0, 0, 0, 0, 0, 0, 0]
         byte = byte[0]
         for i in range(0, 8):
-            ret[i] = (byte & 1)
+            ret[i] = byte & 1
             byte = byte >> 1
         return ret
 
@@ -449,13 +462,13 @@ class protocol(asyncio.Protocol):
         """
         Convert a byte into an unsigned int.
         """
-        return struct.unpack('>B', byte)[0]
+        return struct.unpack(">B", byte)[0]
 
     def _get_s8(self, byte):
         """
         Convert a byte into a signed int.
         """
-        return struct.unpack('>b', byte)[0]
+        return struct.unpack(">b", byte)[0]
 
     def _get_f8_8(self, msb, lsb):
         """
@@ -467,15 +480,15 @@ class protocol(asyncio.Protocol):
         """
         Convert 2 bytes into an unsigned int.
         """
-        buf = struct.pack('>BB', self._get_u8(msb), self._get_u8(lsb))
-        return int(struct.unpack('>H', buf)[0])
+        buf = struct.pack(">BB", self._get_u8(msb), self._get_u8(lsb))
+        return int(struct.unpack(">H", buf)[0])
 
     def _get_s16(self, msb, lsb):
         """
         Convert 2 bytes into a signed int.
         """
-        buf = struct.pack('>bB', self._get_s8(msb), self._get_u8(lsb))
-        return int(struct.unpack('>h', buf)[0])
+        buf = struct.pack(">bB", self._get_s8(msb), self._get_u8(lsb))
+        return int(struct.unpack(">h", buf)[0])
 
     async def _report(self):
         """
@@ -507,43 +520,39 @@ class protocol(asyncio.Protocol):
         """
         async with self._cmd_lock:
             if not self.connected:
-                _LOGGER.debug(
-                    "Serial transport closed, not sending command %s", cmd)
+                _LOGGER.debug("Serial transport closed, not sending command %s", cmd)
                 return
             while not self._cmdq.empty():
-                _LOGGER.debug("Clearing leftover message from command queue:"
-                              " %s", await self._cmdq.get())
+                _LOGGER.debug(
+                    "Clearing leftover message from command queue:" " %s",
+                    await self._cmdq.get(),
+                )
             _LOGGER.debug("Sending command: %s with value %s", cmd, value)
-            self.transport.write(
-                '{}={}\r\n'.format(cmd, value).encode('ascii'))
+            self.transport.write(f"{cmd}={value}\r\n".encode("ascii"))
             if cmd == OTGW_CMD_REPORT:
-                expect = r'^{}:\s*([A-Z]{{2}}|{}=[^$]+)$'.format(cmd, value)
+                expect = fr"^{cmd}:\s*([A-Z]{{2}}|{value}=[^$]+)$"
             else:
-                expect = r'^{}:\s*([^$]+)$'.format(cmd)
+                expect = fr"^{cmd}:\s*([^$]+)$"
 
             async def send_again(err):
                 """Resend the command."""
                 nonlocal retry
-                _LOGGER.warning("Command %s failed with %s, retrying...", cmd,
-                                err)
+                _LOGGER.warning("Command %s failed with %s, retrying...", cmd, err)
                 retry -= 1
-                self.transport.write(
-                    '{}={}\r\n'.format(cmd, value).encode('ascii'))
+                self.transport.write(f"{cmd}={value}\r\n".encode("ascii"))
 
             async def process(msg):
                 """Process a possible response."""
-                _LOGGER.debug("Got possible response for command %s: %s", cmd,
-                              msg)
+                _LOGGER.debug("Got possible response for command %s: %s", cmd, msg)
                 if msg in OTGW_ERRS:
                     # Some errors appear by themselves on one line.
                     if retry == 0:
                         raise OTGW_ERRS[msg]
                     await send_again(msg)
                     return
-                if cmd == OTGW_CMD_MODE and value == 'R':
+                if cmd == OTGW_CMD_MODE and value == "R":
                     # Device was reset, msg contains build info
-                    while not re.match(
-                            r'OpenTherm Gateway \d+\.\d+\.\d+', msg):
+                    while not re.match(r"OpenTherm Gateway \d+\.\d+\.\d+", msg):
                         msg = await self._cmdq.get()
                     return True
                 match = re.match(expect, msg)
@@ -555,15 +564,18 @@ class protocol(asyncio.Protocol):
                         await send_again(msg)
                         return
                     ret = match.group(1)
-                    if cmd == OTGW_CMD_SUMMARY and ret == '1':
+                    if cmd == OTGW_CMD_SUMMARY and ret == "1":
                         # Expects a second line
                         part2 = await self._cmdq.get()
                         ret = [ret, part2]
                     return ret
-                if re.match(r'Error 0[1-4]', msg):
-                    _LOGGER.warning("Received %s. If this happens during a "
-                                    "reset of the gateway it can be safely "
-                                    "ignored.", msg)
+                if re.match(r"Error 0[1-4]", msg):
+                    _LOGGER.warning(
+                        "Received %s. If this happens during a "
+                        "reset of the gateway it can be safely "
+                        "ignored.",
+                        msg,
+                    )
                     return
                 _LOGGER.warning("Unknown message in command queue: %s", msg)
                 await send_again(msg)
