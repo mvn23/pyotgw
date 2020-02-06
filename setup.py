@@ -26,7 +26,7 @@ setup(
     packages=["pyotgw"],
     long_description=read("README.md"),
     long_description_content_type="text/markdown",
-    install_requires=["pyserial-asyncio",],
+    install_requires=["pyserial-asyncio"],
     classifiers=[
         "Development Status :: 4 - Beta",
         "Topic :: Software Development :: Libraries",

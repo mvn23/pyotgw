@@ -22,7 +22,7 @@ import re
 import struct
 from asyncio.queues import QueueFull
 
-from .vars import *
+from pyotgw import vars as v
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -48,7 +48,7 @@ class protocol(asyncio.Protocol):
         self._readbuf = b""
         self._update_cb = None
         self._received_lines = 0
-        self._msg_task = self.loop.create_task(self._process_msgs())
+        self._v.msg_task = self.loop.create_task(self._process_msgs())
         self._report_task = None
         self._watchdog_task = None
         self.status = {}
@@ -65,7 +65,7 @@ class protocol(asyncio.Protocol):
         self.transport.close()
         if self._report_task is not None:
             self._report_task.cancel()
-        self._msg_task.cancel()
+        self._v.msg_task.cancel()
         for q in [self._cmdq, self._updateq, self._msgq]:
             while not q.empty():
                 q.get_nowait()
@@ -191,8 +191,8 @@ class protocol(asyncio.Protocol):
             _LOGGER.warning("Received erroneous message, ignoring: %s", frame)
             return (None, None, None, None, None)
         msgtype = self._get_msgtype(frame[0])
-        if msgtype in (READ_ACK, WRITE_ACK, READ_DATA, WRITE_DATA):
-            # Some info is best read from the READ/WRITE_DATA messages
+        if msgtype in (v.READ_ACK, v.WRITE_ACK, v.READ_DATA, v.WRITE_DATA):
+            # Some info is best read from the READ/v.WRITE_DATA messages
             # as the boiler may not support the data ID.
             # Slice syntax is used to prevent implicit cast to int.
             data_id = frame[1:2]
@@ -223,116 +223,116 @@ class protocol(asyncio.Protocol):
             )
             await self._process_msg(*args)
 
-    async def _process_msg(self, src, msgtype, msgid, msb, lsb):
+    async def _process_msg(self, src, msgtype, msgid, msb, lsb):  # noqa: C901
         """
         Process message and update status variables where necessary.
         Add status to queue if it was changed in the process.
         """
-        # Ignore output to the thermostat ('A') except MSG_TROVRD,
-        # MSG_TOUTSIDE and MSG_ROVRD as they may contain useful values.
+        # Ignore output to the thermostat ('A') except v.MSG_TROVRD,
+        # v.MSG_TOUTSIDE and v.MSG_ROVRD as they may contain useful values.
         # Other messages cause issues when overriding values sent to the
         # boiler.
-        if src == "A" and msgid not in [MSG_TROVRD, MSG_TOUTSIDE, MSG_ROVRD]:
+        if src == "A" and msgid not in [v.MSG_TROVRD, v.MSG_TOUTSIDE, v.MSG_ROVRD]:
             return
-        # Ignore upstream MSG_TROVRD if override is active on the gateway.
+        # Ignore upstream v.MSG_TROVRD if override is active on the gateway.
         if (
             src == "B"
-            and msgid == MSG_TROVRD
-            and self.status.get(DATA_ROOM_SETPOINT_OVRD)
+            and msgid == v.MSG_TROVRD
+            and self.status.get(v.DATA_ROOM_SETPOINT_OVRD)
         ):
             return
-        if msgtype in (READ_DATA, WRITE_DATA):
+        if msgtype in (v.READ_DATA, v.WRITE_DATA):
             # Data sent from thermostat
-            if msgid == MSG_STATUS:
+            if msgid == v.MSG_STATUS:
                 # Master sends status
                 thermo_status = self._get_flag8(msb)
-                self.status[DATA_MASTER_CH_ENABLED] = thermo_status[0]
-                self.status[DATA_MASTER_DHW_ENABLED] = thermo_status[1]
-                self.status[DATA_MASTER_COOLING_ENABLED] = thermo_status[2]
-                self.status[DATA_MASTER_OTC_ENABLED] = thermo_status[3]
-                self.status[DATA_MASTER_CH2_ENABLED] = thermo_status[4]
-            elif msgid == MSG_MCONFIG:
+                self.status[v.DATA_MASTER_CH_ENABLED] = thermo_status[0]
+                self.status[v.DATA_MASTER_DHW_ENABLED] = thermo_status[1]
+                self.status[v.DATA_MASTER_COOLING_ENABLED] = thermo_status[2]
+                self.status[v.DATA_MASTER_OTC_ENABLED] = thermo_status[3]
+                self.status[v.DATA_MASTER_CH2_ENABLED] = thermo_status[4]
+            elif msgid == v.MSG_MCONFIG:
                 # Master sends ID
-                self.status[DATA_MASTER_MEMBERID] = self._get_u8(lsb)
-            elif msgid == MSG_TRSET:
+                self.status[v.DATA_MASTER_MEMBERID] = self._get_u8(lsb)
+            elif msgid == v.MSG_TRSET:
                 # Master changes room setpoint, support by the boiler
                 # is not mandatory, but we want the data regardless
-                self.status[DATA_ROOM_SETPOINT] = self._get_f8_8(msb, lsb)
-            elif msgid == MSG_TRSET2:
+                self.status[v.DATA_ROOM_SETPOINT] = self._get_f8_8(msb, lsb)
+            elif msgid == v.MSG_TRSET2:
                 # Master changes room setpoint 2, support by the boiler
                 # is not mandatory, but we want the data regardless
-                self.status[DATA_ROOM_SETPOINT_2] = self._get_f8_8(msb, lsb)
-            elif msgid == MSG_TROOM:
+                self.status[v.DATA_ROOM_SETPOINT_2] = self._get_f8_8(msb, lsb)
+            elif msgid == v.MSG_TROOM:
                 # Master reports sensed room temperature
-                self.status[DATA_ROOM_TEMP] = self._get_f8_8(msb, lsb)
-            elif msgid == MSG_OTVERM:
+                self.status[v.DATA_ROOM_TEMP] = self._get_f8_8(msb, lsb)
+            elif msgid == v.MSG_OTVERM:
                 # Master reports OpenTherm version
-                self.status[DATA_MASTER_OT_VERSION] = self._get_f8_8(msb, lsb)
-            elif msgid == MSG_MVER:
+                self.status[v.DATA_MASTER_OT_VERSION] = self._get_f8_8(msb, lsb)
+            elif msgid == v.MSG_MVER:
                 # Master reports product type and version
-                self.status[DATA_MASTER_PRODUCT_TYPE] = self._get_u8(msb)
-                self.status[DATA_MASTER_PRODUCT_VERSION] = self._get_u8(lsb)
-        elif msgtype in (READ_ACK, WRITE_ACK):
+                self.status[v.DATA_MASTER_PRODUCT_TYPE] = self._get_u8(msb)
+                self.status[v.DATA_MASTER_PRODUCT_VERSION] = self._get_u8(lsb)
+        elif msgtype in (v.READ_ACK, v.WRITE_ACK):
             # Data sent from boiler
-            if msgid == MSG_STATUS:
+            if msgid == v.MSG_STATUS:
                 # Slave reports status
                 boiler_status = self._get_flag8(lsb)
-                self.status[DATA_SLAVE_FAULT_IND] = boiler_status[0]
-                self.status[DATA_SLAVE_CH_ACTIVE] = boiler_status[1]
-                self.status[DATA_SLAVE_DHW_ACTIVE] = boiler_status[2]
-                self.status[DATA_SLAVE_FLAME_ON] = boiler_status[3]
-                self.status[DATA_SLAVE_COOLING_ACTIVE] = boiler_status[4]
-                self.status[DATA_SLAVE_CH2_ACTIVE] = boiler_status[5]
-                self.status[DATA_SLAVE_DIAG_IND] = boiler_status[6]
-            elif msgid == MSG_TSET:
+                self.status[v.DATA_SLAVE_FAULT_IND] = boiler_status[0]
+                self.status[v.DATA_SLAVE_CH_ACTIVE] = boiler_status[1]
+                self.status[v.DATA_SLAVE_DHW_ACTIVE] = boiler_status[2]
+                self.status[v.DATA_SLAVE_FLAME_ON] = boiler_status[3]
+                self.status[v.DATA_SLAVE_COOLING_ACTIVE] = boiler_status[4]
+                self.status[v.DATA_SLAVE_CH2_ACTIVE] = boiler_status[5]
+                self.status[v.DATA_SLAVE_DIAG_IND] = boiler_status[6]
+            elif msgid == v.MSG_TSET:
                 # Slave confirms CH water setpoint
-                self.status[DATA_CONTROL_SETPOINT] = self._get_f8_8(msb, lsb)
-            elif msgid == MSG_SCONFIG:
+                self.status[v.DATA_CONTROL_SETPOINT] = self._get_f8_8(msb, lsb)
+            elif msgid == v.MSG_SCONFIG:
                 # Slave reports config and ID
                 slave_status = self._get_flag8(msb)
-                self.status[DATA_SLAVE_DHW_PRESENT] = slave_status[0]
-                self.status[DATA_SLAVE_CONTROL_TYPE] = slave_status[1]
-                self.status[DATA_SLAVE_COOLING_SUPPORTED] = slave_status[2]
-                self.status[DATA_SLAVE_DHW_CONFIG] = slave_status[3]
-                self.status[DATA_SLAVE_MASTER_LOW_OFF_PUMP] = slave_status[4]
-                self.status[DATA_SLAVE_CH2_PRESENT] = slave_status[5]
-                self.status[DATA_SLAVE_MEMBERID] = self._get_u8(lsb)
-            elif msgid == MSG_COMMAND:
+                self.status[v.DATA_SLAVE_DHW_PRESENT] = slave_status[0]
+                self.status[v.DATA_SLAVE_CONTROL_TYPE] = slave_status[1]
+                self.status[v.DATA_SLAVE_COOLING_SUPPORTED] = slave_status[2]
+                self.status[v.DATA_SLAVE_DHW_CONFIG] = slave_status[3]
+                self.status[v.DATA_SLAVE_MASTER_LOW_OFF_PUMP] = slave_status[4]
+                self.status[v.DATA_SLAVE_CH2_PRESENT] = slave_status[5]
+                self.status[v.DATA_SLAVE_MEMBERID] = self._get_u8(lsb)
+            elif msgid == v.MSG_COMMAND:
                 # TODO: implement command notification system
                 pass
-            elif msgid == MSG_ASFFLAGS:
+            elif msgid == v.MSG_ASFFLAGS:
                 # Slave reports fault flags
                 fault_flags = self._get_flag8(msb)
-                self.status[DATA_SLAVE_SERVICE_REQ] = fault_flags[0]
-                self.status[DATA_SLAVE_REMOTE_RESET] = fault_flags[1]
-                self.status[DATA_SLAVE_LOW_WATER_PRESS] = fault_flags[2]
-                self.status[DATA_SLAVE_GAS_FAULT] = fault_flags[3]
-                self.status[DATA_SLAVE_AIR_PRESS_FAULT] = fault_flags[4]
-                self.status[DATA_SLAVE_WATER_OVERTEMP] = fault_flags[5]
-                self.status[DATA_SLAVE_OEM_FAULT] = self._get_u8(lsb)
-            elif msgid == MSG_RBPFLAGS:
+                self.status[v.DATA_SLAVE_SERVICE_REQ] = fault_flags[0]
+                self.status[v.DATA_SLAVE_REMOTE_RESET] = fault_flags[1]
+                self.status[v.DATA_SLAVE_LOW_WATER_PRESS] = fault_flags[2]
+                self.status[v.DATA_SLAVE_GAS_FAULT] = fault_flags[3]
+                self.status[v.DATA_SLAVE_AIR_PRESS_FAULT] = fault_flags[4]
+                self.status[v.DATA_SLAVE_WATER_OVERTEMP] = fault_flags[5]
+                self.status[v.DATA_SLAVE_OEM_FAULT] = self._get_u8(lsb)
+            elif msgid == v.MSG_RBPFLAGS:
                 # Slave reports remote parameters
                 transfer_flags = self._get_flag8(msb)
                 rw_flags = self._get_flag8(lsb)
-                self.status[DATA_REMOTE_TRANSFER_DHW] = transfer_flags[0]
-                self.status[DATA_REMOTE_TRANSFER_MAX_CH] = transfer_flags[1]
-                self.status[DATA_REMOTE_RW_DHW] = rw_flags[0]
-                self.status[DATA_REMOTE_RW_MAX_CH] = rw_flags[1]
-            elif msgid == MSG_COOLING:
+                self.status[v.DATA_REMOTE_TRANSFER_DHW] = transfer_flags[0]
+                self.status[v.DATA_REMOTE_TRANSFER_MAX_CH] = transfer_flags[1]
+                self.status[v.DATA_REMOTE_RW_DHW] = rw_flags[0]
+                self.status[v.DATA_REMOTE_RW_MAX_CH] = rw_flags[1]
+            elif msgid == v.MSG_COOLING:
                 # Only report cooling control signal if slave acks it
-                self.status[DATA_COOLING_CONTROL] = self._get_f8_8(msb, lsb)
-            elif msgid == MSG_TSETC2:
+                self.status[v.DATA_COOLING_CONTROL] = self._get_f8_8(msb, lsb)
+            elif msgid == v.MSG_TSETC2:
                 # Slave confirms CH2 water setpoint
-                self.status[DATA_CONTROL_SETPOINT_2] = self._get_f8_8(msb, lsb)
-            elif msgid == MSG_TROVRD:
+                self.status[v.DATA_CONTROL_SETPOINT_2] = self._get_f8_8(msb, lsb)
+            elif msgid == v.MSG_TROVRD:
                 # OTGW (or downstream device) reports remote override
                 ovrd_value = self._get_f8_8(msb, lsb)
                 if ovrd_value > 0:
                     # iSense quirk: the gateway keeps sending override value
                     # even if the thermostat has cancelled the override.
-                    if self.status.get(OTGW_THRM_DETECT) == "I":
+                    if self.status.get(v.OTGW_THRM_DETECT) == "I":
                         ovrd = await self.issue_cmd(
-                            OTGW_CMD_REPORT, OTGW_REPORT_SETPOINT_OVRD
+                            v.OTGW_CMD_REPORT, v.OTGW_REPORT_SETPOINT_OVRD
                         )
                         match = re.match(
                             r"^O=(N|[CT]([0-9]+.[0-9]+))$", ovrd, re.IGNORECASE
@@ -340,111 +340,113 @@ class protocol(asyncio.Protocol):
                         if not match:
                             return
                         if match.group(1) in "Nn":
-                            if DATA_ROOM_SETPOINT_OVRD in self.status:
-                                del self.status[DATA_ROOM_SETPOINT_OVRD]
+                            if v.DATA_ROOM_SETPOINT_OVRD in self.status:
+                                del self.status[v.DATA_ROOM_SETPOINT_OVRD]
                         elif match.group(2):
-                            self.status[DATA_ROOM_SETPOINT_OVRD] = float(match.group(2))
+                            self.status[v.DATA_ROOM_SETPOINT_OVRD] = float(
+                                match.group(2)
+                            )
                     else:
-                        self.status[DATA_ROOM_SETPOINT_OVRD] = ovrd_value
-                elif self.status.get(DATA_ROOM_SETPOINT_OVRD):
-                    del self.status[DATA_ROOM_SETPOINT_OVRD]
-            elif msgid == MSG_MAXRMOD:
+                        self.status[v.DATA_ROOM_SETPOINT_OVRD] = ovrd_value
+                elif self.status.get(v.DATA_ROOM_SETPOINT_OVRD):
+                    del self.status[v.DATA_ROOM_SETPOINT_OVRD]
+            elif msgid == v.MSG_MAXRMOD:
                 # Slave reports maximum modulation level
-                self.status[DATA_SLAVE_MAX_RELATIVE_MOD] = self._get_f8_8(msb, lsb)
-            elif msgid == MSG_MAXCAPMINMOD:
+                self.status[v.DATA_SLAVE_MAX_RELATIVE_MOD] = self._get_f8_8(msb, lsb)
+            elif msgid == v.MSG_MAXCAPMINMOD:
                 # Slave reports max capaxity and min modulation level
-                self.status[DATA_SLAVE_MAX_CAPACITY] = self._get_u8(msb)
-                self.status[DATA_SLAVE_MIN_MOD_LEVEL] = self._get_u8(lsb)
-            elif msgid == MSG_RELMOD:
+                self.status[v.DATA_SLAVE_MAX_CAPACITY] = self._get_u8(msb)
+                self.status[v.DATA_SLAVE_MIN_MOD_LEVEL] = self._get_u8(lsb)
+            elif msgid == v.MSG_RELMOD:
                 # Slave reports relative modulation level
-                self.status[DATA_REL_MOD_LEVEL] = self._get_f8_8(msb, lsb)
-            elif msgid == MSG_CHPRESS:
+                self.status[v.DATA_REL_MOD_LEVEL] = self._get_f8_8(msb, lsb)
+            elif msgid == v.MSG_CHPRESS:
                 # Slave reports CH circuit pressure
-                self.status[DATA_CH_WATER_PRESS] = self._get_f8_8(msb, lsb)
-            elif msgid == MSG_DHWFLOW:
+                self.status[v.DATA_CH_WATER_PRESS] = self._get_f8_8(msb, lsb)
+            elif msgid == v.MSG_DHWFLOW:
                 # Slave reports DHW flow rate
-                self.status[DATA_DHW_FLOW_RATE] = self._get_f8_8(msb, lsb)
-            elif msgid == MSG_TBOILER:
+                self.status[v.DATA_DHW_FLOW_RATE] = self._get_f8_8(msb, lsb)
+            elif msgid == v.MSG_TBOILER:
                 # Slave reports CH water temperature
-                self.status[DATA_CH_WATER_TEMP] = self._get_f8_8(msb, lsb)
-            elif msgid == MSG_TDHW:
+                self.status[v.DATA_CH_WATER_TEMP] = self._get_f8_8(msb, lsb)
+            elif msgid == v.MSG_TDHW:
                 # Slave reports DHW temperature
-                self.status[DATA_DHW_TEMP] = self._get_f8_8(msb, lsb)
-            elif msgid == MSG_TOUTSIDE:
+                self.status[v.DATA_DHW_TEMP] = self._get_f8_8(msb, lsb)
+            elif msgid == v.MSG_TOUTSIDE:
                 # OTGW (or downstream device) reports outside temperature
-                self.status[DATA_OUTSIDE_TEMP] = self._get_f8_8(msb, lsb)
-            elif msgid == MSG_TRET:
+                self.status[v.DATA_OUTSIDE_TEMP] = self._get_f8_8(msb, lsb)
+            elif msgid == v.MSG_TRET:
                 # Slave reports return water temperature
-                self.status[DATA_RETURN_WATER_TEMP] = self._get_f8_8(msb, lsb)
-            elif msgid == MSG_TSTOR:
+                self.status[v.DATA_RETURN_WATER_TEMP] = self._get_f8_8(msb, lsb)
+            elif msgid == v.MSG_TSTOR:
                 # Slave reports solar storage temperature
-                self.status[DATA_SOLAR_STORAGE_TEMP] = self._get_f8_8(msb, lsb)
-            elif msgid == MSG_TCOLL:
+                self.status[v.DATA_SOLAR_STORAGE_TEMP] = self._get_f8_8(msb, lsb)
+            elif msgid == v.MSG_TCOLL:
                 # Slave reports solar collector temperature
-                self.status[DATA_SOLAR_COLL_TEMP] = self._get_f8_8(msb, lsb)
-            elif msgid == MSG_TFLOWCH2:
+                self.status[v.DATA_SOLAR_COLL_TEMP] = self._get_f8_8(msb, lsb)
+            elif msgid == v.MSG_TFLOWCH2:
                 # Slave reports CH2 water temperature
-                self.status[DATA_CH_WATER_TEMP_2] = self._get_f8_8(msb, lsb)
-            elif msgid == MSG_TDHW2:
+                self.status[v.DATA_CH_WATER_TEMP_2] = self._get_f8_8(msb, lsb)
+            elif msgid == v.MSG_TDHW2:
                 # Slave reports DHW2 temperature
-                self.status[DATA_DHW_TEMP_2] = self._get_f8_8(msb, lsb)
-            elif msgid == MSG_TEXHAUST:
+                self.status[v.DATA_DHW_TEMP_2] = self._get_f8_8(msb, lsb)
+            elif msgid == v.MSG_TEXHAUST:
                 # Slave reports exhaust temperature
-                self.status[DATA_EXHAUST_TEMP] = self._get_s16(msb, lsb)
-            elif msgid == MSG_TDHWSETUL:
+                self.status[v.DATA_EXHAUST_TEMP] = self._get_s16(msb, lsb)
+            elif msgid == v.MSG_TDHWSETUL:
                 # Slave reports min/max DHW setpoint
-                self.status[DATA_SLAVE_DHW_MAX_SETP] = self._get_s8(msb)
-                self.status[DATA_SLAVE_DHW_MIN_SETP] = self._get_s8(lsb)
-            elif msgid == MSG_TCHSETUL:
+                self.status[v.DATA_SLAVE_DHW_MAX_SETP] = self._get_s8(msb)
+                self.status[v.DATA_SLAVE_DHW_MIN_SETP] = self._get_s8(lsb)
+            elif msgid == v.MSG_TCHSETUL:
                 # Slave reports min/max CH setpoint
-                self.status[DATA_SLAVE_CH_MAX_SETP] = self._get_s8(msb)
-                self.status[DATA_SLAVE_CH_MIN_SETP] = self._get_s8(lsb)
-            elif msgid == MSG_TDHWSET:
+                self.status[v.DATA_SLAVE_CH_MAX_SETP] = self._get_s8(msb)
+                self.status[v.DATA_SLAVE_CH_MIN_SETP] = self._get_s8(lsb)
+            elif msgid == v.MSG_TDHWSET:
                 # Slave reports or acks DHW setpoint
-                self.status[DATA_DHW_SETPOINT] = self._get_f8_8(msb, lsb)
-            elif msgid == MSG_MAXTSET:
+                self.status[v.DATA_DHW_SETPOINT] = self._get_f8_8(msb, lsb)
+            elif msgid == v.MSG_MAXTSET:
                 # Slave reports or acks max CH setpoint
-                self.status[DATA_MAX_CH_SETPOINT] = self._get_f8_8(msb, lsb)
-            elif msgid == MSG_ROVRD:
+                self.status[v.DATA_MAX_CH_SETPOINT] = self._get_f8_8(msb, lsb)
+            elif msgid == v.MSG_ROVRD:
                 # OTGW (or downstream device) reports remote override
                 # behaviour
                 rovrd_flags = self._get_flag8(lsb)
-                self.status[DATA_ROVRD_MAN_PRIO] = rovrd_flags[0]
-                self.status[DATA_ROVRD_AUTO_PRIO] = rovrd_flags[1]
-            elif msgid == MSG_OEMDIAG:
+                self.status[v.DATA_ROVRD_MAN_PRIO] = rovrd_flags[0]
+                self.status[v.DATA_ROVRD_AUTO_PRIO] = rovrd_flags[1]
+            elif msgid == v.MSG_OEMDIAG:
                 # Slave reports diagnostic info
-                self.status[DATA_OEM_DIAG] = self._get_u16(msb, lsb)
-            elif msgid == MSG_BURNSTARTS:
+                self.status[v.DATA_OEM_DIAG] = self._get_u16(msb, lsb)
+            elif msgid == v.MSG_BURNSTARTS:
                 # Slave reports burner starts
-                self.status[DATA_TOTAL_BURNER_STARTS] = self._get_u16(msb, lsb)
-            elif msgid == MSG_CHPUMPSTARTS:
+                self.status[v.DATA_TOTAL_BURNER_STARTS] = self._get_u16(msb, lsb)
+            elif msgid == v.MSG_CHPUMPSTARTS:
                 # Slave reports CH pump starts
-                self.status[DATA_CH_PUMP_STARTS] = self._get_u16(msb, lsb)
-            elif msgid == MSG_DHWPUMPSTARTS:
+                self.status[v.DATA_CH_PUMP_STARTS] = self._get_u16(msb, lsb)
+            elif msgid == v.MSG_DHWPUMPSTARTS:
                 # Slave reports DHW pump starts
-                self.status[DATA_DHW_PUMP_STARTS] = self._get_u16(msb, lsb)
-            elif msgid == MSG_DHWBURNSTARTS:
+                self.status[v.DATA_DHW_PUMP_STARTS] = self._get_u16(msb, lsb)
+            elif msgid == v.MSG_DHWBURNSTARTS:
                 # Slave reports DHW burner starts
-                self.status[DATA_DHW_BURNER_STARTS] = self._get_u16(msb, lsb)
-            elif msgid == MSG_BURNHRS:
+                self.status[v.DATA_DHW_BURNER_STARTS] = self._get_u16(msb, lsb)
+            elif msgid == v.MSG_BURNHRS:
                 # Slave reports CH burner hours
-                self.status[DATA_TOTAL_BURNER_HOURS] = self._get_u16(msb, lsb)
-            elif msgid == MSG_CHPUMPHRS:
+                self.status[v.DATA_TOTAL_BURNER_HOURS] = self._get_u16(msb, lsb)
+            elif msgid == v.MSG_CHPUMPHRS:
                 # Slave reports CH pump hours
-                self.status[DATA_CH_PUMP_HOURS] = self._get_u16(msb, lsb)
-            elif msgid == MSG_DHWPUMPHRS:
+                self.status[v.DATA_CH_PUMP_HOURS] = self._get_u16(msb, lsb)
+            elif msgid == v.MSG_DHWPUMPHRS:
                 # Slave reports DHW pump hours
-                self.status[DATA_DHW_PUMP_HOURS] = self._get_u16(msb, lsb)
-            elif msgid == MSG_DHWBURNHRS:
+                self.status[v.DATA_DHW_PUMP_HOURS] = self._get_u16(msb, lsb)
+            elif msgid == v.MSG_DHWBURNHRS:
                 # Slave reports DHW burner hours
-                self.status[DATA_DHW_BURNER_HOURS] = self._get_u16(msb, lsb)
-            elif msgid == MSG_OTVERS:
+                self.status[v.DATA_DHW_BURNER_HOURS] = self._get_u16(msb, lsb)
+            elif msgid == v.MSG_OTVERS:
                 # Slave reports OpenTherm version
-                self.status[DATA_SLAVE_OT_VERSION] = self._get_f8_8(msb, lsb)
-            elif msgid == MSG_SVER:
+                self.status[v.DATA_SLAVE_OT_VERSION] = self._get_f8_8(msb, lsb)
+            elif msgid == v.MSG_SVER:
                 # Slave reports product type and version
-                self.status[DATA_SLAVE_PRODUCT_TYPE] = self._get_u8(msb)
-                self.status[DATA_SLAVE_PRODUCT_VERSION] = self._get_u8(lsb)
+                self.status[v.DATA_SLAVE_PRODUCT_TYPE] = self._get_u8(msb)
+                self.status[v.DATA_SLAVE_PRODUCT_VERSION] = self._get_u8(lsb)
         self._updateq.put_nowait(dict(self.status))
 
     def _get_flag8(self, byte):
@@ -529,7 +531,7 @@ class protocol(asyncio.Protocol):
                 )
             _LOGGER.debug("Sending command: %s with value %s", cmd, value)
             self.transport.write(f"{cmd}={value}\r\n".encode("ascii"))
-            if cmd == OTGW_CMD_REPORT:
+            if cmd == v.OTGW_CMD_REPORT:
                 expect = fr"^{cmd}:\s*([A-Z]{{2}}|{value}=[^$]+)$"
             else:
                 expect = fr"^{cmd}:\s*([^$]+)$"
@@ -544,27 +546,27 @@ class protocol(asyncio.Protocol):
             async def process(msg):
                 """Process a possible response."""
                 _LOGGER.debug("Got possible response for command %s: %s", cmd, msg)
-                if msg in OTGW_ERRS:
+                if msg in v.OTGW_ERRS:
                     # Some errors appear by themselves on one line.
                     if retry == 0:
-                        raise OTGW_ERRS[msg]
+                        raise v.OTGW_ERRS[msg]
                     await send_again(msg)
                     return
-                if cmd == OTGW_CMD_MODE and value == "R":
+                if cmd == v.OTGW_CMD_MODE and value == "R":
                     # Device was reset, msg contains build info
                     while not re.match(r"OpenTherm Gateway \d+\.\d+\.\d+", msg):
                         msg = await self._cmdq.get()
                     return True
                 match = re.match(expect, msg)
                 if match:
-                    if match.group(1) in OTGW_ERRS:
+                    if match.group(1) in v.OTGW_ERRS:
                         # Some errors are considered a response.
                         if retry == 0:
-                            raise OTGW_ERRS[match.group(1)]
+                            raise v.OTGW_ERRS[match.group(1)]
                         await send_again(msg)
                         return
                     ret = match.group(1)
-                    if cmd == OTGW_CMD_SUMMARY and ret == "1":
+                    if cmd == v.OTGW_CMD_SUMMARY and ret == "1":
                         # Expects a second line
                         part2 = await self._cmdq.get()
                         ret = [ret, part2]

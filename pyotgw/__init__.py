@@ -16,4 +16,5 @@
 # Copyright 2018 Milan van Nugteren
 #
 from .pyotgw import pyotgw
-from .vars import *
+
+__all__ = ["pyotgw"]
