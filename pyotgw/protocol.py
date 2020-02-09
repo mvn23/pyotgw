@@ -48,7 +48,7 @@ class protocol(asyncio.Protocol):
         self._readbuf = b""
         self._update_cb = None
         self._received_lines = 0
-        self._v.msg_task = self.loop.create_task(self._process_msgs())
+        self._msg_task = self.loop.create_task(self._process_msgs())
         self._report_task = None
         self._watchdog_task = None
         self.status = {}
@@ -65,7 +65,7 @@ class protocol(asyncio.Protocol):
         self.transport.close()
         if self._report_task is not None:
             self._report_task.cancel()
-        self._v.msg_task.cancel()
+        self._msg_task.cancel()
         for q in [self._cmdq, self._updateq, self._msgq]:
             while not q.empty():
                 q.get_nowait()
@@ -192,7 +192,7 @@ class protocol(asyncio.Protocol):
             return (None, None, None, None, None)
         msgtype = self._get_msgtype(frame[0])
         if msgtype in (v.READ_ACK, v.WRITE_ACK, v.READ_DATA, v.WRITE_DATA):
-            # Some info is best read from the READ/v.WRITE_DATA messages
+            # Some info is best read from the READ/WRITE_DATA messages
             # as the boiler may not support the data ID.
             # Slice syntax is used to prevent implicit cast to int.
             data_id = frame[1:2]
@@ -228,13 +228,13 @@ class protocol(asyncio.Protocol):
         Process message and update status variables where necessary.
         Add status to queue if it was changed in the process.
         """
-        # Ignore output to the thermostat ('A') except v.MSG_TROVRD,
-        # v.MSG_TOUTSIDE and v.MSG_ROVRD as they may contain useful values.
+        # Ignore output to the thermostat ('A') except MSG_TROVRD,
+        # MSG_TOUTSIDE and MSG_ROVRD as they may contain useful values.
         # Other messages cause issues when overriding values sent to the
         # boiler.
         if src == "A" and msgid not in [v.MSG_TROVRD, v.MSG_TOUTSIDE, v.MSG_ROVRD]:
             return
-        # Ignore upstream v.MSG_TROVRD if override is active on the gateway.
+        # Ignore upstream MSG_TROVRD if override is active on the gateway.
         if (
             src == "B"
             and msgid == v.MSG_TROVRD
