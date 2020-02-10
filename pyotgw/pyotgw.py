@@ -448,7 +448,7 @@ class pyotgw:
         """
         if not self._connected:
             return
-        return self._protocol.status.get(f"v.OTGW_LED_{led_id}")
+        return self._protocol.status.get(getattr(v, f"OTGW_LED_{led_id}"))
 
     async def set_led_mode(self, led_id, mode, timeout=v.OTGW_DEFAULT_TIMEOUT):
         """
@@ -475,12 +475,12 @@ class pyotgw:
         This method is a coroutine
         """
         if led_id in "ABCDEF" and mode in "RXTBOFHWCEMP":
-            cmd = globals().get(f"v.OTGW_CMD_LED_{led_id}")
+            cmd = getattr(v, f"OTGW_CMD_LED_{led_id}")
             status = {}
             ret = await self._wait_for_cmd(cmd, mode, timeout)
             if ret is None:
                 return
-            var = globals().get(f"v.OTGW_LED_{led_id}")
+            var = getattr(v, f"OTGW_LED_{led_id}")
             status[var] = ret
             self._update_status(status)
             return ret
@@ -492,7 +492,7 @@ class pyotgw:
         """
         if not self._connected:
             return
-        return self._protocol.status.get(f"v.OTGW_GPIO_{gpio_id}")
+        return self._protocol.status.get(getattr(v, f"OTGW_GPIO_{gpio_id}"))
 
     async def set_gpio_mode(self, gpio_id, mode, timeout=v.OTGW_DEFAULT_TIMEOUT):
         """
@@ -524,13 +524,13 @@ class pyotgw:
         if gpio_id in "AB" and mode in range(8):
             if mode == 7 and gpio_id != "B":
                 return None
-            cmd = globals().get(f"v.OTGW_CMD_GPIO_{gpio_id}")
+            cmd = getattr(v, f"OTGW_CMD_GPIO_{gpio_id}")
             status = {}
             ret = await self._wait_for_cmd(cmd, mode, timeout)
             if ret is None:
                 return
             ret = int(ret)
-            var = globals().get(f"v.OTGW_GPIO_{gpio_id}")
+            var = getattr(v, f"OTGW_GPIO_{gpio_id}")
             status[var] = ret
             self._update_status(status)
             asyncio.ensure_future(
