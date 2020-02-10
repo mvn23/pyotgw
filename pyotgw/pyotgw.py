@@ -25,10 +25,8 @@ from datetime import datetime
 
 import serial
 import serial_asyncio
-
+from pyotgw import protocol as otgw
 from pyotgw import vars as v
-
-from . import protocol as otgw
 
 _LOGGER = logging.getLogger(__name__)
 

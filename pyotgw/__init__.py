@@ -15,6 +15,6 @@
 #
 # Copyright 2018 Milan van Nugteren
 #
-from .pyotgw import pyotgw
+from pyotgw.pyotgw import pyotgw
 
 __all__ = ["pyotgw"]
