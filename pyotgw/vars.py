@@ -370,10 +370,10 @@ OTGW_ERRS = {
         "unexpected character or was incomplete."
     ),
     BAD_VALUE: ValueError(
-        "Bad Value: The command contained a data value that " "is not allowed."
+        "Bad Value: The command contained a data value that is not allowed."
     ),
     OUT_OF_RANGE: RuntimeError(
-        "Out of Range: A number was specified outside " "of the allowed range."
+        "Out of Range: A number was specified outside of the allowed range."
     ),
     NO_SPACE: RuntimeError(
         "No Space: The alternative Data-ID could not be "

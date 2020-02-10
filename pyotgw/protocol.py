@@ -526,7 +526,7 @@ class protocol(asyncio.Protocol):
                 return
             while not self._cmdq.empty():
                 _LOGGER.debug(
-                    "Clearing leftover message from command queue:" " %s",
+                    "Clearing leftover message from command queue: %s",
                     await self._cmdq.get(),
                 )
             _LOGGER.debug("Sending command: %s with value %s", cmd, value)

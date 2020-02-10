@@ -30,6 +30,6 @@ setup(
     classifiers=[
         "Development Status :: 4 - Beta",
         "Topic :: Software Development :: Libraries",
-        "License :: OSI Approved :: GNU General Public License v3 or later " "(GPLv3+)",
+        "License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)",
     ],
 )

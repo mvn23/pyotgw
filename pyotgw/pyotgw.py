@@ -98,7 +98,7 @@ class pyotgw:
         self.loop.create_task(self._protocol.set_update_cb(self._send_report))
         if 0 < inactivity_timeout < 3:
             _LOGGER.error(
-                "Inactivity timeout too low. Should be at least 3 " "seconds, got %d",
+                "Inactivity timeout too low. Should be at least 3 seconds, got %d",
                 inactivity_timeout,
             )
         if inactivity_timeout >= 3:
