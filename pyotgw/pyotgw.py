@@ -419,9 +419,9 @@ class pyotgw:
     async def set_mode(self, mode, timeout=v.OTGW_DEFAULT_TIMEOUT):
         """
         Set the operating mode to either "Gateway" mode (:mode: =
-        v.OTGW_MODE_GATEWAY or 1) or "Monitor" mode (:mode: =
-        v.OTGW_MODE_MONITOR or 0), or use this method to reset the device
-        (:mode: = v.OTGW_MODE_RESET).
+        OTGW_MODE_GATEWAY or 1) or "Monitor" mode (:mode: =
+        OTGW_MODE_MONITOR or 0), or use this method to reset the device
+        (:mode: = OTGW_MODE_RESET).
         Return the newly activated mode, or the full renewed status
         dict after a reset.
 
