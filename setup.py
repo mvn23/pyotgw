@@ -1,4 +1,5 @@
 import os
+
 from setuptools import setup
 
 
@@ -15,21 +16,20 @@ setup(
     version="0.5b1",
     author="Milan van Nugteren",
     author_email="milan@network23.nl",
-    description=("A library to interface with the opentherm gateway through "
-                 "serial or network connection."),
+    description=(
+        "A library to interface with the opentherm gateway through "
+        "serial or network connection."
+    ),
     license="GPLv3+",
     keywords="opentherm gateway otgw",
     url="https://github.com/mvn23/pyotgw",
-    packages=['pyotgw'],
-    long_description=read('README.md'),
+    packages=["pyotgw"],
+    long_description=read("README.md"),
     long_description_content_type="text/markdown",
-    install_requires=[
-        'pyserial-asyncio',
-    ],
+    install_requires=["pyserial-asyncio"],
     classifiers=[
         "Development Status :: 4 - Beta",
         "Topic :: Software Development :: Libraries",
-        "License :: OSI Approved :: GNU General Public License v3 or later "
-        "(GPLv3+)"
+        "License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)",
     ],
 )
