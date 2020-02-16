@@ -400,6 +400,8 @@ class pyotgw:
         cmd = v.OTGW_CMD_HOT_WATER
         status = {}
         ret = await self._wait_for_cmd(cmd, state, timeout)
+        if ret is None:
+            return
         if ret == "A":
             status[v.OTGW_DHW_OVRD] = None
         elif ret in ["0", "1"]:
@@ -908,6 +910,11 @@ class pyotgw:
 
     def _update_status(self, update):
         """Update the status dict and push it to subscribers."""
-        if isinstance(update, dict):
-            self._protocol.status.update(update)
-            self._protocol._updateq.put_nowait(self._protocol.status)
+        try:
+            if isinstance(update, dict):
+                self._protocol.status.update(update)
+                self._protocol._updateq.put_nowait(self._protocol.status)
+        except AttributeError:
+            _LOGGER.warning(
+                "Error sending status update. Are we connected to the gateway?"
+            )
