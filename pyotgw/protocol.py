@@ -137,12 +137,25 @@ class protocol(asyncio.Protocol):
                 self._watchdog_task = self.loop.create_task(
                     self._watchdog(self._watchdog_timeout)
                 )
-                _LOGGER.debug("Watchdog reset!")
+                _LOGGER.debug("Watchdog timer reset!")
 
     async def _watchdog(self, timeout):
         """Trigger and cancel the watchdog after timeout. Call callback."""
         await asyncio.sleep(timeout, loop=self.loop)
         _LOGGER.debug("Watchdog triggered!")
+        try:
+            _LOGGER.debug("Internal read buffer content: %s", self._readbuf.hex(" "))
+            _LOGGER.debug("Serial transport closing: %s", self.transport.is_closing())
+            _LOGGER.debug("Serial settings: %s", self.transport.serial.get_settings())
+            _LOGGER.debug(
+                "Serial input buffer size: %d", self.transport.serial.in_waiting
+            )
+        except AttributeError as e:
+            _LOGGER.debug(
+                "Could not generate debug output during disconnect."
+                " Reported error: %s",
+                e,
+            )
         await self.cancel_watchdog()
         await self._watchdog_cb()
 
