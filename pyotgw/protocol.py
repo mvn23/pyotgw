@@ -144,7 +144,7 @@ class protocol(asyncio.Protocol):
         await asyncio.sleep(timeout, loop=self.loop)
         _LOGGER.debug("Watchdog triggered!")
         try:
-            _LOGGER.debug("Internal read buffer content: %s", self._readbuf.hex(" "))
+            _LOGGER.debug("Internal read buffer content: %s", self._readbuf.hex())
             _LOGGER.debug("Serial transport closing: %s", self.transport.is_closing())
             _LOGGER.debug("Serial settings: %s", self.transport.serial.get_settings())
             _LOGGER.debug(
