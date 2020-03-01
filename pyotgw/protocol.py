@@ -70,6 +70,8 @@ class protocol(asyncio.Protocol):
             while not q.empty():
                 q.get_nowait()
         self.status = {}
+        if self._update_cb is not None:
+            self.loop.create_task(self._update_cb(dict(self.status)))
 
     async def disconnect(self):
         """Disconnect gracefully."""
