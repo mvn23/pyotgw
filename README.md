@@ -1,3 +1,5 @@
+[![Build Status](https://travis-ci.org/mvn23/pyotgw.svg?branch=master)](https://travis-ci.org/mvn23/pyotgw)
+
 # pyotgw
 
 A python library to interface with the OpenTherm Gateway
