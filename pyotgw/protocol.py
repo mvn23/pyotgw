@@ -545,7 +545,8 @@ class protocol(asyncio.Protocol):
                     await self._cmdq.get(),
                 )
             _LOGGER.debug("Sending command: %s with value %s", cmd, value)
-            self.transport.write(f"{cmd}={value}\r\n".encode("ascii"))
+            written = self.transport.write(f"{cmd}={value}\r\n".encode("ascii"))
+            _LOGGER.debug("Wrote %d bytes to serial transport", written)
             if cmd == v.OTGW_CMD_REPORT:
                 expect = fr"^{cmd}:\s*([A-Z]{{2}}|{value}=[^$]+)$"
             else:
@@ -556,7 +557,8 @@ class protocol(asyncio.Protocol):
                 nonlocal retry
                 _LOGGER.warning("Command %s failed with %s, retrying...", cmd, err)
                 retry -= 1
-                self.transport.write(f"{cmd}={value}\r\n".encode("ascii"))
+                written = self.transport.write(f"{cmd}={value}\r\n".encode("ascii"))
+                _LOGGER.debug("Wrote %d bytes to serial transport", written)
 
             async def process(msg):
                 """Process a possible response."""
