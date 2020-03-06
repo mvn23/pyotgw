@@ -66,12 +66,10 @@ class pyotgw:
             self._connected = False
             self._transport.close()
         self.loop = loop
-        transport = None
-        protocol = None
 
         async def attempt_connect():
             """Try to connect to the OpenTherm Gateway."""
-            nonlocal transport, protocol
+            transport = None
             while transport is None:
                 try:
                     transport, protocol = await serial_asyncio.create_serial_connection(
@@ -97,10 +95,13 @@ class pyotgw:
                     transport = None
                     await asyncio.sleep(5)
                 except asyncio.CancelledError:
-                    return {}
+                    return
+            return (transport, protocol)
 
         self._attempt_connect = self.loop.create_task(attempt_connect())
-        await self._attempt_connect
+        transport, protocol = await self._attempt_connect
+        if transport is None:
+            return {}
         self._attempt_connect = None
         self._conn_error = False
         _LOGGER.debug("Connected to serial device on %s", port)
