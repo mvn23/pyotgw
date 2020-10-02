@@ -53,6 +53,9 @@ MSG_OTVERS = b"\x7D"
 MSG_MVER = b"\x7E"
 MSG_SVER = b"\x7F"
 
+BOILER = "boiler"
+OTGW = "gateway"
+THERMOSTAT = "thermostat"
 
 # MSG_STATUS
 DATA_MASTER_CH_ENABLED = "master_ch_enabled"
