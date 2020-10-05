@@ -19,6 +19,7 @@
 
 
 import asyncio
+import copy
 import logging
 from asyncio import TimeoutError
 from datetime import datetime
@@ -140,7 +141,7 @@ class pyotgw:
             v.OTGW_GPIO_B
         ):
             await self._poll_gpio(True)
-        return dict(self._protocol.status)
+        return copy.deepcopy(self._protocol.status)
 
     async def disconnect(self):
         """
@@ -335,7 +336,7 @@ class pyotgw:
             }
             self._update_status(v.THERMOSTAT, status_thermostat)
         self._update_status(v.OTGW, status_otgw)
-        return dict(self._protocol.status)
+        return copy.deepcopy(self._protocol.status)
 
     async def get_status(self):
         """
@@ -404,7 +405,7 @@ class pyotgw:
         }
         self._update_status(v.BOILER, status)
         self._update_status(v.THERMOSTAT, status)
-        return dict(self._protocol.status)
+        return copy.deepcopy(self._protocol.status)
 
     async def set_hot_water_ovrd(self, state, timeout=v.OTGW_DEFAULT_TIMEOUT):
         """
@@ -460,7 +461,7 @@ class pyotgw:
             self._protocol.status = {v.BOILER: {}, v.OTGW: {}, v.THERMOSTAT: {}}
             await self.get_reports()
             await self.get_status()
-            return dict(self._protocol.status)
+            return copy.deepcopy(self._protocol.status)
         status_otgw[v.OTGW_MODE] = ret
         self._update_status(v.OTGW, status_otgw)
         return ret
@@ -869,7 +870,7 @@ class pyotgw:
         if len(self._notify) > 0:
             # Each client gets its own copy of the dict.
             asyncio.gather(
-                *[coro(dict(status)) for coro in self._notify], loop=self.loop
+                *[coro(copy.deepcopy(status)) for coro in self._notify], loop=self.loop
             )
 
     async def _wait_for_cmd(self, cmd, value, timeout=v.OTGW_DEFAULT_TIMEOUT):

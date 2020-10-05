@@ -17,6 +17,7 @@
 #
 
 import asyncio
+import copy
 import logging
 import re
 import struct
@@ -51,7 +52,7 @@ class protocol(asyncio.Protocol):
         self._msg_task = self.loop.create_task(self._process_msgs())
         self._report_task = None
         self._watchdog_task = None
-        self.status = {v.BOILER: {}, v.OTGW: {}, v.THERMOSTAT: {}}
+        self.status = v.DEFAULT_STATUS
         self.connected = True
 
     def connection_lost(self, exc):
@@ -69,9 +70,9 @@ class protocol(asyncio.Protocol):
         for q in [self._cmdq, self._updateq, self._msgq]:
             while not q.empty():
                 q.get_nowait()
-        self.status = {}
+        self.status = v.DEFAULT_STATUS
         if self._update_cb is not None:
-            self.loop.create_task(self._update_cb(dict(self.status)))
+            self.loop.create_task(self._update_cb(copy.deepcopy(self.status)))
 
     async def disconnect(self):
         """Disconnect gracefully."""
@@ -457,7 +458,7 @@ class protocol(asyncio.Protocol):
                 # Slave reports product type and version
                 statuspart[v.DATA_SLAVE_PRODUCT_TYPE] = self._get_u8(msb)
                 statuspart[v.DATA_SLAVE_PRODUCT_VERSION] = self._get_u8(lsb)
-        self._updateq.put_nowait(dict(self.status))
+        self._updateq.put_nowait(copy.deepcopy(self.status))
 
     def _get_flag8(self, byte):
         """
@@ -510,11 +511,11 @@ class protocol(asyncio.Protocol):
         This method is a coroutine
         """
         while True:
-            oldstatus = dict(self.status)
+            oldstatus = copy.deepcopy(self.status)
             stat = await self._updateq.get()
             if self._update_cb is not None and oldstatus != stat:
                 # Each client gets its own copy of the dict.
-                self.loop.create_task(self._update_cb(dict(stat)))
+                self.loop.create_task(self._update_cb(copy.deepcopy(stat)))
 
     async def set_update_cb(self, cb):
         """Register the update callback."""
@@ -540,8 +541,7 @@ class protocol(asyncio.Protocol):
                     await self._cmdq.get(),
                 )
             _LOGGER.debug("Sending command: %s with value %s", cmd, value)
-            written = self.transport.write(f"{cmd}={value}\r\n".encode("ascii"))
-            _LOGGER.debug("Wrote %d bytes to serial transport", written)
+            self.transport.write(f"{cmd}={value}\r\n".encode("ascii"))
             if cmd == v.OTGW_CMD_REPORT:
                 expect = fr"^{cmd}:\s*([A-Z]{{2}}|{value}=[^$]+)$"
             else:

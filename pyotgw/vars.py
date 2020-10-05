@@ -57,6 +57,8 @@ BOILER = "boiler"
 OTGW = "gateway"
 THERMOSTAT = "thermostat"
 
+DEFAULT_STATUS = {BOILER: {}, OTGW: {}, THERMOSTAT: {}}
+
 # MSG_STATUS
 DATA_MASTER_CH_ENABLED = "master_ch_enabled"
 DATA_MASTER_DHW_ENABLED = "master_dhw_enabled"
