@@ -185,25 +185,27 @@ class pyotgw:
         """
         cmd = v.OTGW_CMD_TARGET_TEMP if temporary else v.OTGW_CMD_TARGET_TEMP_CONST
         value = f"{temp:2.1f}"
-        status_otgw = {}
-        status_thermostat = {}
+        status_update = {v.OTGW: {}, v.THERMOSTAT: {}}
         ret = await self._wait_for_cmd(cmd, value, timeout)
         if ret is None:
             return
         ret = float(ret)
         if 0 <= ret <= 30:
             if ret == 0:
-                status_otgw[v.OTGW_SETP_OVRD_MODE] = v.OTGW_SETP_OVRD_DISABLED
-                status_thermostat[v.DATA_ROOM_SETPOINT_OVRD] = None
+                status_update = {
+                    v.OTGW: {v.OTGW_SETP_OVRD_MODE: v.OTGW_SETP_OVRD_DISABLED},
+                    v.THERMOSTAT: {v.DATA_ROOM_SETPOINT_OVRD: None},
+                }
             else:
                 if temporary:
                     ovrd_mode = v.OTGW_SETP_OVRD_TEMPORARY
                 else:
                     ovrd_mode = v.OTGW_SETP_OVRD_PERMANENT
-                status_otgw[v.OTGW_SETP_OVRD_MODE] = ovrd_mode
-                status_thermostat[v.DATA_ROOM_SETPOINT_OVRD] = ret
-            self._update_status(v.OTGW, status_otgw)
-            self._update_status(v.THERMOSTAT, status_thermostat)
+                status_update = {
+                    v.OTGW: {v.OTGW_SETP_OVRD_MODE: ovrd_mode},
+                    v.THERMOSTAT: {v.DATA_ROOM_SETPOINT_OVRD: ret},
+                }
+            self._update_full_status(status_update)
             return ret
 
     def get_outside_temp(self):
@@ -293,6 +295,7 @@ class pyotgw:
             v.OTGW_THRM_DETECT: reports.get(v.OTGW_REPORT_THERMOSTAT_DETECT),
             v.OTGW_DHW_OVRD: reports.get(v.OTGW_REPORT_DHW_SETTING),
         }
+        status_thermostat = {}
         ovrd_mode = reports.get(v.OTGW_REPORT_SETPOINT_OVRD)
         if ovrd_mode is not None:
             ovrd_mode = str.upper(ovrd_mode[0])
@@ -334,8 +337,7 @@ class pyotgw:
                     reports[v.OTGW_REPORT_SETPOINT_OVRD][1:]
                 )
             }
-            self._update_status(v.THERMOSTAT, status_thermostat)
-        self._update_status(v.OTGW, status_otgw)
+        self._update_full_status({v.THERMOSTAT: status_thermostat, v.OTGW: status_otgw})
         return copy.deepcopy(self._protocol.status)
 
     async def get_status(self):
@@ -403,8 +405,7 @@ class pyotgw:
             v.DATA_DHW_PUMP_HOURS: int(fields[23]),
             v.DATA_DHW_BURNER_HOURS: int(fields[24]),
         }
-        self._update_status(v.BOILER, status)
-        self._update_status(v.THERMOSTAT, status)
+        self._update_full_status({v.BOILER: status, v.THERMOSTAT: status})
         return copy.deepcopy(self._protocol.status)
 
     async def set_hot_water_ovrd(self, state, timeout=v.OTGW_DEFAULT_TIMEOUT):
@@ -932,14 +933,30 @@ class pyotgw:
             self._gpio_task.cancel()
 
     def _update_status(self, part, update):
-        """Update the status dict and push it to subscribers."""
+        """Update part of the status dict and push it to subscribers."""
         if part not in self._protocol.status:
             _LOGGER.error(f"Invalid status part for update: {part}")
             return
         try:
             if isinstance(update, dict):
                 self._protocol.status[part].update(update)
-                self._protocol._updateq.put_nowait(self._protocol.status)
+                self._protocol._updateq.put_nowait(copy.deepcopy(self._protocol.status))
+        except AttributeError:
+            _LOGGER.warning(
+                "Error sending status update. Are we connected to the gateway?"
+            )
+
+    def _update_full_status(self, update):
+        """Update the full status dict recursively and push it to subscribers."""
+        for part in update.keys():
+            if part not in self._protocol.status:
+                _LOGGER.error(f"Invalid status part for update: {part}")
+                return
+        try:
+            for part, values in update.items():
+                if isinstance(values, dict):
+                    self._protocol.status[part].update(values)
+            self._protocol._updateq.put_nowait(copy.deepcopy(self._protocol.status))
         except AttributeError:
             _LOGGER.warning(
                 "Error sending status update. Are we connected to the gateway?"
