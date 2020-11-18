@@ -52,7 +52,7 @@ class protocol(asyncio.Protocol):
         self._msg_task = self.loop.create_task(self._process_msgs())
         self._report_task = None
         self._watchdog_task = None
-        self.status = v.DEFAULT_STATUS
+        self.status = copy.deepcopy(v.DEFAULT_STATUS)
         self.connected = True
 
     def connection_lost(self, exc):
@@ -70,7 +70,7 @@ class protocol(asyncio.Protocol):
         for q in [self._cmdq, self._updateq, self._msgq]:
             while not q.empty():
                 q.get_nowait()
-        self.status = v.DEFAULT_STATUS
+        self.status = copy.deepcopy(v.DEFAULT_STATUS)
         if self._update_cb is not None:
             self.loop.create_task(self._update_cb(copy.deepcopy(self.status)))
 
