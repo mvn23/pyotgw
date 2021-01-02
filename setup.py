@@ -13,7 +13,7 @@ def read(fname):
 
 setup(
     name="pyotgw",
-    version="1.0b1",
+    version="1.0b2",
     author="Milan van Nugteren",
     author_email="milan@network23.nl",
     description=(
