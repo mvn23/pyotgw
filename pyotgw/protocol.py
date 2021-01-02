@@ -204,7 +204,11 @@ class protocol(asyncio.Protocol):
         recvfrom = match.group(1)
         frame = bytes.fromhex(match.group(2))
         if recvfrom == "E":
-            _LOGGER.warning("Received erroneous message, ignoring: %s", frame)
+            _LOGGER.info(
+                "The OpenTherm Gateway received an erroneous message."
+                " This is not a bug in pyotgw. Ignoring: %s",
+                frame.hex(),
+            )
             return (None, None, None, None, None)
         msgtype = self._get_msgtype(frame[0])
         if msgtype in (v.READ_ACK, v.WRITE_ACK, v.READ_DATA, v.WRITE_DATA):
@@ -566,7 +570,7 @@ class protocol(asyncio.Protocol):
                     return
                 if cmd == v.OTGW_CMD_MODE and value == "R":
                     # Device was reset, msg contains build info
-                    while not re.match(r"OpenTherm Gateway \d+\.\d+\.\d+", msg):
+                    while not re.match(r"OpenTherm Gateway \d+(\.\d+)*", msg):
                         msg = await self._cmdq.get()
                     return True
                 match = re.match(expect, msg)
