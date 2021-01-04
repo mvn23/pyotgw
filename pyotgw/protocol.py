@@ -556,8 +556,7 @@ class protocol(asyncio.Protocol):
                 nonlocal retry
                 _LOGGER.warning("Command %s failed with %s, retrying...", cmd, err)
                 retry -= 1
-                written = self.transport.write(f"{cmd}={value}\r\n".encode("ascii"))
-                _LOGGER.debug("Wrote %d bytes to serial transport", written)
+                self.transport.write(f"{cmd}={value}\r\n".encode("ascii"))
 
             async def process(msg):
                 """Process a possible response."""
