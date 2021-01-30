@@ -380,7 +380,7 @@ class pyotgw:
             v.DATA_REMOTE_RW_DHW: int(remote_params[1][7]),
             v.DATA_REMOTE_RW_MAX_CH: int(remote_params[1][6]),
             v.DATA_SLAVE_MAX_RELATIVE_MOD: float(fields[3]),
-            v.DATA_SLAVE_MAX_CAPACITY: int(capmodlimits[0]),
+            v.DATA_SLAVE_MAX_CAPACITY: float(capmodlimits[0]),
             v.DATA_SLAVE_MIN_MOD_LEVEL: int(capmodlimits[1]),
             v.DATA_ROOM_SETPOINT: float(fields[5]),
             v.DATA_REL_MOD_LEVEL: float(fields[6]),
