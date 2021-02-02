@@ -544,10 +544,20 @@ class protocol(asyncio.Protocol):
                     "Clearing leftover message from command queue: %s",
                     await self._cmdq.get(),
                 )
+            if type(value) == float:
+                value = f"{value:.2f}"
             _LOGGER.debug("Sending command: %s with value %s", cmd, value)
             self.transport.write(f"{cmd}={value}\r\n".encode("ascii"))
             if cmd == v.OTGW_CMD_REPORT:
                 expect = fr"^{cmd}:\s*([A-Z]{{2}}|{value}=[^$]+)$"
+            # OTGW_CMD_CONTROL_HEATING_2 and OTGW_CMD_CONTROL_SETPOINT_2 do not adhere
+            # to the standard response format (<cmd>: <value>) at the moment, but report
+            # only the value. This will likely be fixed in the future, so we support
+            # both formats.
+            elif cmd == v.OTGW_CMD_CONTROL_HEATING_2:
+                expect = fr"^(?:{cmd}:\s*)?(0|1)$"
+            elif cmd == v.OTGW_CMD_CONTROL_SETPOINT_2:
+                expect = fr"^(?:{cmd}:\s*)?([0-9]+\.[0-9]{{2}})$"
             else:
                 expect = fr"^{cmd}:\s*([^$]+)$"
 

@@ -218,6 +218,12 @@ The target temperature is the temperature which the system is trying to reach. T
 Returns the currently known target temperature.
 
 ---
+##### pyotgw.get_temp_sensor_function(_self_)
+Get the assigned function of the temperature sensor which is connected to the gateway.
+
+Returns either `O` for 'Outside Air Temperature' or `R` for 'Return Water Temperature'.
+
+---
 ##### pyotgw.prio_message(_self_, message, timeout=OTGW_DEFAULT_TIMEOUT)
 __Not implemented yet.__
 Send a priority message to the boiler.
@@ -231,7 +237,19 @@ This method is a coroutine.
 ---
 ##### pyotgw.set_ch_enable_bit(_self_, ch_bit, timeout=OTGW_DEFAULT_TIMEOUT)
 Set or unset the `Central Heating Enable` bit.
-Control the CH enable status bit when overriding the control setpoint. By default the CH enable bit is set after a call to `pyotgw.set_control_setpoint ()` with a value other than 0. With this method, the bit can be manipulated.
+Control the CH enable status bit when overriding the control setpoint. By default the CH enable bit is set after a call to `pyotgw.set_control_setpoint()` with a value other than 0. With this method, the bit can be manipulated.
+This method supports the following arguments:
+- __ch_bit__ The new value for the `Central Heating Enable` bit. Can be either `0` or `1`.
+- __timeout__ The timeout for the request. Defaults to OTGW_DEFAULT_TIMEOUT (3 seconds).
+
+Return the newly accepted value (`0` or `1`), or `None` on failure.
+
+This method is a coroutine.
+
+---
+##### pyotgw.set_ch2_enable_bit(_self_, ch_bit, timeout=OTGW_DEFAULT_TIMEOUT)
+Set or unset the `Central Heating Enable` bit for heating circuit 2.
+Control the CH enable status bit when overriding the control setpoint. By default the CH enable bit is set after a call to `pyotgw.set_control_setpoint()` with a value other than 0. With this method, the bit can be manipulated.
 This method supports the following arguments:
 - __ch_bit__ The new value for the `Central Heating Enable` bit. Can be either `0` or `1`.
 - __timeout__ The timeout for the request. Defaults to OTGW_DEFAULT_TIMEOUT (3 seconds).
@@ -255,6 +273,18 @@ This method is a coroutine.
 ---
 ##### pyotgw.set_control_setpoint(_self_, setpoint, timeout=OTGW_DEFAULT_TIMEOUT)
 Set the control setpoint.
+The control setpoint is the target temperature for the water in the central heating system. This method will cause the OpenTherm Gateway to manipulate the control setpoint which is sent to the boiler. Set the control setpoint to `0` to pass along the value specified by the thermostat.
+This method supports the following arguments:
+- __setpoint__ The new control setpoint.
+- __timeout__ The timeout for the request. Defaults to OTGW_DEFAULT_TIMEOUT (3 seconds).
+
+Returns the newly accepted value, or `None` on failure.
+
+This method is a coroutine.
+
+---
+##### pyotgw.set_control_setpoint_2(_self_, setpoint, timeout=OTGW_DEFAULT_TIMEOUT)
+Set the control setpoint for central heating circuit 2.
 The control setpoint is the target temperature for the water in the central heating system. This method will cause the OpenTherm Gateway to manipulate the control setpoint which is sent to the boiler. Set the control setpoint to `0` to pass along the value specified by the thermostat.
 This method supports the following arguments:
 - __setpoint__ The new control setpoint.
@@ -422,6 +452,17 @@ This method supports the following arguments:
 - __timeout__ The timeout for the request. Defaults to OTGW_DEFAULT_TIMEOUT (3 seconds).
 
 Returns the newly accepted room setpoint, or `None` on failure.
+
+This method is a coroutine.
+
+---
+##### pyotgw.set_temp_sensor_function(_self_, func, timeout=v.OTGW_DEFAULT_TIMEOUT):
+Set the function of the temperature sensor that can be attached to the gateway.
+This method supports the following arguments:
+- __func__ The new temperature sensor function. Either `O` for `Outside Air Temperature` or `R` for `Return Water Temperature`.
+- __timeout__ The timeout for the request. Defaults to OTGW_DEFAULT_TIMEOUT (3 seconds).
+
+Returns the newly accepted temperature sensor function or `None` on failure.
 
 This method is a coroutine.
 

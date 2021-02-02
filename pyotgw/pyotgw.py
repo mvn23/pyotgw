@@ -208,6 +208,32 @@ class pyotgw:
             self._update_full_status(status_update)
             return ret
 
+    def get_temp_sensor_function(self):
+        """
+        Return the temperature sensor function.
+        """
+        if not self._connected:
+            return
+        return self._protocol.status[v.OTGW].get(v.OTGW_TEMP_SENSOR)
+
+    async def set_temp_sensor_function(self, func, timeout=v.OTGW_DEFAULT_TIMEOUT):
+        """
+        Set the temperature sensor function. The following functions are available:
+            O: Outside temperature
+            R: Return water temperature
+
+        This method is a coroutine
+        """
+        cmd = v.OTGW_CMD_TEMP_SENSOR
+        if func not in "OR":
+            return None
+        ret = await self._wait_for_cmd(cmd, func, timeout)
+        if ret is None:
+            return
+        status_otgw = {v.OTGW_TEMP_SENSOR: ret}
+        self._update_status(v.OTGW, status_otgw)
+        return ret
+
     def get_outside_temp(self):
         """
         Return the outside temperature as known in the gateway.
@@ -280,8 +306,20 @@ class pyotgw:
         """
         cmd = v.OTGW_CMD_REPORT
         reports = {}
+        # Get version info first
+        ret = await self._wait_for_cmd(cmd, v.OTGW_REPORT_ABOUT)
+        reports[v.OTGW_REPORT_ABOUT] = ret[2:] if ret else None
         for value in v.OTGW_REPORTS.keys():
-            ret = await self._wait_for_cmd(cmd, value)
+            if value == v.OTGW_REPORT_ABOUT:
+                continue
+            try:
+                ret = await self._wait_for_cmd(cmd, value)
+            except ValueError:
+                ver = reports.get(v.OTGW_REPORT_ABOUT)
+                if ver and ver[18] == "5" and value in "DQ":
+                    # Unsupported in v5
+                    continue
+                raise
             if ret is None:
                 reports[value] = None
                 continue
@@ -290,10 +328,12 @@ class pyotgw:
             v.OTGW_ABOUT: reports.get(v.OTGW_REPORT_ABOUT),
             v.OTGW_BUILD: reports.get(v.OTGW_REPORT_BUILDDATE),
             v.OTGW_CLOCKMHZ: reports.get(v.OTGW_REPORT_CLOCKMHZ),
-            v.OTGW_MODE: reports.get(v.OTGW_REPORT_GW_MODE),
-            v.OTGW_SMART_PWR: reports.get(v.OTGW_REPORT_SMART_PWR),
-            v.OTGW_THRM_DETECT: reports.get(v.OTGW_REPORT_THERMOSTAT_DETECT),
             v.OTGW_DHW_OVRD: reports.get(v.OTGW_REPORT_DHW_SETTING),
+            v.OTGW_MODE: reports.get(v.OTGW_REPORT_GW_MODE),
+            v.OTGW_RST_CAUSE: reports.get(v.OTGW_REPORT_RST_CAUSE),
+            v.OTGW_SMART_PWR: reports.get(v.OTGW_REPORT_SMART_PWR),
+            v.OTGW_TEMP_SENSOR: reports.get(v.OTGW_REPORT_TEMP_SENSOR),
+            v.OTGW_THRM_DETECT: reports.get(v.OTGW_REPORT_THERMOSTAT_DETECT),
         }
         status_thermostat = {}
         ovrd_mode = reports.get(v.OTGW_REPORT_SETPOINT_OVRD)
@@ -866,6 +906,24 @@ class pyotgw:
         self._update_status(v.BOILER, status_boiler)
         return ret
 
+    async def set_control_setpoint_2(self, setpoint, timeout=v.OTGW_DEFAULT_TIMEOUT):
+        """
+        Manipulate the control setpoint being sent to the boiler for the second
+        heating circuit. Set to 0 to pass along the value specified by the thermostat.
+        Return the newly accepted value, or None on failure.
+
+        This method is a coroutine
+        """
+        cmd = v.OTGW_CMD_CONTROL_SETPOINT_2
+        status_boiler = {}
+        ret = await self._wait_for_cmd(cmd, setpoint, timeout)
+        if ret is None:
+            return
+        ret = float(ret)
+        status_boiler[v.DATA_CONTROL_SETPOINT_2] = ret
+        self._update_status(v.BOILER, status_boiler)
+        return ret
+
     async def set_ch_enable_bit(self, ch_bit, timeout=v.OTGW_DEFAULT_TIMEOUT):
         """
         Control the CH enable status bit when overriding the control
@@ -886,6 +944,29 @@ class pyotgw:
             return
         ret = int(ret)
         status_boiler[v.DATA_MASTER_CH_ENABLED] = ret
+        self._update_status(v.BOILER, status_boiler)
+        return ret
+
+    async def set_ch2_enable_bit(self, ch_bit, timeout=v.OTGW_DEFAULT_TIMEOUT):
+        """
+        Control the CH enable status bit when overriding the control
+        setpoint. By default the CH enable bit is set after a call to
+        set_control_setpoint with a value other than 0. With this
+        method, the bit can be manipulated.
+        @ch_bit can be either 0 or 1.
+        Return the newly accepted value (0 or 1), or None on failure.
+
+        This method is a coroutine
+        """
+        if ch_bit not in [0, 1]:
+            return None
+        cmd = v.OTGW_CMD_CONTROL_HEATING_2
+        status_boiler = {}
+        ret = await self._wait_for_cmd(cmd, ch_bit, timeout)
+        if ret is None:
+            return
+        ret = int(ret)
+        status_boiler[v.DATA_MASTER_CH2_ENABLED] = ret
         self._update_status(v.BOILER, status_boiler)
         return ret
 

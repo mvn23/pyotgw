@@ -293,6 +293,7 @@ OTGW_CMD_LED_F = "LF"
 OTGW_CMD_GPIO_A = "GA"
 OTGW_CMD_GPIO_B = "GB"
 OTGW_CMD_SETBACK = "SB"
+OTGW_CMD_TEMP_SENSOR = "TS"
 OTGW_CMD_ADD_ALT = "AA"
 OTGW_CMD_DEL_ALT = "DA"
 OTGW_CMD_UNKNOWN_ID = "UI"
@@ -304,7 +305,9 @@ OTGW_CMD_SET_MAX = "SH"
 OTGW_CMD_SET_WATER = "SW"
 OTGW_CMD_MAX_MOD = "MM"
 OTGW_CMD_CONTROL_SETPOINT = "CS"
+OTGW_CMD_CONTROL_SETPOINT_2 = "C2"
 OTGW_CMD_CONTROL_HEATING = "CH"
+OTGW_CMD_CONTROL_HEATING_2 = "H2"
 OTGW_CMD_VENT = "VS"
 OTGW_CMD_RST_CNT = "RS"
 OTGW_CMD_IGNORE_TRANS = "IT"
@@ -327,9 +330,11 @@ OTGW_GPIO_A = "otgw_gpio_a"
 OTGW_GPIO_B = "otgw_gpio_b"
 OTGW_GPIO_A_STATE = "otgw_gpio_a_state"
 OTGW_GPIO_B_STATE = "otgw_gpio_b_state"
+OTGW_RST_CAUSE = "otgw_reset_cause"
 OTGW_SB_TEMP = "otgw_setback_temp"
 OTGW_SETP_OVRD_MODE = "otgw_setpoint_ovrd_mode"
 OTGW_SMART_PWR = "otgw_smart_pwr"
+OTGW_TEMP_SENSOR = "otgw_temp_sensor"
 OTGW_THRM_DETECT = "otgw_thermostat_detect"
 OTGW_IGNORE_TRANSITIONS = "otgw_ignore_transitions"
 OTGW_OVRD_HB = "otgw_ovrd_high_byte"
@@ -345,12 +350,14 @@ OTGW_MODE_RESET = "R"
 OTGW_REPORT_ABOUT = "A"
 OTGW_REPORT_BUILDDATE = "B"
 OTGW_REPORT_CLOCKMHZ = "C"
+OTGW_REPORT_TEMP_SENSOR = "D"
 OTGW_REPORT_GPIO_FUNCS = "G"
 OTGW_REPORT_GPIO_STATES = "I"
 OTGW_REPORT_LED_FUNCS = "L"
 OTGW_REPORT_GW_MODE = "M"
 OTGW_REPORT_SETPOINT_OVRD = "O"
 OTGW_REPORT_SMART_PWR = "P"
+OTGW_REPORT_RST_CAUSE = "Q"
 OTGW_REPORT_THERMOSTAT_DETECT = "R"
 OTGW_REPORT_SETBACK_TEMP = "S"
 OTGW_REPORT_TWEAKS = "T"
@@ -361,6 +368,7 @@ OTGW_REPORTS = {
     OTGW_REPORT_ABOUT: OTGW_ABOUT,
     OTGW_REPORT_BUILDDATE: OTGW_BUILD,
     OTGW_REPORT_CLOCKMHZ: OTGW_CLOCKMHZ,
+    OTGW_REPORT_DHW_SETTING: OTGW_DHW_OVRD,
     OTGW_REPORT_GPIO_FUNCS: [OTGW_GPIO_A, OTGW_GPIO_B],
     OTGW_REPORT_GPIO_STATES: [OTGW_GPIO_A_STATE, OTGW_GPIO_B_STATE],
     OTGW_REPORT_LED_FUNCS: [
@@ -372,13 +380,14 @@ OTGW_REPORTS = {
         OTGW_LED_F,
     ],
     OTGW_REPORT_GW_MODE: OTGW_MODE,
+    OTGW_REPORT_RST_CAUSE: OTGW_RST_CAUSE,
+    OTGW_REPORT_SETBACK_TEMP: OTGW_SB_TEMP,
     OTGW_REPORT_SETPOINT_OVRD: OTGW_SETP_OVRD_MODE,
     OTGW_REPORT_SMART_PWR: OTGW_SMART_PWR,
+    OTGW_REPORT_TEMP_SENSOR: OTGW_TEMP_SENSOR,
     OTGW_REPORT_THERMOSTAT_DETECT: OTGW_THRM_DETECT,
-    OTGW_REPORT_SETBACK_TEMP: OTGW_SB_TEMP,
     OTGW_REPORT_TWEAKS: [OTGW_IGNORE_TRANSITIONS, OTGW_OVRD_HB],
     OTGW_REPORT_VREF: OTGW_VREF,
-    OTGW_REPORT_DHW_SETTING: OTGW_DHW_OVRD,
 }
 
 NO_GOOD = "NG"
@@ -388,15 +397,20 @@ OUT_OF_RANGE = "OR"
 NO_SPACE = "NS"
 NOT_FOUND = "NF"
 OVERRUN_ERR = "OE"
+MPC_ERR = "MPC"
 
 OTGW_ERRS = {
-    NO_GOOD: RuntimeError("No Good: The command code is unknown."),
+    NO_GOOD: RuntimeError(
+        "No Good: The command code is unknown or unsupported on this "
+        "version of the OpenTherm Gateway."
+    ),
     SYNTAX_ERR: SyntaxError(
         "Syntax Error: The command contained an "
         "unexpected character or was incomplete."
     ),
     BAD_VALUE: ValueError(
-        "Bad Value: The command contained a data value that is not allowed."
+        "Bad Value: The command contained a data value that is not allowed or not "
+        "supported on this version of the OpenTherm Gateway."
     ),
     OUT_OF_RANGE: RuntimeError(
         "Out of Range: A number was specified outside of the allowed range."
@@ -414,4 +428,5 @@ OTGW_ERRS = {
         "Overrun Error: The processor was busy and "
         "failed to process all received characters."
     ),
+    MPC_ERR: RuntimeError("MPC Error"),
 }
