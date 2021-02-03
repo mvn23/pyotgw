@@ -38,6 +38,9 @@ MSG_OTCCURVEUL = b"\x32"
 MSG_TDHWSET = b"\x38"
 MSG_MAXTSET = b"\x39"
 MSG_OTCCURVE = b"\x3A"
+MSG_STATUSVH = b"\x46"
+MSG_RELVENTPOS = b"\x47"
+MSG_RELVENT = b"\x4D"
 MSG_ROVRD = b"\x64"
 MSG_OEMDIAG = b"\x73"
 MSG_BURNSTARTS = b"\x74"
@@ -197,6 +200,24 @@ DATA_DHW_SETPOINT = "dhw_setpoint"
 DATA_MAX_CH_SETPOINT = "max_ch_setpoint"
 
 # MSG_OTCCURVE
+
+# MSG_STATUSVH
+DATA_VH_MASTER_VENT_ENABLED = "vh_master_vent_enabled"
+DATA_VH_MASTER_BYPASS_POS = "vh_master_bypass_pos"
+DATA_VH_MASTER_BYPASS_MODE = "vh_master_bypass_mode"
+DATA_VH_MASTER_FREE_VENT_MODE = "vh_master_free_vent_mode"
+DATA_VH_SLAVE_FAULT_INDICATE = "vh_slave_fault_indicate"
+DATA_VH_SLAVE_VENT_MODE = "vh_slave_vent_mode"
+DATA_VH_SLAVE_BYPASS_STATUS = "vh_slave_bypass_status"
+DATA_VH_SLAVE_BYPASS_AUTO_STATUS = "vh_slave_bypass_auto_status"
+DATA_VH_SLAVE_FREE_VENT_STATUS = "vh_slave_free_vent_status"
+DATA_VH_SLAVE_DIAG_INDICATE = "vh_slave_diag_indicate"
+
+# MSG_RELVENTPOS
+DATA_VH_CONTROL_SETPOINT = "vh_control_setpoint"
+
+# MSG_RELVENT
+DATA_VH_RELATIVE_VENT = "vh_relative_vent"
 
 # MSG_ROVRD
 DATA_ROVRD_MAN_PRIO = "rovrd_man_prio"
