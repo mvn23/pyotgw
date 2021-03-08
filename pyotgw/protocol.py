@@ -41,11 +41,11 @@ class protocol(asyncio.Protocol):
         """
         self.transport = transport
         self.loop = transport.loop
-        self._cmd_lock = asyncio.Lock(loop=self.loop)
-        self._wd_lock = asyncio.Lock(loop=self.loop)
-        self._cmdq = asyncio.Queue(loop=self.loop)
-        self._msgq = asyncio.Queue(loop=self.loop)
-        self._updateq = asyncio.Queue(loop=self.loop)
+        self._cmd_lock = asyncio.Lock()
+        self._wd_lock = asyncio.Lock()
+        self._cmdq = asyncio.Queue()
+        self._msgq = asyncio.Queue()
+        self._updateq = asyncio.Queue()
         self._readbuf = b""
         self._update_cb = None
         self._received_lines = 0
@@ -144,7 +144,7 @@ class protocol(asyncio.Protocol):
 
     async def _watchdog(self, timeout):
         """Trigger and cancel the watchdog after timeout. Call callback."""
-        await asyncio.sleep(timeout, loop=self.loop)
+        await asyncio.sleep(timeout)
         _LOGGER.debug("Watchdog triggered!")
         try:
             _LOGGER.debug("Internal read buffer content: %s", self._readbuf.hex())

@@ -1026,9 +1026,7 @@ class pyotgw:
         """
         if len(self._notify) > 0:
             # Each client gets its own copy of the dict.
-            asyncio.gather(
-                *[coro(copy.deepcopy(status)) for coro in self._notify], loop=self.loop
-            )
+            asyncio.gather(*[coro(copy.deepcopy(status)) for coro in self._notify])
 
     async def _wait_for_cmd(self, cmd, value, timeout=v.OTGW_DEFAULT_TIMEOUT):
         """
@@ -1039,9 +1037,7 @@ class pyotgw:
         if not self._connected:
             return
         try:
-            return await asyncio.wait_for(
-                self._protocol.issue_cmd(cmd, value), timeout, loop=self.loop
-            )
+            return await asyncio.wait_for(self._protocol.issue_cmd(cmd, value), timeout)
         except TimeoutError:
             _LOGGER.error("Timed out waiting for command: %s, value: %s.", cmd, value)
             return
