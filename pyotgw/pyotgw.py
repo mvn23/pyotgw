@@ -30,6 +30,8 @@ from pyotgw import protocol as otgw
 from pyotgw import vars as v
 
 _LOGGER = logging.getLogger(__name__)
+MAX_RETRY_TIMEOUT = 60
+MIN_RETRY_TIMEOUT = 5
 
 
 class pyotgw:
@@ -38,6 +40,7 @@ class pyotgw:
         self._connected = False
         self._conn_error = False
         self._notify = []
+        self._retry_timeout = MIN_RETRY_TIMEOUT
         return
 
     async def connect(
@@ -94,9 +97,10 @@ class pyotgw:
                         )
                         self._conn_error = True
                     transport = None
-                    await asyncio.sleep(5)
+                    await asyncio.sleep(self._get_retry_timeout())
                 except asyncio.CancelledError:
                     return
+            self._retry_timeout = MIN_RETRY_TIMEOUT
             return (transport, protocol)
 
         self._attempt_connect = self.loop.create_task(attempt_connect())
@@ -1113,3 +1117,11 @@ class pyotgw:
             _LOGGER.warning(
                 "Error sending status update. Are we connected to the gateway?"
             )
+
+    def _get_retry_timeout(self):
+        """Increase if needed and return the retry timeout."""
+        if self._retry_timeout == MAX_RETRY_TIMEOUT:
+            return self._retry_timeout
+        t = self._retry_timeout
+        self._retry_timeout = min([self._retry_timeout * 1.5, MAX_RETRY_TIMEOUT])
+        return t
