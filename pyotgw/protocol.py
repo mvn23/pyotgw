@@ -41,6 +41,7 @@ class protocol(asyncio.Protocol):
         """
         self.transport = transport
         self.loop = transport.loop
+        self.active = False
         self._cmd_lock = asyncio.Lock()
         self._wd_lock = asyncio.Lock()
         self._cmdq = asyncio.Queue()
@@ -60,8 +61,9 @@ class protocol(asyncio.Protocol):
         Gets called when the connection to the gateway is lost.
         Tear down and clean up the protocol object.
         """
-        if self.connected:
+        if self.active:
             _LOGGER.error("Disconnected: %s", exc)
+        self.active = False
         self.connected = False
         self.transport.close()
         if self._report_task is not None:
@@ -89,6 +91,7 @@ class protocol(asyncio.Protocol):
         Perform line buffering and call line_received() with complete
         lines.
         """
+        self.active = True
         # DIY line buffering...
         newline = b"\r\n"
         eot = b"\x04"
@@ -612,3 +615,9 @@ class protocol(asyncio.Protocol):
                 ret = await process(msg)
                 if ret is not None:
                     return ret
+
+    async def init_and_wait_for_activity(self):
+        """Wait for activity on the serial connection."""
+        await self.issue_cmd(v.OTGW_CMD_SUMMARY, 0, retry=0)
+        while not self.active:
+            await asyncio.sleep(0)

@@ -87,6 +87,9 @@ class pyotgw:
                         connection_timeout,
                         write_timeout=0,
                     )
+                    await asyncio.wait_for(
+                        protocol.init_and_wait_for_activity(), inactivity_timeout,
+                    )
                 except serial.serialutil.SerialException as e:
                     if not self._conn_error:
                         _LOGGER.error(
@@ -100,6 +103,17 @@ class pyotgw:
                     await asyncio.sleep(self._get_retry_timeout())
                 except asyncio.CancelledError:
                     return
+                except asyncio.TimeoutError:
+                    if not self._conn_error:
+                        _LOGGER.error(
+                            "The serial device on %s is not responding. "
+                            "Will keep trying.",
+                            port,
+                        )
+                        self._conn_error = True
+                    await protocol.disconnect()
+                    transport = None
+                    await asyncio.sleep(self._get_retry_timeout())
             self._retry_timeout = MIN_RETRY_TIMEOUT
             return (transport, protocol)
 
