@@ -102,7 +102,7 @@ class pyotgw:
                     transport = None
                     await asyncio.sleep(self._get_retry_timeout())
                 except asyncio.CancelledError:
-                    return
+                    return (None, None)
                 except asyncio.TimeoutError:
                     if not self._conn_error:
                         _LOGGER.error(
