@@ -155,10 +155,7 @@ class pyotgw:
         self._connected = True
         await self.get_reports()
         await self.get_status()
-        if self._protocol.status.get(v.OTGW_GPIO_A) or self._protocol.status.get(
-            v.OTGW_GPIO_B
-        ):
-            await self._poll_gpio(True)
+        await self._poll_gpio()
         return copy.deepcopy(self._protocol.status)
 
     async def disconnect(self):
@@ -692,12 +689,7 @@ class pyotgw:
             var = getattr(v, f"OTGW_GPIO_{gpio_id}")
             status_otgw[var] = ret
             self._update_status(v.OTGW, status_otgw)
-            asyncio.ensure_future(
-                self._poll_gpio(
-                    self._protocol.status[v.OTGW].get(v.OTGW_GPIO_A)
-                    or self._protocol.status[v.OTGW].get(v.OTGW_GPIO_B)
-                )
-            )
+            asyncio.ensure_future(self._poll_gpio())
             return ret
 
     def get_setback_temp(self):
@@ -1064,17 +1056,22 @@ class pyotgw:
                 "Command %s with value %s raised exception: %s", cmd, value, exc
             )
 
-    async def _poll_gpio(self, poll, interval=10):
+    async def _poll_gpio(self, interval=10):
         """
         Start or stop polling GPIO states.
 
         GPIO states aren't being pushed by the gateway, we need to poll
         if we want updates.
         """
+        poll = 0 in (
+            self._protocol.status[v.OTGW].get(v.OTGW_GPIO_A),
+            self._protocol.status[v.OTGW].get(v.OTGW_GPIO_B),
+        )
         if poll and self._gpio_task is None:
 
             async def polling_routine(interval):
                 """Poll GPIO state every @interval seconds."""
+                _LOGGER.debug("Starting GPIO polling routine")
                 while True:
                     try:
                         pios = None
@@ -1096,10 +1093,12 @@ class pyotgw:
                         }
                         self._update_status(v.OTGW, status_otgw)
                         self._gpio_task = None
+                        _LOGGER.debug("GPIO polling routine stopped")
                         break
 
             self._gpio_task = self.loop.create_task(polling_routine(interval))
         elif not poll and self._gpio_task is not None:
+            _LOGGER.debug("Stopping GPIO polling routine")
             self._gpio_task.cancel()
 
     def _update_status(self, part, update):
