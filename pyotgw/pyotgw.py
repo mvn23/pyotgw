@@ -331,9 +331,13 @@ class pyotgw:
                 ret = await self._wait_for_cmd(cmd, value)
             except ValueError:
                 ver = reports.get(v.OTGW_REPORT_ABOUT)
-                if ver and ver[18] == "5" and value in "DQ":
-                    # Unsupported in v5
-                    continue
+                if ver:
+                    if float(ver[18:21]) < 4.3 and value == "Q":
+                        # Added in v4.3
+                        continue
+                    if int(ver[18]) < 5 and value == "D":
+                        # Added in v5
+                        continue
                 raise
             if ret is None:
                 reports[value] = None
