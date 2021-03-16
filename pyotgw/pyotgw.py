@@ -90,7 +90,7 @@ class pyotgw:
                     await asyncio.wait_for(
                         protocol.init_and_wait_for_activity(), inactivity_timeout,
                     )
-                except serial.serialutil.SerialException as e:
+                except serial.SerialException as e:
                     if not self._conn_error:
                         _LOGGER.error(
                             "Could not connect to serial device on %s. "
@@ -279,11 +279,10 @@ class pyotgw:
         ret = await self._wait_for_cmd(cmd, value, timeout)
         if ret is None:
             return
-        if ret not in ["-", None]:
-            ret = float(ret)
         if ret == "-":
             status_thermostat[v.DATA_OUTSIDE_TEMP] = 0.0
         else:
+            ret = float(ret)
             status_thermostat[v.DATA_OUTSIDE_TEMP] = ret
         self._update_status(v.THERMOSTAT, status_thermostat)
         return ret
@@ -331,13 +330,9 @@ class pyotgw:
                 ret = await self._wait_for_cmd(cmd, value)
             except ValueError:
                 ver = reports.get(v.OTGW_REPORT_ABOUT)
-                if ver:
-                    if float(ver[18:21]) < 4.3 and value == "Q":
-                        # Added in v4.3
-                        continue
-                    if int(ver[18]) < 5 and value == "D":
-                        # Added in v5
-                        continue
+                if ver and int(ver[18]) < 5 and value == "D":
+                    # Added in v5
+                    continue
                 raise
             if ret is None:
                 reports[value] = None
@@ -563,7 +558,8 @@ class pyotgw:
         if ret == "A":
             status_otgw[v.OTGW_DHW_OVRD] = None
         elif ret in ["0", "1"]:
-            status_otgw[v.OTGW_DHW_OVRD] = int(ret)
+            ret = int(ret)
+            status_otgw[v.OTGW_DHW_OVRD] = ret
         self._update_status(v.OTGW, status_otgw)
         return ret
 
@@ -593,7 +589,7 @@ class pyotgw:
         if ret is None:
             return
         if mode is v.OTGW_MODE_RESET:
-            self._protocol.status = {v.BOILER: {}, v.OTGW: {}, v.THERMOSTAT: {}}
+            self._protocol.status = copy.deepcopy(v.DEFAULT_STATUS)
             await self.get_reports()
             await self.get_status()
             return copy.deepcopy(self._protocol.status)
@@ -893,11 +889,12 @@ class pyotgw:
         cmd = v.OTGW_CMD_MAX_MOD
         status_boiler = {}
         ret = await self._wait_for_cmd(cmd, max_mod, timeout)
-        if ret not in ["-", None]:
-            ret = int(ret)
+        if ret is None:
+            return
         if ret == "-":
             status_boiler[v.DATA_SLAVE_MAX_RELATIVE_MOD] = None
         else:
+            ret = int(ret)
             status_boiler[v.DATA_SLAVE_MAX_RELATIVE_MOD] = ret
         self._update_status(v.BOILER, status_boiler)
         return ret
