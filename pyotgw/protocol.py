@@ -23,6 +23,7 @@ import re
 import struct
 from asyncio.queues import QueueFull
 
+import pyotgw.messages as m
 from pyotgw import vars as v
 
 _LOGGER = logging.getLogger(__name__)
@@ -41,7 +42,7 @@ class protocol(asyncio.Protocol):
         """
         self.transport = transport
         self.loop = transport.loop
-        self.active = False
+        self._active = False
         self._cmd_lock = asyncio.Lock()
         self._wd_lock = asyncio.Lock()
         self._cmdq = asyncio.Queue()
@@ -61,9 +62,9 @@ class protocol(asyncio.Protocol):
         Gets called when the connection to the gateway is lost.
         Tear down and clean up the protocol object.
         """
-        if self.active:
+        if self.active():
             _LOGGER.error("Disconnected: %s", exc)
-        self.active = False
+        self._active = False
         self.connected = False
         self.transport.close()
         if self._report_task is not None:
@@ -91,7 +92,7 @@ class protocol(asyncio.Protocol):
         Perform line buffering and call line_received() with complete
         lines.
         """
-        self.active = True
+        self._active = True
         # DIY line buffering...
         newline = b"\r\n"
         eot = b"\x04"
@@ -113,7 +114,7 @@ class protocol(asyncio.Protocol):
         """Return the current watchdog state."""
         return self._watchdog_task is not None
 
-    async def setup_watchdog(self, cb, timeout):
+    def setup_watchdog(self, cb, timeout):
         """Trigger a reconnect after @timeout seconds of inactivity."""
         self._watchdog_timeout = timeout
         self._watchdog_cb = cb
@@ -121,7 +122,7 @@ class protocol(asyncio.Protocol):
 
     async def cancel_watchdog(self):
         """Cancel the watchdog task and related variables."""
-        if self._watchdog_task is not None:
+        if self.watchdog_active():
             _LOGGER.debug("Canceling Watchdog task.")
             self._watchdog_task.cancel()
             try:
@@ -132,7 +133,7 @@ class protocol(asyncio.Protocol):
     async def _inform_watchdog(self):
         """Inform the watchdog of activity."""
         async with self._wd_lock:
-            if self._watchdog_task is None:
+            if not self.watchdog_active():
                 # Check within the Lock to deal with external cancel_watchdog
                 # calls with queued _inform_watchdog tasks.
                 return
@@ -210,7 +211,7 @@ class protocol(asyncio.Protocol):
             _LOGGER.info(
                 "The OpenTherm Gateway received an erroneous message."
                 " This is not a bug in pyotgw. Ignoring: %s",
-                frame.hex(),
+                frame.hex().upper(),
             )
             return (None, None, None, None, None)
         msgtype = self._get_msgtype(frame[0])
@@ -242,229 +243,64 @@ class protocol(asyncio.Protocol):
                 "Processing: %s %02x %s %s %s",
                 args[0],
                 args[1],
-                *[args[i].hex() for i in range(2, 5)],
+                *[args[i].hex().upper() for i in range(2, 5)],
             )
             await self._process_msg(*args)
 
-    async def _process_msg(self, src, msgtype, msgid, msb, lsb):  # noqa: C901
+    async def _process_msg(self, src, mtype, msgid, msb, lsb):
         """
         Process message and update status variables where necessary.
         Add status to queue if it was changed in the process.
         """
+        if msgid not in m.REGISTRY:
+            return
+
         if src in "TA":
             statuspart = self.status[v.THERMOSTAT]
         else:  # src in "BR"
             statuspart = self.status[v.BOILER]
 
-        if msgtype in (v.READ_DATA, v.WRITE_DATA):
-            # Data sent from thermostat
-            if msgid == v.MSG_STATUS:
-                # Master sends status
-                thermo_status = self._get_flag8(msb)
-                statuspart[v.DATA_MASTER_CH_ENABLED] = thermo_status[0]
-                statuspart[v.DATA_MASTER_DHW_ENABLED] = thermo_status[1]
-                statuspart[v.DATA_MASTER_COOLING_ENABLED] = thermo_status[2]
-                statuspart[v.DATA_MASTER_OTC_ENABLED] = thermo_status[3]
-                statuspart[v.DATA_MASTER_CH2_ENABLED] = thermo_status[4]
-            elif msgid == v.MSG_MCONFIG:
-                # Master sends ID
-                statuspart[v.DATA_MASTER_MEMBERID] = self._get_u8(lsb)
-            elif msgid == v.MSG_TRSET:
-                # Master changes room setpoint, support by the boiler
-                # is not mandatory, but we want the data regardless
-                statuspart[v.DATA_ROOM_SETPOINT] = self._get_f8_8(msb, lsb)
-            elif msgid == v.MSG_TRSET2:
-                # Master changes room setpoint 2, support by the boiler
-                # is not mandatory, but we want the data regardless
-                statuspart[v.DATA_ROOM_SETPOINT_2] = self._get_f8_8(msb, lsb)
-            elif msgid == v.MSG_TROOM:
-                # Master reports sensed room temperature
-                statuspart[v.DATA_ROOM_TEMP] = self._get_f8_8(msb, lsb)
-            elif msgid == v.MSG_OTVERM:
-                # Master reports OpenTherm version
-                statuspart[v.DATA_MASTER_OT_VERSION] = self._get_f8_8(msb, lsb)
-            elif msgid == v.MSG_MVER:
-                # Master reports product type and version
-                statuspart[v.DATA_MASTER_PRODUCT_TYPE] = self._get_u8(msb)
-                statuspart[v.DATA_MASTER_PRODUCT_VERSION] = self._get_u8(lsb)
-        elif msgtype in (v.READ_ACK, v.WRITE_ACK):
-            # Data sent from boiler
-            if msgid == v.MSG_STATUS:
-                # Slave reports status
-                boiler_status = self._get_flag8(lsb)
-                statuspart[v.DATA_SLAVE_FAULT_IND] = boiler_status[0]
-                statuspart[v.DATA_SLAVE_CH_ACTIVE] = boiler_status[1]
-                statuspart[v.DATA_SLAVE_DHW_ACTIVE] = boiler_status[2]
-                statuspart[v.DATA_SLAVE_FLAME_ON] = boiler_status[3]
-                statuspart[v.DATA_SLAVE_COOLING_ACTIVE] = boiler_status[4]
-                statuspart[v.DATA_SLAVE_CH2_ACTIVE] = boiler_status[5]
-                statuspart[v.DATA_SLAVE_DIAG_IND] = boiler_status[6]
-            elif msgid == v.MSG_TSET:
-                # Slave confirms CH water setpoint
-                statuspart[v.DATA_CONTROL_SETPOINT] = self._get_f8_8(msb, lsb)
-            elif msgid == v.MSG_SCONFIG:
-                # Slave reports config and ID
-                slave_status = self._get_flag8(msb)
-                statuspart[v.DATA_SLAVE_DHW_PRESENT] = slave_status[0]
-                statuspart[v.DATA_SLAVE_CONTROL_TYPE] = slave_status[1]
-                statuspart[v.DATA_SLAVE_COOLING_SUPPORTED] = slave_status[2]
-                statuspart[v.DATA_SLAVE_DHW_CONFIG] = slave_status[3]
-                statuspart[v.DATA_SLAVE_MASTER_LOW_OFF_PUMP] = slave_status[4]
-                statuspart[v.DATA_SLAVE_CH2_PRESENT] = slave_status[5]
-                statuspart[v.DATA_SLAVE_MEMBERID] = self._get_u8(lsb)
-            elif msgid == v.MSG_COMMAND:
-                # TODO: implement command notification system
-                pass
-            elif msgid == v.MSG_ASFFLAGS:
-                # Slave reports fault flags
-                fault_flags = self._get_flag8(msb)
-                statuspart[v.DATA_SLAVE_SERVICE_REQ] = fault_flags[0]
-                statuspart[v.DATA_SLAVE_REMOTE_RESET] = fault_flags[1]
-                statuspart[v.DATA_SLAVE_LOW_WATER_PRESS] = fault_flags[2]
-                statuspart[v.DATA_SLAVE_GAS_FAULT] = fault_flags[3]
-                statuspart[v.DATA_SLAVE_AIR_PRESS_FAULT] = fault_flags[4]
-                statuspart[v.DATA_SLAVE_WATER_OVERTEMP] = fault_flags[5]
-                statuspart[v.DATA_SLAVE_OEM_FAULT] = self._get_u8(lsb)
-            elif msgid == v.MSG_RBPFLAGS:
-                # Slave reports remote parameters
-                transfer_flags = self._get_flag8(msb)
-                rw_flags = self._get_flag8(lsb)
-                statuspart[v.DATA_REMOTE_TRANSFER_DHW] = transfer_flags[0]
-                statuspart[v.DATA_REMOTE_TRANSFER_MAX_CH] = transfer_flags[1]
-                statuspart[v.DATA_REMOTE_RW_DHW] = rw_flags[0]
-                statuspart[v.DATA_REMOTE_RW_MAX_CH] = rw_flags[1]
-            elif msgid == v.MSG_COOLING:
-                # Only report cooling control signal if slave acks it
-                statuspart[v.DATA_COOLING_CONTROL] = self._get_f8_8(msb, lsb)
-            elif msgid == v.MSG_TSETC2:
-                # Slave confirms CH2 water setpoint
-                statuspart[v.DATA_CONTROL_SETPOINT_2] = self._get_f8_8(msb, lsb)
-            elif msgid == v.MSG_TROVRD:
-                # OTGW (or downstream device) reports remote override
-                ovrd_value = self._get_f8_8(msb, lsb)
-                if ovrd_value > 0:
-                    # iSense quirk: the gateway keeps sending override value
-                    # even if the thermostat has cancelled the override.
-                    if (
-                        self.status[v.OTGW].get(v.OTGW_THRM_DETECT) == "I"
-                        and src == "A"
-                    ):
-                        ovrd = await self.issue_cmd(
-                            v.OTGW_CMD_REPORT, v.OTGW_REPORT_SETPOINT_OVRD
-                        )
-                        match = re.match(
-                            r"^O=(N|[CT]([0-9]+.[0-9]+))$", ovrd, re.IGNORECASE
-                        )
-                        if not match:
-                            return
-                        if match.group(1) in "Nn":
-                            if v.DATA_ROOM_SETPOINT_OVRD in statuspart:
-                                del statuspart[v.DATA_ROOM_SETPOINT_OVRD]
-                        elif match.group(2):
-                            statuspart[v.DATA_ROOM_SETPOINT_OVRD] = float(
-                                match.group(2)
-                            )
-                    else:
-                        statuspart[v.DATA_ROOM_SETPOINT_OVRD] = ovrd_value
-                elif statuspart.get(v.DATA_ROOM_SETPOINT_OVRD):
-                    del statuspart[v.DATA_ROOM_SETPOINT_OVRD]
-            elif msgid == v.MSG_MAXRMOD:
-                # Slave reports maximum modulation level
-                statuspart[v.DATA_SLAVE_MAX_RELATIVE_MOD] = self._get_f8_8(msb, lsb)
-            elif msgid == v.MSG_MAXCAPMINMOD:
-                # Slave reports max capaxity and min modulation level
-                statuspart[v.DATA_SLAVE_MAX_CAPACITY] = self._get_u8(msb)
-                statuspart[v.DATA_SLAVE_MIN_MOD_LEVEL] = self._get_u8(lsb)
-            elif msgid == v.MSG_RELMOD:
-                # Slave reports relative modulation level
-                statuspart[v.DATA_REL_MOD_LEVEL] = self._get_f8_8(msb, lsb)
-            elif msgid == v.MSG_CHPRESS:
-                # Slave reports CH circuit pressure
-                statuspart[v.DATA_CH_WATER_PRESS] = self._get_f8_8(msb, lsb)
-            elif msgid == v.MSG_DHWFLOW:
-                # Slave reports DHW flow rate
-                statuspart[v.DATA_DHW_FLOW_RATE] = self._get_f8_8(msb, lsb)
-            elif msgid == v.MSG_TBOILER:
-                # Slave reports CH water temperature
-                statuspart[v.DATA_CH_WATER_TEMP] = self._get_f8_8(msb, lsb)
-            elif msgid == v.MSG_TDHW:
-                # Slave reports DHW temperature
-                statuspart[v.DATA_DHW_TEMP] = self._get_f8_8(msb, lsb)
-            elif msgid == v.MSG_TOUTSIDE:
-                # OTGW (or downstream device) reports outside temperature
-                statuspart[v.DATA_OUTSIDE_TEMP] = self._get_f8_8(msb, lsb)
-            elif msgid == v.MSG_TRET:
-                # Slave reports return water temperature
-                statuspart[v.DATA_RETURN_WATER_TEMP] = self._get_f8_8(msb, lsb)
-            elif msgid == v.MSG_TSTOR:
-                # Slave reports solar storage temperature
-                statuspart[v.DATA_SOLAR_STORAGE_TEMP] = self._get_f8_8(msb, lsb)
-            elif msgid == v.MSG_TCOLL:
-                # Slave reports solar collector temperature
-                statuspart[v.DATA_SOLAR_COLL_TEMP] = self._get_f8_8(msb, lsb)
-            elif msgid == v.MSG_TFLOWCH2:
-                # Slave reports CH2 water temperature
-                statuspart[v.DATA_CH_WATER_TEMP_2] = self._get_f8_8(msb, lsb)
-            elif msgid == v.MSG_TDHW2:
-                # Slave reports DHW2 temperature
-                statuspart[v.DATA_DHW_TEMP_2] = self._get_f8_8(msb, lsb)
-            elif msgid == v.MSG_TEXHAUST:
-                # Slave reports exhaust temperature
-                statuspart[v.DATA_EXHAUST_TEMP] = self._get_s16(msb, lsb)
-            elif msgid == v.MSG_TDHWSETUL:
-                # Slave reports min/max DHW setpoint
-                statuspart[v.DATA_SLAVE_DHW_MAX_SETP] = self._get_s8(msb)
-                statuspart[v.DATA_SLAVE_DHW_MIN_SETP] = self._get_s8(lsb)
-            elif msgid == v.MSG_TCHSETUL:
-                # Slave reports min/max CH setpoint
-                statuspart[v.DATA_SLAVE_CH_MAX_SETP] = self._get_s8(msb)
-                statuspart[v.DATA_SLAVE_CH_MIN_SETP] = self._get_s8(lsb)
-            elif msgid == v.MSG_TDHWSET:
-                # Slave reports or acks DHW setpoint
-                statuspart[v.DATA_DHW_SETPOINT] = self._get_f8_8(msb, lsb)
-            elif msgid == v.MSG_MAXTSET:
-                # Slave reports or acks max CH setpoint
-                statuspart[v.DATA_MAX_CH_SETPOINT] = self._get_f8_8(msb, lsb)
-            elif msgid == v.MSG_ROVRD:
-                # OTGW (or downstream device) reports remote override
-                # behaviour
-                rovrd_flags = self._get_flag8(lsb)
-                statuspart[v.DATA_ROVRD_MAN_PRIO] = rovrd_flags[0]
-                statuspart[v.DATA_ROVRD_AUTO_PRIO] = rovrd_flags[1]
-            elif msgid == v.MSG_OEMDIAG:
-                # Slave reports diagnostic info
-                statuspart[v.DATA_OEM_DIAG] = self._get_u16(msb, lsb)
-            elif msgid == v.MSG_BURNSTARTS:
-                # Slave reports burner starts
-                statuspart[v.DATA_TOTAL_BURNER_STARTS] = self._get_u16(msb, lsb)
-            elif msgid == v.MSG_CHPUMPSTARTS:
-                # Slave reports CH pump starts
-                statuspart[v.DATA_CH_PUMP_STARTS] = self._get_u16(msb, lsb)
-            elif msgid == v.MSG_DHWPUMPSTARTS:
-                # Slave reports DHW pump starts
-                statuspart[v.DATA_DHW_PUMP_STARTS] = self._get_u16(msb, lsb)
-            elif msgid == v.MSG_DHWBURNSTARTS:
-                # Slave reports DHW burner starts
-                statuspart[v.DATA_DHW_BURNER_STARTS] = self._get_u16(msb, lsb)
-            elif msgid == v.MSG_BURNHRS:
-                # Slave reports CH burner hours
-                statuspart[v.DATA_TOTAL_BURNER_HOURS] = self._get_u16(msb, lsb)
-            elif msgid == v.MSG_CHPUMPHRS:
-                # Slave reports CH pump hours
-                statuspart[v.DATA_CH_PUMP_HOURS] = self._get_u16(msb, lsb)
-            elif msgid == v.MSG_DHWPUMPHRS:
-                # Slave reports DHW pump hours
-                statuspart[v.DATA_DHW_PUMP_HOURS] = self._get_u16(msb, lsb)
-            elif msgid == v.MSG_DHWBURNHRS:
-                # Slave reports DHW burner hours
-                statuspart[v.DATA_DHW_BURNER_HOURS] = self._get_u16(msb, lsb)
-            elif msgid == v.MSG_OTVERS:
-                # Slave reports OpenTherm version
-                statuspart[v.DATA_SLAVE_OT_VERSION] = self._get_f8_8(msb, lsb)
-            elif msgid == v.MSG_SVER:
-                # Slave reports product type and version
-                statuspart[v.DATA_SLAVE_PRODUCT_TYPE] = self._get_u8(msb)
-                statuspart[v.DATA_SLAVE_PRODUCT_VERSION] = self._get_u8(lsb)
+        for action in m.REGISTRY[msgid][m.MSG_TYPE[mtype]]:
+            func = getattr(self, action[m.FUNC])
+            loc = locals()
+            args = (loc[arg] for arg in action[m.ARGS])
+            if asyncio.iscoroutinefunction(func):
+                ret = await func(*args)
+            else:
+                ret = func(*args)
+            ret = ret if isinstance(ret, list) else [ret]
+            for var, val in zip(action[m.RETURNS], ret):
+                if var is False:
+                    return
+                if var is None:
+                    continue
+                statuspart[var] = val
+
+        self._updateq.put_nowait(copy.deepcopy(self.status))
+
+    async def _quirk_trovrd(self, statuspart, src, msb, lsb):
+        """Handle MSG_TROVRD with iSense quirk"""
+        ovrd_value = self._get_f8_8(msb, lsb)
+        if ovrd_value > 0:
+            # iSense quirk: the gateway keeps sending override value
+            # even if the thermostat has cancelled the override.
+            if self.status[v.OTGW].get(v.OTGW_THRM_DETECT) == "I" and src == "A":
+                ovrd = await self.issue_cmd(
+                    v.OTGW_CMD_REPORT, v.OTGW_REPORT_SETPOINT_OVRD
+                )
+                match = re.match(r"^O=(N|[CT]([0-9]+.[0-9]+))$", ovrd, re.IGNORECASE)
+                if not match:
+                    return
+                if match.group(1) in "Nn":
+                    if v.DATA_ROOM_SETPOINT_OVRD in statuspart:
+                        del statuspart[v.DATA_ROOM_SETPOINT_OVRD]
+                elif match.group(2):
+                    statuspart[v.DATA_ROOM_SETPOINT_OVRD] = float(match.group(2))
+            else:
+                statuspart[v.DATA_ROOM_SETPOINT_OVRD] = ovrd_value
+        elif statuspart.get(v.DATA_ROOM_SETPOINT_OVRD):
+            del statuspart[v.DATA_ROOM_SETPOINT_OVRD]
+
         self._updateq.put_nowait(copy.deepcopy(self.status))
 
     def _get_flag8(self, byte):
@@ -517,17 +353,22 @@ class protocol(asyncio.Protocol):
 
         This method is a coroutine
         """
-        while True:
-            oldstatus = copy.deepcopy(self.status)
-            stat = await self._updateq.get()
-            if self._update_cb is not None and oldstatus != stat:
-                # Each client gets its own copy of the dict.
-                self.loop.create_task(self._update_cb(copy.deepcopy(stat)))
+        try:
+            _LOGGER.debug("Starting reporting routine")
+            while True:
+                oldstatus = copy.deepcopy(self.status)
+                stat = await self._updateq.get()
+                if self._update_cb is not None and oldstatus != stat:
+                    # Each client gets its own copy of the dict.
+                    self.loop.create_task(self._update_cb(copy.deepcopy(stat)))
+        except asyncio.CancelledError:
+            _LOGGER.debug("Stopping reporting routine")
+            self._report_task = None
 
-    async def set_update_cb(self, cb):
+    def set_update_cb(self, cb):
         """Register the update callback."""
         if self._report_task is not None and not self._report_task.cancelled():
-            self.loop.create_task(self._report_task.cancel())
+            self._report_task.cancel()
         self._update_cb = cb
         if cb is not None:
             self._report_task = self.loop.create_task(self._report())
@@ -557,10 +398,8 @@ class protocol(asyncio.Protocol):
             # to the standard response format (<cmd>: <value>) at the moment, but report
             # only the value. This will likely be fixed in the future, so we support
             # both formats.
-            elif cmd == v.OTGW_CMD_CONTROL_HEATING_2:
-                expect = fr"^(?:{cmd}:\s*)?(0|1)$"
-            elif cmd == v.OTGW_CMD_CONTROL_SETPOINT_2:
-                expect = fr"^(?:{cmd}:\s*)?([0-9]+\.[0-9]{{2}})$"
+            elif cmd in (v.OTGW_CMD_CONTROL_HEATING_2, v.OTGW_CMD_CONTROL_SETPOINT_2,):
+                expect = fr"^(?:{cmd}:\s*)?(0|1|[0-9]+\.[0-9]{{2}}|[A-Z]{{2}})$"
             else:
                 expect = fr"^{cmd}:\s*([^$]+)$"
 
@@ -606,8 +445,8 @@ class protocol(asyncio.Protocol):
                         "ignored.",
                         msg,
                     )
-                    return
-                _LOGGER.warning("Unknown message in command queue: %s", msg)
+                else:
+                    _LOGGER.warning("Unknown message in command queue: %s", msg)
                 await send_again(msg)
 
             while True:
@@ -616,8 +455,12 @@ class protocol(asyncio.Protocol):
                 if ret is not None:
                     return ret
 
+    def active(self):
+        """Indicate that we have seen activity on the serial line."""
+        return self._active
+
     async def init_and_wait_for_activity(self):
         """Wait for activity on the serial connection."""
         await self.issue_cmd(v.OTGW_CMD_SUMMARY, 0, retry=0)
-        while not self.active:
+        while not self.active():
             await asyncio.sleep(0)
