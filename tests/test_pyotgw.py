@@ -8,8 +8,8 @@ from unittest.mock import MagicMock, call, patch
 import pyotgw.vars as v
 import pytest
 import serial
-
-from .data import pygw_reports, pygw_status
+from tests.data import pygw_reports, pygw_status
+from tests.helpers import has_been_called_x_times
 
 pytestmark = pytest.mark.asyncio
 
@@ -18,12 +18,12 @@ async def test_connect_success_and_reconnect_with_gpio(caplog, pygw, pygw_proto)
     """Test pyotgw.connect()"""
     loop = asyncio.get_running_loop()
 
-    with patch("pyotgw.pyotgw.get_reports", return_value={}), patch(
-        "pyotgw.pyotgw.get_status", return_value={},
-    ), patch("pyotgw.pyotgw._poll_gpio", return_value=None,) as poll_gpio, patch(
-        "pyotgw.protocol.protocol.init_and_wait_for_activity", return_value=None,
-    ) as init_and_wait, patch(
-        "pyotgw.protocol.protocol.set_update_cb", return_value=None,
+    with patch.object(pygw, "get_reports", return_value={}), patch.object(
+        pygw, "get_status", return_value={},
+    ), patch.object(pygw, "_poll_gpio") as poll_gpio, patch.object(
+        pygw_proto, "init_and_wait_for_activity",
+    ) as init_and_wait, patch.object(
+        pygw_proto, "set_update_cb",
     ) as set_update_cb, patch(
         "serial_asyncio.create_serial_connection",
         return_value=(pygw_proto.transport, pygw_proto),
@@ -44,7 +44,7 @@ async def test_connect_success_and_reconnect_with_gpio(caplog, pygw, pygw_proto)
         await asyncio.sleep(0)
 
         for item in [
-            ("pyotgw.pyotgw", logging.DEBUG, "Scheduling reconnect...",),
+            ("pyotgw.pyotgw", logging.DEBUG, "Scheduling reconnect..."),
             (
                 "pyotgw.pyotgw",
                 logging.DEBUG,
@@ -58,16 +58,18 @@ async def test_connect_success_and_reconnect_with_gpio(caplog, pygw, pygw_proto)
 
 async def test_connect_serialexception(caplog, pygw):
     """Test pyotgw.connect() with SerialException"""
-    pygw._retry_timeout = 0.001
     loop = asyncio.get_running_loop()
 
     with patch(
         "serial_asyncio.create_serial_connection",
         side_effect=serial.serialutil.SerialException,
-    ) as create_serial_connection:
-        loop.create_task(pygw.connect(loop, "loop://", inactivity_timeout=0))
+    ) as create_serial_connection, patch.object(
+        pygw, "_get_retry_timeout", return_value=0,
+    ) as loops_done:
+        task = loop.create_task(pygw.connect(loop, "loop://"))
 
-        await asyncio.sleep(0.005)
+        await has_been_called_x_times(loops_done, 2)
+
         assert type(pygw._attempt_connect) == asyncio.Task
         assert len(caplog.records) == 1
         assert caplog.record_tuples == [
@@ -76,15 +78,13 @@ async def test_connect_serialexception(caplog, pygw):
                 logging.ERROR,
                 "Could not connect to serial device on loop://. "
                 "Will keep trying. Reported error was: ",
-            )
+            ),
         ]
         assert create_serial_connection.call_count > 1
 
-    pygw._attempt_connect.cancel()
-    try:
-        await pygw._attempt_connect
-    except asyncio.CancelledError:
-        pygw._attempt_connect = None
+        task.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await task
 
 
 async def test_connect_cancel(pygw):
@@ -102,21 +102,22 @@ async def test_connect_cancel(pygw):
 
 async def test_connect_timeouterror(caplog, pygw, pygw_proto):
     """Test pyotgw.connect() with TimeoutError"""
-    pygw._retry_timeout = 0.001
+
+    async def empty_callback():
+        return
+
     loop = asyncio.get_running_loop()
 
-    with patch(
-        "pyotgw.protocol.protocol.init_and_wait_for_activity",
-        side_effect=asyncio.TimeoutError,
-    ) as init_and_wait, patch(
+    pygw_proto.init_and_wait_for_activity = MagicMock(side_effect=asyncio.TimeoutError)
+    pygw_proto.disconnect = MagicMock(side_effect=empty_callback)
+
+    with patch.object(pygw, "_get_retry_timeout", return_value=0,) as loops_done, patch(
         "serial_asyncio.create_serial_connection",
         return_value=(pygw_proto.transport, pygw_proto),
-    ), caplog.at_level(
-        logging.DEBUG
-    ):
-        loop.create_task(pygw.connect(loop, "loop://", inactivity_timeout=0))
+    ), caplog.at_level(logging.DEBUG):
+        task = loop.create_task(pygw.connect(loop, "loop://"))
+        await has_been_called_x_times(loops_done, 2)
 
-        await asyncio.sleep(0.005)
         assert type(pygw._attempt_connect) == asyncio.Task
         assert len(caplog.records) == 1
         assert caplog.record_tuples == [
@@ -124,27 +125,26 @@ async def test_connect_timeouterror(caplog, pygw, pygw_proto):
                 "pyotgw.pyotgw",
                 logging.ERROR,
                 "The serial device on loop:// is not responding. " "Will keep trying.",
-            )
+            ),
         ]
-        assert init_and_wait.call_count > 1
+        assert pygw_proto.init_and_wait_for_activity.call_count > 1
+        assert pygw_proto.disconnect.call_count > 1
 
-    pygw._attempt_connect.cancel()
-    try:
-        await pygw._attempt_connect
-    except asyncio.CancelledError:
-        pygw._attempt_connect = None
+        task.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await task
 
 
 async def test_connect_short_inactivity_timeout(caplog, pygw, pygw_proto):
     """Test pyotgw.connect() with a (too) short timeout"""
     loop = asyncio.get_running_loop()
 
-    with patch("pyotgw.pyotgw.get_reports", return_value={}), patch(
-        "pyotgw.pyotgw.get_status", return_value={},
-    ), patch(
-        "pyotgw.protocol.protocol.init_and_wait_for_activity", return_value=None,
-    ) as init_and_wait, patch(
-        "pyotgw.protocol.protocol.set_update_cb", return_value=None,
+    with patch.object(pygw, "get_reports", return_value={}), patch.object(
+        pygw, "get_status", return_value={},
+    ), patch.object(pygw, "_poll_gpio"), patch.object(
+        pygw_proto, "init_and_wait_for_activity",
+    ) as init_and_wait, patch.object(
+        pygw_proto, "set_update_cb",
     ) as set_update_cb, patch(
         "serial_asyncio.create_serial_connection",
         return_value=(pygw_proto.transport, pygw_proto),
@@ -161,7 +161,7 @@ async def test_connect_short_inactivity_timeout(caplog, pygw, pygw_proto):
             "pyotgw.pyotgw",
             logging.ERROR,
             "Inactivity timeout too low. Should be at least 3 seconds, got 1",
-        )
+        ),
     ]
 
 
@@ -197,7 +197,7 @@ def test_get_target_temp(pygw):
 
     pygw._connected = True
     pygw._protocol = SimpleNamespace(
-        status={v.THERMOSTAT: {v.DATA_ROOM_SETPOINT: 23.5}}
+        status={v.THERMOSTAT: {v.DATA_ROOM_SETPOINT: 23.5}},
     )
     temp = pygw.get_target_temp()
     assert temp == 23.5
@@ -212,21 +212,20 @@ async def test_set_target_temp(pygw):
     with pytest.raises(TypeError):
         await pygw.set_target_temp(None)
 
-    with patch("pyotgw.pyotgw._wait_for_cmd", return_value=None) as wait_for_cmd:
-        temp = await pygw.set_target_temp(12.3)
+    with patch.object(pygw, "_wait_for_cmd", return_value=None) as wait_for_cmd:
+        assert await pygw.set_target_temp(12.3) is None
 
     wait_for_cmd.assert_called_once_with(
         v.OTGW_CMD_TARGET_TEMP, "12.3", v.OTGW_DEFAULT_TIMEOUT,
     )
-    assert temp is None
 
-    with patch(
-        "pyotgw.pyotgw._wait_for_cmd", return_value="0.00",
-    ) as wait_for_cmd, patch(
-        "pyotgw.pyotgw._update_full_status", return_value=None,
-    ) as update_full_status:
+    with patch.object(
+        pygw, "_wait_for_cmd", return_value="0.00",
+    ) as wait_for_cmd, patch.object(pygw, "_update_full_status") as update_full_status:
         temp = await pygw.set_target_temp(0, timeout=5)
 
+    assert type(temp) == float
+    assert temp == 0
     wait_for_cmd.assert_called_once_with(
         v.OTGW_CMD_TARGET_TEMP, "0.0", 5,
     )
@@ -236,14 +235,10 @@ async def test_set_target_temp(pygw):
             v.THERMOSTAT: {v.DATA_ROOM_SETPOINT_OVRD: None},
         }
     )
-    assert type(temp) == float
-    assert temp == 0.0
 
-    with patch(
-        "pyotgw.pyotgw._wait_for_cmd", return_value="15.50",
-    ) as wait_for_cmd, patch(
-        "pyotgw.pyotgw._update_full_status", return_value=None,
-    ) as update_full_status:
+    with patch.object(
+        pygw, "_wait_for_cmd", return_value="15.50",
+    ) as wait_for_cmd, patch.object(pygw, "_update_full_status") as update_full_status:
         temp = await pygw.set_target_temp(15.5)
 
     assert temp == 15.5
@@ -255,11 +250,9 @@ async def test_set_target_temp(pygw):
         }
     )
 
-    with patch(
-        "pyotgw.pyotgw._wait_for_cmd", return_value="20.50",
-    ) as wait_for_cmd, patch(
-        "pyotgw.pyotgw._update_full_status", return_value=None,
-    ) as update_full_status:
+    with patch.object(
+        pygw, "_wait_for_cmd", return_value="20.50",
+    ) as wait_for_cmd, patch.object(pygw, "_update_full_status") as update_full_status:
         temp = await pygw.set_target_temp(20.5, temporary=False)
 
     assert temp == 20.5
@@ -285,16 +278,16 @@ async def test_set_temp_sensor_function(pygw):
     """Test pyotgw.set_temp_sensor_function()"""
     assert await pygw.set_temp_sensor_function("P") is None
 
-    with patch("pyotgw.pyotgw._wait_for_cmd", return_value=None) as wait_for_cmd:
+    with patch.object(pygw, "_wait_for_cmd", return_value=None) as wait_for_cmd:
         assert await pygw.set_temp_sensor_function("O") is None
 
     wait_for_cmd.assert_called_once_with(
         v.OTGW_CMD_TEMP_SENSOR, "O", v.OTGW_DEFAULT_TIMEOUT,
     )
 
-    with patch("pyotgw.pyotgw._wait_for_cmd", return_value="R",) as wait_for_cmd, patch(
-        "pyotgw.pyotgw._update_status", return_value=None,
-    ) as update_status:
+    with patch.object(
+        pygw, "_wait_for_cmd", return_value="R",
+    ) as wait_for_cmd, patch.object(pygw, "_update_status") as update_status:
         assert await pygw.set_temp_sensor_function("R", timeout=5) == "R"
 
     wait_for_cmd.assert_called_once_with(v.OTGW_CMD_TEMP_SENSOR, "R", 5)
@@ -307,7 +300,7 @@ def test_get_outside_temp(pygw):
 
     pygw._connected = True
     pygw._protocol = SimpleNamespace(
-        status={v.BOILER: {v.DATA_OUTSIDE_TEMP: -5.4}, v.THERMOSTAT: {}}
+        status={v.BOILER: {v.DATA_OUTSIDE_TEMP: -5.4}, v.THERMOSTAT: {}},
     )
     assert pygw.get_outside_temp() == -5.4
 
@@ -322,16 +315,14 @@ async def test_set_outside_temp(pygw):
     with pytest.raises(TypeError):
         await pygw.set_outside_temp(None)
 
-    with patch("pyotgw.pyotgw._wait_for_cmd", return_value=None,) as wait_for_cmd:
+    with patch.object(pygw, "_wait_for_cmd", return_value=None) as wait_for_cmd:
         assert await pygw.set_outside_temp(0, timeout=5) is None
 
     wait_for_cmd.assert_called_once_with(v.OTGW_CMD_OUTSIDE_TEMP, "0.0", 5)
 
-    with patch(
-        "pyotgw.pyotgw._wait_for_cmd", return_value="23.5",
-    ) as wait_for_cmd, patch(
-        "pyotgw.pyotgw._update_status", return_value=None,
-    ) as update_status:
+    with patch.object(
+        pygw, "_wait_for_cmd", return_value="23.5",
+    ) as wait_for_cmd, patch.object(pygw, "_update_status") as update_status:
         assert await pygw.set_outside_temp(23.5) == 23.5
 
     wait_for_cmd.assert_called_once_with(
@@ -339,9 +330,9 @@ async def test_set_outside_temp(pygw):
     )
     update_status.assert_called_once_with(v.THERMOSTAT, {v.DATA_OUTSIDE_TEMP: 23.5})
 
-    with patch("pyotgw.pyotgw._wait_for_cmd", return_value="-",) as wait_for_cmd, patch(
-        "pyotgw.pyotgw._update_status", return_value=None,
-    ) as update_status:
+    with patch.object(
+        pygw, "_wait_for_cmd", return_value="-",
+    ) as wait_for_cmd, patch.object(pygw, "_update_status") as update_status:
         assert await pygw.set_outside_temp(99) == "-"
 
     wait_for_cmd.assert_called_once_with(
@@ -354,14 +345,14 @@ async def test_set_clock(pygw):
     """Test pyotgw.set_clock()"""
     dt = datetime(year=2021, month=3, day=12, hour=12, minute=34)
 
-    with patch("pyotgw.pyotgw._wait_for_cmd", return_value="12:34/5") as wait_for_cmd:
+    with patch.object(pygw, "_wait_for_cmd", return_value="12:34/5") as wait_for_cmd:
         assert await pygw.set_clock(dt) == "12:34/5"
 
     wait_for_cmd.assert_called_once_with(
         v.OTGW_CMD_SET_CLOCK, "12:34/5", v.OTGW_DEFAULT_TIMEOUT
     )
 
-    with patch("pyotgw.pyotgw._wait_for_cmd", return_value="12:34/5") as wait_for_cmd:
+    with patch.object(pygw, "_wait_for_cmd", return_value="12:34/5") as wait_for_cmd:
         assert await pygw.set_clock(dt, timeout=5) == "12:34/5"
 
     wait_for_cmd.assert_called_once_with(v.OTGW_CMD_SET_CLOCK, "12:34/5", 5)
@@ -389,21 +380,21 @@ async def test_get_reports(pygw):
         except KeyError:
             raise ValueError
 
-    with patch(
-        "pyotgw.pyotgw._wait_for_cmd",
+    with patch.object(
+        pygw,
+        "_wait_for_cmd",
         side_effect=lambda _, v: pygw_reports.report_responses_51[v],
     ):
         assert await pygw.get_reports() == pygw_reports.expect_51
 
     pygw._protocol.status = copy.deepcopy(v.DEFAULT_STATUS)
-    with patch(
-        "pyotgw.pyotgw._wait_for_cmd", side_effect=get_response_42,
+    with patch.object(
+        pygw, "_wait_for_cmd", side_effect=get_response_42,
     ):
         assert await pygw.get_reports() == pygw_reports.expect_42
 
-    with patch(
-        "pyotgw.pyotgw._wait_for_cmd",
-        side_effect=["OpenTherm Gateway 5.1", ValueError],
+    with patch.object(
+        pygw, "_wait_for_cmd", side_effect=["OpenTherm Gateway 5.1", ValueError],
     ), pytest.raises(ValueError):
         await pygw.get_reports()
 
@@ -414,8 +405,9 @@ async def test_get_status(pygw):
         status=copy.deepcopy(v.DEFAULT_STATUS), _updateq=asyncio.Queue(),
     )
     pygw.loop = None
-    with patch(
-        "pyotgw.pyotgw._wait_for_cmd",
+    with patch.object(
+        pygw,
+        "_wait_for_cmd",
         side_effect=[None, (None, pygw_status.status_5), (None, pygw_status.status_4)],
     ):
         assert await pygw.get_status() is None
@@ -429,8 +421,8 @@ async def test_set_hot_water_ovrd(pygw):
     pygw._protocol = SimpleNamespace(
         status=copy.deepcopy(v.DEFAULT_STATUS), _updateq=asyncio.Queue(),
     )
-    with patch(
-        "pyotgw.pyotgw._wait_for_cmd", side_effect=[None, "A", "1"]
+    with patch.object(
+        pygw, "_wait_for_cmd", side_effect=[None, "A", "1"],
     ) as wait_for_cmd:
         assert await pygw.set_hot_water_ovrd(0) is None
         assert await pygw.set_hot_water_ovrd("A", 5) == "A"
@@ -463,14 +455,14 @@ async def test_set_mode(pygw):
         status=copy.deepcopy(v.DEFAULT_STATUS), _updateq=asyncio.Queue(),
     )
 
-    with patch("pyotgw.pyotgw._wait_for_cmd", side_effect=[None, v.OTGW_MODE_MONITOR]):
+    with patch.object(pygw, "_wait_for_cmd", side_effect=[None, v.OTGW_MODE_MONITOR]):
         assert await pygw.set_mode(v.OTGW_MODE_GATEWAY) is None
         assert await pygw.set_mode(v.OTGW_MODE_MONITOR) == v.OTGW_MODE_MONITOR
 
-    with patch("pyotgw.pyotgw._wait_for_cmd", return_value=v.OTGW_MODE_RESET), patch(
-        "pyotgw.pyotgw.get_reports", return_value=None
-    ) as get_reports, patch(
-        "pyotgw.pyotgw.get_status", return_value=None,
+    with patch.object(
+        pygw, "_wait_for_cmd", return_value=v.OTGW_MODE_RESET,
+    ), patch.object(pygw, "get_reports") as get_reports, patch.object(
+        pygw, "get_status",
     ) as get_status:
         assert await pygw.set_mode(v.OTGW_MODE_RESET) == v.DEFAULT_STATUS
         get_reports.assert_called_once()
@@ -493,11 +485,9 @@ async def test_set_led_mode(pygw):
     assert await pygw.set_led_mode("G", "A") is None
 
     pygw._protocol = SimpleNamespace(status={v.OTGW: {}})
-    with patch(
-        "pyotgw.pyotgw._wait_for_cmd", side_effect=[None, "X"]
-    ) as wait_for_cmd, patch(
-        "pyotgw.pyotgw._update_status", return_value=None
-    ) as update_status:
+    with patch.object(
+        pygw, "_wait_for_cmd", side_effect=[None, "X"],
+    ) as wait_for_cmd, patch.object(pygw, "_update_status") as update_status:
         assert await pygw.set_led_mode("B", "H") is None
         assert await pygw.set_led_mode("A", "X", timeout=5) == "X"
 
@@ -529,11 +519,9 @@ async def test_set_gpio_mode(pygw):
     assert await pygw.set_gpio_mode("A", 9) is None
 
     pygw._protocol = SimpleNamespace(status={v.OTGW: {}})
-    with patch(
-        "pyotgw.pyotgw._wait_for_cmd", side_effect=[None, 3]
-    ) as wait_for_cmd, patch(
-        "pyotgw.pyotgw._update_status", return_value=None
-    ) as update_status:
+    with patch.object(
+        pygw, "_wait_for_cmd", side_effect=[None, 3],
+    ) as wait_for_cmd, patch.object(pygw, "_update_status") as update_status:
         assert await pygw.set_gpio_mode("A", 7) is None
         assert await pygw.set_gpio_mode("A", 6) is None
         assert await pygw.set_gpio_mode("B", 3, timeout=5) == 3
@@ -565,11 +553,9 @@ def test_get_setback_temp(pygw):
 async def test_set_setback_temp(pygw):
     """Test pyotgw.set_setback_temp()"""
     pygw._protocol = SimpleNamespace(status={v.OTGW: {}})
-    with patch(
-        "pyotgw.pyotgw._wait_for_cmd", side_effect=[None, 16.5]
-    ) as wait_for_cmd, patch(
-        "pyotgw.pyotgw._update_status", return_value=None
-    ) as update_status:
+    with patch.object(
+        pygw, "_wait_for_cmd", side_effect=[None, 16.5],
+    ) as wait_for_cmd, patch.object(pygw, "_update_status") as update_status:
         assert await pygw.set_setback_temp(17.5) is None
         assert await pygw.set_setback_temp(16.5, 5) == 16.5
 
@@ -589,7 +575,7 @@ async def test_add_alternative(pygw):
     """Test pyotgw.add_alternative()"""
     assert await pygw.add_alternative(0) is None
 
-    with patch("pyotgw.pyotgw._wait_for_cmd", side_effect=[None, 23]) as wait_for_cmd:
+    with patch.object(pygw, "_wait_for_cmd", side_effect=[None, 23]) as wait_for_cmd:
         assert await pygw.add_alternative(20) is None
         assert await pygw.add_alternative(23, 5) == 23
 
@@ -607,7 +593,7 @@ async def test_del_alternative(pygw):
     """Test pyotgw.del_alternative()"""
     assert await pygw.del_alternative(0) is None
 
-    with patch("pyotgw.pyotgw._wait_for_cmd", side_effect=[None, 23]) as wait_for_cmd:
+    with patch.object(pygw, "_wait_for_cmd", side_effect=[None, 23]) as wait_for_cmd:
         assert await pygw.del_alternative(20) is None
         assert await pygw.del_alternative(23, 5) == 23
 
@@ -625,7 +611,7 @@ async def test_add_unknown_id(pygw):
     """Test pyotgw.add_unknown_id()"""
     assert await pygw.add_unknown_id(0) is None
 
-    with patch("pyotgw.pyotgw._wait_for_cmd", side_effect=[None, 23]) as wait_for_cmd:
+    with patch.object(pygw, "_wait_for_cmd", side_effect=[None, 23]) as wait_for_cmd:
         assert await pygw.add_unknown_id(20) is None
         assert await pygw.add_unknown_id(23, 5) == 23
 
@@ -643,7 +629,7 @@ async def test_del_unknown_id(pygw):
     """Test pyotgw.del_unknown_id()"""
     assert await pygw.del_unknown_id(0) is None
 
-    with patch("pyotgw.pyotgw._wait_for_cmd", side_effect=[None, 23]) as wait_for_cmd:
+    with patch.object(pygw, "_wait_for_cmd", side_effect=[None, 23]) as wait_for_cmd:
         assert await pygw.del_unknown_id(20) is None
         assert await pygw.del_unknown_id(23, 5) == 23
 
@@ -675,11 +661,9 @@ async def test_clear_response(pygw):
 async def test_set_max_ch_setpoint(pygw):
     """Test pyotgw.set_max_ch_setpoint()"""
     pygw._protocol = SimpleNamespace(status={v.OTGW: {}})
-    with patch(
-        "pyotgw.pyotgw._wait_for_cmd", side_effect=[None, 74.5]
-    ) as wait_for_cmd, patch(
-        "pyotgw.pyotgw._update_status", return_value=None
-    ) as update_status:
+    with patch.object(
+        pygw, "_wait_for_cmd", side_effect=[None, 74.5],
+    ) as wait_for_cmd, patch.object(pygw, "_update_status") as update_status:
         assert await pygw.set_max_ch_setpoint(75.5) is None
         assert await pygw.set_max_ch_setpoint(74.5, 5) == 74.5
 
@@ -698,11 +682,9 @@ async def test_set_max_ch_setpoint(pygw):
 async def test_set_dhw_setpoint(pygw):
     """Test pyotgw.set_dhw_setpoint()"""
     pygw._protocol = SimpleNamespace(status={v.OTGW: {}})
-    with patch(
-        "pyotgw.pyotgw._wait_for_cmd", side_effect=[None, 54.5]
-    ) as wait_for_cmd, patch(
-        "pyotgw.pyotgw._update_status", return_value=None
-    ) as update_status:
+    with patch.object(
+        pygw, "_wait_for_cmd", side_effect=[None, 54.5],
+    ) as wait_for_cmd, patch.object(pygw, "_update_status") as update_status:
         assert await pygw.set_dhw_setpoint(55.5) is None
         assert await pygw.set_dhw_setpoint(54.5, 5) == 54.5
 
@@ -723,11 +705,9 @@ async def test_set_max_relative_mod(pygw):
     assert await pygw.set_max_relative_mod(-1) is None
 
     pygw._protocol = SimpleNamespace(status={v.BOILER: {}})
-    with patch(
-        "pyotgw.pyotgw._wait_for_cmd", side_effect=[None, "-", 55]
-    ) as wait_for_cmd, patch(
-        "pyotgw.pyotgw._update_status", return_value=None
-    ) as update_status:
+    with patch.object(
+        pygw, "_wait_for_cmd", side_effect=[None, "-", 55],
+    ) as wait_for_cmd, patch.object(pygw, "_update_status") as update_status:
         assert await pygw.set_max_relative_mod(56) is None
         assert await pygw.set_max_relative_mod(54, 5) == "-"
         assert await pygw.set_max_relative_mod(55) == 55
@@ -755,11 +735,9 @@ async def test_set_max_relative_mod(pygw):
 async def test_set_control_setpoint(pygw):
     """Test pyotgw.set_control_setpoint()"""
     pygw._protocol = SimpleNamespace(status={v.BOILER: {}})
-    with patch(
-        "pyotgw.pyotgw._wait_for_cmd", side_effect=[None, 19.5]
-    ) as wait_for_cmd, patch(
-        "pyotgw.pyotgw._update_status", return_value=None
-    ) as update_status:
+    with patch.object(
+        pygw, "_wait_for_cmd", side_effect=[None, 19.5],
+    ) as wait_for_cmd, patch.object(pygw, "_update_status") as update_status:
         assert await pygw.set_control_setpoint(21.5) is None
         assert await pygw.set_control_setpoint(19.5, 5) == 19.5
 
@@ -778,11 +756,9 @@ async def test_set_control_setpoint(pygw):
 async def test_set_control_setpoint_2(pygw):
     """Test pyotgw.set_control_setpoint_2()"""
     pygw._protocol = SimpleNamespace(status={v.BOILER: {}})
-    with patch(
-        "pyotgw.pyotgw._wait_for_cmd", side_effect=[None, 19.5]
-    ) as wait_for_cmd, patch(
-        "pyotgw.pyotgw._update_status", return_value=None
-    ) as update_status:
+    with patch.object(
+        pygw, "_wait_for_cmd", side_effect=[None, 19.5],
+    ) as wait_for_cmd, patch.object(pygw, "_update_status") as update_status:
         assert await pygw.set_control_setpoint_2(21.5) is None
         assert await pygw.set_control_setpoint_2(19.5, 5) == 19.5
 
@@ -803,11 +779,9 @@ async def test_set_ch_enable_bit(pygw):
     assert await pygw.set_ch_enable_bit(None) is None
 
     pygw._protocol = SimpleNamespace(status={v.BOILER: {}})
-    with patch(
-        "pyotgw.pyotgw._wait_for_cmd", side_effect=[None, 1]
-    ) as wait_for_cmd, patch(
-        "pyotgw.pyotgw._update_status", return_value=None
-    ) as update_status:
+    with patch.object(
+        pygw, "_wait_for_cmd", side_effect=[None, 1],
+    ) as wait_for_cmd, patch.object(pygw, "_update_status") as update_status:
         assert await pygw.set_ch_enable_bit(0) is None
         assert await pygw.set_ch_enable_bit(1, 5) == 1
 
@@ -828,11 +802,9 @@ async def test_set_ch2_enable_bit(pygw):
     assert await pygw.set_ch2_enable_bit(None) is None
 
     pygw._protocol = SimpleNamespace(status={v.BOILER: {}})
-    with patch(
-        "pyotgw.pyotgw._wait_for_cmd", side_effect=[None, 1]
-    ) as wait_for_cmd, patch(
-        "pyotgw.pyotgw._update_status", return_value=None
-    ) as update_status:
+    with patch.object(
+        pygw, "_wait_for_cmd", side_effect=[None, 1],
+    ) as wait_for_cmd, patch.object(pygw, "_update_status") as update_status:
         assert await pygw.set_ch2_enable_bit(0) is None
         assert await pygw.set_ch2_enable_bit(1, 5) == 1
 
@@ -853,11 +825,9 @@ async def test_set_ventilation(pygw):
     assert await pygw.set_ventilation(-1) is None
 
     pygw._protocol = SimpleNamespace(status={v.BOILER: {}})
-    with patch(
-        "pyotgw.pyotgw._wait_for_cmd", side_effect=[None, 75]
-    ) as wait_for_cmd, patch(
-        "pyotgw.pyotgw._update_status", return_value=None
-    ) as update_status:
+    with patch.object(
+        pygw, "_wait_for_cmd", side_effect=[None, 75],
+    ) as wait_for_cmd, patch.object(pygw, "_update_status") as update_status:
         assert await pygw.set_ventilation(25) is None
         assert await pygw.set_ventilation(75, 5) == 75
 
@@ -911,8 +881,9 @@ async def test_wait_for_cmd(caplog, pygw, pygw_proto):
     assert await pygw._wait_for_cmd(None, None) is None
 
     pygw._connected = True
-    with patch(
-        "pyotgw.protocol.protocol.issue_cmd",
+    with patch.object(
+        pygw_proto,
+        "issue_cmd",
         side_effect=[None, "0", asyncio.TimeoutError, ValueError],
     ) as issue_cmd, caplog.at_level(logging.ERROR):
         assert await pygw._wait_for_cmd(v.OTGW_CMD_MODE, "G") is None
@@ -957,9 +928,13 @@ async def test_poll_gpio(caplog, pygw):
     assert len(caplog.records) == 0
 
     pygw._protocol.status[v.OTGW][v.OTGW_GPIO_B] = 0
-    with patch("pyotgw.pyotgw._update_status",) as update_status, patch(
-        "pyotgw.pyotgw._wait_for_cmd", return_value="I=10",
-    ) as wait_for_cmd, caplog.at_level(logging.DEBUG):
+    with patch.object(
+        pygw, "_wait_for_cmd", return_value="I=10",
+    ) as wait_for_cmd, patch.object(
+        pygw, "_update_status",
+    ) as update_status, caplog.at_level(
+        logging.DEBUG
+    ):
         await pygw._poll_gpio()
         await asyncio.sleep(0)
 
@@ -969,12 +944,12 @@ async def test_poll_gpio(caplog, pygw):
         v.OTGW, {v.OTGW_GPIO_A_STATE: 1, v.OTGW_GPIO_B_STATE: 0},
     )
     assert caplog.record_tuples == [
-        ("pyotgw.pyotgw", logging.DEBUG, "Starting GPIO polling routine",)
+        ("pyotgw.pyotgw", logging.DEBUG, "Starting GPIO polling routine"),
     ]
 
     caplog.clear()
     pygw._protocol.status[v.OTGW][v.OTGW_GPIO_B] = 1
-    with patch("pyotgw.pyotgw._update_status",) as update_status, caplog.at_level(
+    with patch.object(pygw, "_update_status") as update_status, caplog.at_level(
         logging.DEBUG
     ):
         await pygw._poll_gpio()
@@ -985,8 +960,8 @@ async def test_poll_gpio(caplog, pygw):
         v.OTGW, {v.OTGW_GPIO_A_STATE: 0, v.OTGW_GPIO_B_STATE: 0},
     )
     assert caplog.record_tuples == [
-        ("pyotgw.pyotgw", logging.DEBUG, "Stopping GPIO polling routine",),
-        ("pyotgw.pyotgw", logging.DEBUG, "GPIO polling routine stopped",),
+        ("pyotgw.pyotgw", logging.DEBUG, "Stopping GPIO polling routine"),
+        ("pyotgw.pyotgw", logging.DEBUG, "GPIO polling routine stopped"),
     ]
 
 
@@ -1001,19 +976,19 @@ def test_update_status(caplog, pygw):
             "pyotgw.pyotgw",
             logging.WARNING,
             "Error sending status update. Are we connected to the gateway?",
-        )
+        ),
     ]
     caplog.clear()
 
     pygw._protocol = SimpleNamespace(
-        status=copy.deepcopy(v.DEFAULT_STATUS), _updateq=asyncio.Queue()
+        status=copy.deepcopy(v.DEFAULT_STATUS), _updateq=asyncio.Queue(),
     )
 
     with caplog.at_level(logging.ERROR):
         pygw._update_status("test", {})
 
     assert caplog.record_tuples == [
-        ("pyotgw.pyotgw", logging.ERROR, "Invalid status part for update: test",)
+        ("pyotgw.pyotgw", logging.ERROR, "Invalid status part for update: test"),
     ]
     caplog.clear()
 
@@ -1055,19 +1030,19 @@ def test_update_full_status(caplog, pygw):
             "pyotgw.pyotgw",
             logging.WARNING,
             "Error sending status update. Are we connected to the gateway?",
-        )
+        ),
     ]
     caplog.clear()
 
     pygw._protocol = SimpleNamespace(
-        status=copy.deepcopy(v.DEFAULT_STATUS), _updateq=asyncio.Queue()
+        status=copy.deepcopy(v.DEFAULT_STATUS), _updateq=asyncio.Queue(),
     )
 
     with caplog.at_level(logging.ERROR):
         pygw._update_full_status({"test": {}})
 
     assert caplog.record_tuples == [
-        ("pyotgw.pyotgw", logging.ERROR, "Invalid status part for update: test",)
+        ("pyotgw.pyotgw", logging.ERROR, "Invalid status part for update: test"),
     ]
     caplog.clear()
 

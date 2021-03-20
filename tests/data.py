@@ -340,3 +340,93 @@ pygw_status = SimpleNamespace(
     status_4=_status_4,
     status_5=_status_5,
 )
+
+
+pygw_proto_messages = (
+    # Invalid message ID
+    (("A", 114, None, None, None), None,),
+    # _get_flag8
+    (
+        ("T", v.READ_DATA, v.MSG_STATUS, b"\x43", b"\x00"),
+        {
+            v.BOILER: {},
+            v.OTGW: {},
+            v.THERMOSTAT: {
+                v.DATA_MASTER_CH_ENABLED: 1,
+                v.DATA_MASTER_DHW_ENABLED: 1,
+                v.DATA_MASTER_COOLING_ENABLED: 0,
+                v.DATA_MASTER_OTC_ENABLED: 0,
+                v.DATA_MASTER_CH2_ENABLED: 0,
+            },
+        },
+    ),
+    # _get_f8_8
+    (
+        ("B", v.WRITE_ACK, v.MSG_TDHWSET, b"\x14", b"\x80"),
+        {v.BOILER: {v.DATA_DHW_SETPOINT: 20.5}, v.OTGW: {}, v.THERMOSTAT: {}},
+    ),
+    # _get_flag8 with skipped bits
+    (
+        (
+            "R",
+            v.READ_ACK,
+            v.MSG_STATUSVH,
+            b"\00",
+            int("01010101", 2).to_bytes(1, "big"),
+        ),
+        {
+            v.BOILER: {
+                v.DATA_VH_SLAVE_FAULT_INDICATE: 1,
+                v.DATA_VH_SLAVE_VENT_MODE: 0,
+                v.DATA_VH_SLAVE_BYPASS_STATUS: 1,
+                v.DATA_VH_SLAVE_BYPASS_AUTO_STATUS: 0,
+                v.DATA_VH_SLAVE_FREE_VENT_STATUS: 1,
+                v.DATA_VH_SLAVE_DIAG_INDICATE: 1,
+            },
+            v.OTGW: {},
+            v.THERMOSTAT: {},
+        },
+    ),
+    # Combined _get_flag8 and _get_u8
+    (
+        (
+            "R",
+            v.WRITE_ACK,
+            v.MSG_SCONFIG,
+            int("10101010", 2).to_bytes(1, "big"),
+            b"\xFF",
+        ),
+        {
+            v.BOILER: {
+                v.DATA_SLAVE_DHW_PRESENT: 0,
+                v.DATA_SLAVE_CONTROL_TYPE: 1,
+                v.DATA_SLAVE_COOLING_SUPPORTED: 0,
+                v.DATA_SLAVE_DHW_CONFIG: 1,
+                v.DATA_SLAVE_MASTER_LOW_OFF_PUMP: 0,
+                v.DATA_SLAVE_CH2_PRESENT: 1,
+                v.DATA_SLAVE_MEMBERID: 255,
+            },
+            v.OTGW: {},
+            v.THERMOSTAT: {},
+        },
+    ),
+    # _get_u16
+    (
+        ("A", v.READ_ACK, v.MSG_BURNSTARTS, b"\x12", b"\xAA"),
+        {v.BOILER: {}, v.OTGW: {}, v.THERMOSTAT: {v.DATA_TOTAL_BURNER_STARTS: 4778}},
+    ),
+    # _get_s8
+    (
+        ("R", v.WRITE_ACK, v.MSG_TCHSETUL, b"\x50", b"\x1E"),
+        {
+            v.BOILER: {v.DATA_SLAVE_CH_MAX_SETP: 80, v.DATA_SLAVE_CH_MIN_SETP: 30},
+            v.OTGW: {},
+            v.THERMOSTAT: {},
+        },
+    ),
+    # _get_s16
+    (
+        ("B", v.READ_ACK, v.MSG_TEXHAUST, b"\xFF", b"\x83"),
+        {v.BOILER: {v.DATA_EXHAUST_TEMP: -125}, v.OTGW: {}, v.THERMOSTAT: {}},
+    ),
+)
