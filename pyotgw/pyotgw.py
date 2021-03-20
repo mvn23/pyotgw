@@ -1,3 +1,4 @@
+"""pyotgw is a library to interface with the OpenTherm Gateway."""
 # This file is part of pyotgw.
 #
 # pyotgw is free software: you can redistribute it and/or modify
@@ -15,19 +16,18 @@
 #
 # Copyright 2018 Milan van Nugteren
 #
-"""pyotgw is a library to interface with the OpenTherm Gateway."""
 
 
 import asyncio
 import copy
 import logging
-from asyncio import TimeoutError
 from datetime import datetime
 
 import serial
 import serial_asyncio
-from pyotgw import protocol as otgw
+
 from pyotgw import vars as v
+from pyotgw.protocol import OpenThermProtocol
 
 _LOGGER = logging.getLogger(__name__)
 MAX_RETRY_TIMEOUT = 60
@@ -35,22 +35,30 @@ MIN_RETRY_TIMEOUT = 5
 
 
 class pyotgw:
+    """pyotgw main object abstraction"""
+
     def __init__(self):
         """Create a pyotgw object."""
         self._connected = False
         self._conn_error = False
+        self._conn_config = {
+            "baudrate": 9600,
+            "bytesize": serial.EIGHTBITS,
+            "parity": serial.PARITY_NONE,
+            "stopbits": serial.STOPBITS_ONE,
+        }
         self._notify = []
         self._retry_timeout = MIN_RETRY_TIMEOUT
-        return
+        self._attempt_connect = None
+        self._transport = None
+        self._protocol = None
+        self._gpio_task = None
+        self.loop = None
 
     async def connect(
         self,
         loop,
         port,
-        baudrate=9600,
-        bytesize=serial.EIGHTBITS,
-        parity=serial.PARITY_NONE,
-        stopbits=serial.STOPBITS_ONE,
         connection_timeout=10,
         inactivity_timeout=5,
     ):
@@ -78,25 +86,22 @@ class pyotgw:
                 try:
                     transport, protocol = await serial_asyncio.create_serial_connection(
                         loop,
-                        otgw.protocol,
+                        OpenThermProtocol,
                         port,
-                        baudrate,
-                        bytesize,
-                        parity,
-                        stopbits,
-                        connection_timeout,
                         write_timeout=0,
+                        **self._conn_config,
                     )
                     await asyncio.wait_for(
-                        protocol.init_and_wait_for_activity(), inactivity_timeout,
+                        protocol.init_and_wait_for_activity(),
+                        inactivity_timeout,
                     )
-                except serial.SerialException as e:
+                except serial.SerialException as err:
                     if not self._conn_error:
                         _LOGGER.error(
                             "Could not connect to serial device on %s. "
                             "Will keep trying. Reported error was: %s",
                             port,
-                            e,
+                            err,
                         )
                         self._conn_error = True
                     transport = None
@@ -140,10 +145,6 @@ class pyotgw:
                 await self.connect(
                     loop,
                     port,
-                    baudrate,
-                    bytesize,
-                    parity,
-                    stopbits,
                     connection_timeout,
                     inactivity_timeout,
                 )
@@ -158,21 +159,30 @@ class pyotgw:
         return copy.deepcopy(self._protocol.status)
 
     async def disconnect(self):
-        """
-        Disconnect from the OpenTherm Gateway.
-        """
+        """Disconnect from the OpenTherm Gateway."""
         if self._attempt_connect is not None:
             self._attempt_connect.cancel()
         if not self._connected:
             return
         await self._protocol.disconnect()
 
+    def set_connection_options(self, **kwargs):
+        """Set connection parameters."""
+        if self._connected:
+            return False
+        for arg in kwargs:
+            if arg not in self._conn_config:
+                _LOGGER.warning("Invalid connection parameter: %s", arg)
+                return False
+        self._conn_config.update(kwargs)
+        return True
+
     def get_room_temp(self):
         """
         Get the current room temperature.
         """
         if not self._connected:
-            return
+            return None
         return self._protocol.status[v.THERMOSTAT].get(v.DATA_ROOM_TEMP)
 
     def get_target_temp(self):
@@ -180,7 +190,7 @@ class pyotgw:
         Get the target temperature.
         """
         if not self._connected:
-            return
+            return None
         temp_ovrd = self._protocol.status[v.THERMOSTAT].get(v.DATA_ROOM_SETPOINT_OVRD)
         if temp_ovrd:
             return temp_ovrd
@@ -202,7 +212,7 @@ class pyotgw:
         status_update = {v.OTGW: {}, v.THERMOSTAT: {}}
         ret = await self._wait_for_cmd(cmd, value, timeout)
         if ret is None:
-            return
+            return None
         ret = float(ret)
         if 0 <= ret <= 30:
             if ret == 0:
@@ -227,7 +237,7 @@ class pyotgw:
         Return the temperature sensor function.
         """
         if not self._connected:
-            return
+            return None
         return self._protocol.status[v.OTGW].get(v.OTGW_TEMP_SENSOR)
 
     async def set_temp_sensor_function(self, func, timeout=v.OTGW_DEFAULT_TIMEOUT):
@@ -243,7 +253,7 @@ class pyotgw:
             return None
         ret = await self._wait_for_cmd(cmd, func, timeout)
         if ret is None:
-            return
+            return None
         status_otgw = {v.OTGW_TEMP_SENSOR: ret}
         self._update_status(v.OTGW, status_otgw)
         return ret
@@ -253,7 +263,7 @@ class pyotgw:
         Return the outside temperature as known in the gateway.
         """
         if not self._connected:
-            return
+            return None
         return self._protocol.status[v.THERMOSTAT].get(
             v.DATA_OUTSIDE_TEMP
         ) or self._protocol.status[v.BOILER].get(v.DATA_OUTSIDE_TEMP)
@@ -307,7 +317,7 @@ class pyotgw:
         None.
         """
         if not self._connected:
-            return
+            return None
         return self._protocol.status[v.OTGW].get(v.OTGW_DHW_OVRD)
 
     async def get_reports(self):
@@ -322,7 +332,7 @@ class pyotgw:
         # Get version info first
         ret = await self._wait_for_cmd(cmd, v.OTGW_REPORT_ABOUT)
         reports[v.OTGW_REPORT_ABOUT] = ret[2:] if ret else None
-        for value in v.OTGW_REPORTS.keys():
+        for value in v.OTGW_REPORTS:
             if value == v.OTGW_REPORT_ABOUT:
                 continue
             try:
@@ -553,7 +563,7 @@ class pyotgw:
         status_otgw = {}
         ret = await self._wait_for_cmd(cmd, state, timeout)
         if ret is None:
-            return
+            return None
         if ret == "A":
             status_otgw[v.OTGW_DHW_OVRD] = None
         elif ret in ["0", "1"]:
@@ -568,7 +578,7 @@ class pyotgw:
         Gateway mode or "M" for Monitor mode.
         """
         if not self._connected:
-            return
+            return None
         return self._protocol.status[v.OTGW].get(v.OTGW_MODE)
 
     async def set_mode(self, mode, timeout=v.OTGW_DEFAULT_TIMEOUT):
@@ -586,7 +596,7 @@ class pyotgw:
         status_otgw = {}
         ret = await self._wait_for_cmd(cmd, mode, timeout)
         if ret is None:
-            return
+            return None
         if mode is v.OTGW_MODE_RESET:
             self._protocol.status = copy.deepcopy(v.DEFAULT_STATUS)
             await self.get_reports()
@@ -602,7 +612,7 @@ class pyotgw:
         @led_id Character in range A-F
         """
         if not self._connected:
-            return
+            return None
         return self._protocol.status[v.OTGW].get(getattr(v, f"OTGW_LED_{led_id}"))
 
     async def set_led_mode(self, led_id, mode, timeout=v.OTGW_DEFAULT_TIMEOUT):
@@ -634,7 +644,7 @@ class pyotgw:
             status_otgw = {}
             ret = await self._wait_for_cmd(cmd, mode, timeout)
             if ret is None:
-                return
+                return None
             var = getattr(v, f"OTGW_LED_{led_id}")
             status_otgw[var] = ret
             self._update_status(v.OTGW, status_otgw)
@@ -646,7 +656,7 @@ class pyotgw:
         @gpio_id Character A or B.
         """
         if not self._connected:
-            return
+            return None
         return self._protocol.status[v.OTGW].get(getattr(v, f"OTGW_GPIO_{gpio_id}"))
 
     async def set_gpio_mode(self, gpio_id, mode, timeout=v.OTGW_DEFAULT_TIMEOUT):
@@ -696,7 +706,7 @@ class pyotgw:
         Return the last known setback temperature from the device.
         """
         if not self._connected:
-            return
+            return None
         return self._protocol.status[v.OTGW].get(v.OTGW_SB_TEMP)
 
     async def set_setback_temp(self, sb_temp, timeout=v.OTGW_DEFAULT_TIMEOUT):
@@ -1048,7 +1058,7 @@ class pyotgw:
             return
         try:
             return await asyncio.wait_for(self._protocol.issue_cmd(cmd, value), timeout)
-        except TimeoutError:
+        except asyncio.TimeoutError:
             _LOGGER.error("Timed out waiting for command: %s, value: %s.", cmd, value)
             return
         except (RuntimeError, SyntaxError, ValueError) as exc:
@@ -1104,7 +1114,7 @@ class pyotgw:
     def _update_status(self, part, update):
         """Update part of the status dict and push it to subscribers."""
         if part not in self._protocol.status:
-            _LOGGER.error(f"Invalid status part for update: {part}")
+            _LOGGER.error("Invalid status part for update: %s", part)
             return
         try:
             if isinstance(update, dict):
@@ -1119,7 +1129,7 @@ class pyotgw:
         """Update the full status dict recursively and push it to subscribers."""
         for part in update.keys():
             if part not in self._protocol.status:
-                _LOGGER.error(f"Invalid status part for update: {part}")
+                _LOGGER.error("Invalid status part for update: %s", part)
                 return
         try:
             for part, values in update.items():
@@ -1135,6 +1145,6 @@ class pyotgw:
         """Increase if needed and return the retry timeout."""
         if self._retry_timeout == MAX_RETRY_TIMEOUT:
             return self._retry_timeout
-        t = self._retry_timeout
+        timeout = self._retry_timeout
         self._retry_timeout = min([self._retry_timeout * 1.5, MAX_RETRY_TIMEOUT])
-        return t
+        return timeout

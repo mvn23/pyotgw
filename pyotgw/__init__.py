@@ -1,3 +1,4 @@
+"""The main pyotgw __init__ file"""
 # This file is part of pyotgw.
 #
 # pyotgw is free software: you can redistribute it and/or modify

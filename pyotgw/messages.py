@@ -1,3 +1,4 @@
+"""Data related to message processing"""
 from pyotgw import vars as v
 
 _GET_FLAG8 = "_get_flag8"
@@ -67,7 +68,10 @@ REGISTRY = {
         S2M: [
             {
                 FUNC: _GET_FLOAT,
-                ARGS: (_MSB, _LSB,),
+                ARGS: (
+                    _MSB,
+                    _LSB,
+                ),
                 RETURNS: (v.DATA_CONTROL_SETPOINT,),
             },
         ],
@@ -119,12 +123,18 @@ REGISTRY = {
             {
                 FUNC: _GET_FLAG8,
                 ARGS: (_MSB,),
-                RETURNS: (v.DATA_REMOTE_TRANSFER_DHW, v.DATA_REMOTE_TRANSFER_MAX_CH,),
+                RETURNS: (
+                    v.DATA_REMOTE_TRANSFER_DHW,
+                    v.DATA_REMOTE_TRANSFER_MAX_CH,
+                ),
             },
             {
                 FUNC: _GET_FLAG8,
                 ARGS: (_LSB,),
-                RETURNS: (v.DATA_REMOTE_RW_DHW, v.DATA_REMOTE_RW_MAX_CH,),
+                RETURNS: (
+                    v.DATA_REMOTE_RW_DHW,
+                    v.DATA_REMOTE_RW_MAX_CH,
+                ),
             },
         ],
     },
@@ -133,7 +143,10 @@ REGISTRY = {
         S2M: [
             {
                 FUNC: _GET_FLOAT,
-                ARGS: (_MSB, _LSB,),
+                ARGS: (
+                    _MSB,
+                    _LSB,
+                ),
                 RETURNS: (v.DATA_COOLING_CONTROL,),
             },
         ],
@@ -143,7 +156,10 @@ REGISTRY = {
         S2M: [
             {
                 FUNC: _GET_FLOAT,
-                ARGS: (_MSB, _LSB,),
+                ARGS: (
+                    _MSB,
+                    _LSB,
+                ),
                 RETURNS: (v.DATA_CONTROL_SETPOINT_2,),
             },
         ],
@@ -153,7 +169,12 @@ REGISTRY = {
         S2M: [
             {
                 FUNC: "_quirk_trovrd",
-                ARGS: ("statuspart", "src", _MSB, _LSB,),
+                ARGS: (
+                    "statuspart",
+                    "src",
+                    _MSB,
+                    _LSB,
+                ),
                 RETURNS: (False,),
             },
         ],
@@ -167,7 +188,10 @@ REGISTRY = {
         S2M: [
             {
                 FUNC: _GET_FLOAT,
-                ARGS: (_MSB, _LSB,),
+                ARGS: (
+                    _MSB,
+                    _LSB,
+                ),
                 RETURNS: (v.DATA_SLAVE_MAX_RELATIVE_MOD,),
             },
         ],
@@ -181,26 +205,54 @@ REGISTRY = {
     },
     v.MSG_TRSET: {
         M2S: [
-            {FUNC: _GET_FLOAT, ARGS: (_MSB, _LSB,), RETURNS: (v.DATA_ROOM_SETPOINT,)},
+            {
+                FUNC: _GET_FLOAT,
+                ARGS: (
+                    _MSB,
+                    _LSB,
+                ),
+                RETURNS: (v.DATA_ROOM_SETPOINT,),
+            },
         ],
         S2M: [],
     },
     v.MSG_RELMOD: {
         M2S: [],
         S2M: [
-            {FUNC: _GET_FLOAT, ARGS: (_MSB, _LSB,), RETURNS: (v.DATA_REL_MOD_LEVEL,)},
+            {
+                FUNC: _GET_FLOAT,
+                ARGS: (
+                    _MSB,
+                    _LSB,
+                ),
+                RETURNS: (v.DATA_REL_MOD_LEVEL,),
+            },
         ],
     },
     v.MSG_CHPRESS: {
         M2S: [],
         S2M: [
-            {FUNC: _GET_FLOAT, ARGS: (_MSB, _LSB,), RETURNS: (v.DATA_CH_WATER_PRESS,)},
+            {
+                FUNC: _GET_FLOAT,
+                ARGS: (
+                    _MSB,
+                    _LSB,
+                ),
+                RETURNS: (v.DATA_CH_WATER_PRESS,),
+            },
         ],
     },
     v.MSG_DHWFLOW: {
         M2S: [],
         S2M: [
-            {FUNC: _GET_FLOAT, ARGS: (_MSB, _LSB,), RETURNS: (v.DATA_DHW_FLOW_RATE,)},
+            {
+                FUNC: _GET_FLOAT,
+                ARGS: (
+                    _MSB,
+                    _LSB,
+                ),
+                RETURNS: (v.DATA_DHW_FLOW_RATE,),
+            },
         ],
     },
     v.MSG_TIME: {M2S: [], S2M: []},
@@ -210,30 +262,65 @@ REGISTRY = {
         M2S: [
             {
                 FUNC: _GET_FLOAT,
-                ARGS: (_MSB, _LSB,),
+                ARGS: (
+                    _MSB,
+                    _LSB,
+                ),
                 RETURNS: (v.DATA_ROOM_SETPOINT_2,),
             },
         ],
         S2M: [],
     },
     v.MSG_TROOM: {
-        M2S: [{FUNC: _GET_FLOAT, ARGS: (_MSB, _LSB,), RETURNS: (v.DATA_ROOM_TEMP,)}],
+        M2S: [
+            {
+                FUNC: _GET_FLOAT,
+                ARGS: (
+                    _MSB,
+                    _LSB,
+                ),
+                RETURNS: (v.DATA_ROOM_TEMP,),
+            }
+        ],
         S2M: [],
     },
     v.MSG_TBOILER: {
         M2S: [],
         S2M: [
-            {FUNC: _GET_FLOAT, ARGS: (_MSB, _LSB,), RETURNS: (v.DATA_CH_WATER_TEMP,)},
+            {
+                FUNC: _GET_FLOAT,
+                ARGS: (
+                    _MSB,
+                    _LSB,
+                ),
+                RETURNS: (v.DATA_CH_WATER_TEMP,),
+            },
         ],
     },
     v.MSG_TDHW: {
         M2S: [],
-        S2M: [{FUNC: _GET_FLOAT, ARGS: (_MSB, _LSB,), RETURNS: (v.DATA_DHW_TEMP,)}],
+        S2M: [
+            {
+                FUNC: _GET_FLOAT,
+                ARGS: (
+                    _MSB,
+                    _LSB,
+                ),
+                RETURNS: (v.DATA_DHW_TEMP,),
+            }
+        ],
     },
     v.MSG_TOUTSIDE: {
         M2S: [],
         S2M: [
-            {FUNC: _GET_FLOAT, ARGS: (_MSB, _LSB,), RETURNS: (v.DATA_OUTSIDE_TEMP,)},
+            {
+                FUNC: _GET_FLOAT,
+                ARGS: (
+                    _MSB,
+                    _LSB,
+                ),
+                RETURNS: (v.DATA_OUTSIDE_TEMP,),
+            },
         ],
     },
     v.MSG_TRET: {
@@ -241,7 +328,10 @@ REGISTRY = {
         S2M: [
             {
                 FUNC: _GET_FLOAT,
-                ARGS: (_MSB, _LSB,),
+                ARGS: (
+                    _MSB,
+                    _LSB,
+                ),
                 RETURNS: (v.DATA_RETURN_WATER_TEMP,),
             },
         ],
@@ -251,7 +341,10 @@ REGISTRY = {
         S2M: [
             {
                 FUNC: _GET_FLOAT,
-                ARGS: (_MSB, _LSB,),
+                ARGS: (
+                    _MSB,
+                    _LSB,
+                ),
                 RETURNS: (v.DATA_SOLAR_STORAGE_TEMP,),
             },
         ],
@@ -261,7 +354,10 @@ REGISTRY = {
         S2M: [
             {
                 FUNC: _GET_FLOAT,
-                ARGS: (_MSB, _LSB,),
+                ARGS: (
+                    _MSB,
+                    _LSB,
+                ),
                 RETURNS: (v.DATA_SOLAR_COLL_TEMP,),
             },
         ],
@@ -271,18 +367,39 @@ REGISTRY = {
         S2M: [
             {
                 FUNC: _GET_FLOAT,
-                ARGS: (_MSB, _LSB,),
+                ARGS: (
+                    _MSB,
+                    _LSB,
+                ),
                 RETURNS: (v.DATA_CH_WATER_TEMP_2,),
             },
         ],
     },
     v.MSG_TDHW2: {
         M2S: [],
-        S2M: [{FUNC: _GET_FLOAT, ARGS: (_MSB, _LSB,), RETURNS: (v.DATA_DHW_TEMP_2,)}],
+        S2M: [
+            {
+                FUNC: _GET_FLOAT,
+                ARGS: (
+                    _MSB,
+                    _LSB,
+                ),
+                RETURNS: (v.DATA_DHW_TEMP_2,),
+            }
+        ],
     },
     v.MSG_TEXHAUST: {
         M2S: [],
-        S2M: [{FUNC: _GET_S16, ARGS: (_MSB, _LSB,), RETURNS: (v.DATA_EXHAUST_TEMP,)}],
+        S2M: [
+            {
+                FUNC: _GET_S16,
+                ARGS: (
+                    _MSB,
+                    _LSB,
+                ),
+                RETURNS: (v.DATA_EXHAUST_TEMP,),
+            }
+        ],
     },
     v.MSG_TDHWSETUL: {
         M2S: [],
@@ -302,7 +419,14 @@ REGISTRY = {
     v.MSG_TDHWSET: {
         M2S: [],
         S2M: [
-            {FUNC: _GET_FLOAT, ARGS: (_MSB, _LSB,), RETURNS: (v.DATA_DHW_SETPOINT,)},
+            {
+                FUNC: _GET_FLOAT,
+                ARGS: (
+                    _MSB,
+                    _LSB,
+                ),
+                RETURNS: (v.DATA_DHW_SETPOINT,),
+            },
         ],
     },
     v.MSG_MAXTSET: {
@@ -310,7 +434,10 @@ REGISTRY = {
         S2M: [
             {
                 FUNC: _GET_FLOAT,
-                ARGS: (_MSB, _LSB,),
+                ARGS: (
+                    _MSB,
+                    _LSB,
+                ),
                 RETURNS: (v.DATA_MAX_CH_SETPOINT,),
             },
         ],
@@ -359,20 +486,35 @@ REGISTRY = {
             {
                 FUNC: _GET_FLAG8,
                 ARGS: (_LSB,),
-                RETURNS: (v.DATA_ROVRD_MAN_PRIO, v.DATA_ROVRD_AUTO_PRIO,),
+                RETURNS: (
+                    v.DATA_ROVRD_MAN_PRIO,
+                    v.DATA_ROVRD_AUTO_PRIO,
+                ),
             },
         ],
     },
     v.MSG_OEMDIAG: {
         M2S: [],
-        S2M: [{FUNC: _GET_U16, ARGS: (_MSB, _LSB,), RETURNS: (v.DATA_OEM_DIAG,)}],
+        S2M: [
+            {
+                FUNC: _GET_U16,
+                ARGS: (
+                    _MSB,
+                    _LSB,
+                ),
+                RETURNS: (v.DATA_OEM_DIAG,),
+            }
+        ],
     },
     v.MSG_BURNSTARTS: {
         M2S: [],
         S2M: [
             {
                 FUNC: _GET_U16,
-                ARGS: (_MSB, _LSB,),
+                ARGS: (
+                    _MSB,
+                    _LSB,
+                ),
                 RETURNS: (v.DATA_TOTAL_BURNER_STARTS,),
             },
         ],
@@ -380,13 +522,27 @@ REGISTRY = {
     v.MSG_CHPUMPSTARTS: {
         M2S: [],
         S2M: [
-            {FUNC: _GET_U16, ARGS: (_MSB, _LSB,), RETURNS: (v.DATA_CH_PUMP_STARTS,)},
+            {
+                FUNC: _GET_U16,
+                ARGS: (
+                    _MSB,
+                    _LSB,
+                ),
+                RETURNS: (v.DATA_CH_PUMP_STARTS,),
+            },
         ],
     },
     v.MSG_DHWPUMPSTARTS: {
         M2S: [],
         S2M: [
-            {FUNC: _GET_U16, ARGS: (_MSB, _LSB,), RETURNS: (v.DATA_DHW_PUMP_STARTS,)},
+            {
+                FUNC: _GET_U16,
+                ARGS: (
+                    _MSB,
+                    _LSB,
+                ),
+                RETURNS: (v.DATA_DHW_PUMP_STARTS,),
+            },
         ],
     },
     v.MSG_DHWBURNSTARTS: {
@@ -394,7 +550,10 @@ REGISTRY = {
         S2M: [
             {
                 FUNC: _GET_U16,
-                ARGS: (_MSB, _LSB,),
+                ARGS: (
+                    _MSB,
+                    _LSB,
+                ),
                 RETURNS: (v.DATA_DHW_BURNER_STARTS,),
             },
         ],
@@ -404,32 +563,61 @@ REGISTRY = {
         S2M: [
             {
                 FUNC: _GET_U16,
-                ARGS: (_MSB, _LSB,),
+                ARGS: (
+                    _MSB,
+                    _LSB,
+                ),
                 RETURNS: (v.DATA_TOTAL_BURNER_HOURS,),
             },
         ],
     },
     v.MSG_CHPUMPHRS: {
         M2S: [],
-        S2M: [{FUNC: _GET_U16, ARGS: (_MSB, _LSB,), RETURNS: (v.DATA_CH_PUMP_HOURS,)}],
+        S2M: [
+            {
+                FUNC: _GET_U16,
+                ARGS: (
+                    _MSB,
+                    _LSB,
+                ),
+                RETURNS: (v.DATA_CH_PUMP_HOURS,),
+            }
+        ],
     },
     v.MSG_DHWPUMPHRS: {
         M2S: [],
         S2M: [
-            {FUNC: _GET_U16, ARGS: (_MSB, _LSB,), RETURNS: (v.DATA_DHW_PUMP_HOURS,)},
+            {
+                FUNC: _GET_U16,
+                ARGS: (
+                    _MSB,
+                    _LSB,
+                ),
+                RETURNS: (v.DATA_DHW_PUMP_HOURS,),
+            },
         ],
     },
     v.MSG_DHWBURNHRS: {
         M2S: [],
         S2M: [
-            {FUNC: _GET_U16, ARGS: (_MSB, _LSB,), RETURNS: (v.DATA_DHW_BURNER_HOURS,)},
+            {
+                FUNC: _GET_U16,
+                ARGS: (
+                    _MSB,
+                    _LSB,
+                ),
+                RETURNS: (v.DATA_DHW_BURNER_HOURS,),
+            },
         ],
     },
     v.MSG_OTVERM: {
         M2S: [
             {
                 FUNC: _GET_FLOAT,
-                ARGS: (_MSB, _LSB,),
+                ARGS: (
+                    _MSB,
+                    _LSB,
+                ),
                 RETURNS: (v.DATA_MASTER_OT_VERSION,),
             },
         ],
@@ -440,7 +628,10 @@ REGISTRY = {
         S2M: [
             {
                 FUNC: _GET_FLOAT,
-                ARGS: (_MSB, _LSB,),
+                ARGS: (
+                    _MSB,
+                    _LSB,
+                ),
                 RETURNS: (v.DATA_SLAVE_OT_VERSION,),
             },
         ],

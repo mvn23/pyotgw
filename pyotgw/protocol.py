@@ -1,3 +1,4 @@
+"""Asyncio protocol implementation for pyotgw"""
 # This file is part of pyotgw.
 #
 # pyotgw is free software: you can redistribute it and/or modify
@@ -29,19 +30,16 @@ from pyotgw import vars as v
 _LOGGER = logging.getLogger(__name__)
 
 
-class protocol(asyncio.Protocol):
+class OpenThermProtocol(asyncio.Protocol):
     """
     Implementation of the Opentherm Gateway protocol to be used with
     asyncio connections.
     """
 
-    def connection_made(self, transport):
-        """
-        Gets called when a connection to the gateway is established.
-        Initialise the protocol object.
-        """
-        self.transport = transport
-        self.loop = transport.loop
+    def __init__(self):
+        """Initialise the protocol object."""
+        self.transport = None
+        self.loop = None
         self._active = False
         self._cmd_lock = asyncio.Lock()
         self._wd_lock = asyncio.Lock()
@@ -51,9 +49,20 @@ class protocol(asyncio.Protocol):
         self._readbuf = b""
         self._update_cb = None
         self._received_lines = 0
-        self._msg_task = self.loop.create_task(self._process_msgs())
+        self._msg_task = None
         self._report_task = None
         self._watchdog_task = None
+        self._watchdog_cb = None
+        self._watchdog_timeout = 5
+        self.status = copy.deepcopy(v.DEFAULT_STATUS)
+        self.connected = False
+
+    def connection_made(self, transport):
+        """Gets called when a connection to the gateway is established."""
+        self.transport = transport
+        self.loop = transport.loop
+        self._received_lines = 0
+        self._msg_task = self.loop.create_task(self._process_msgs())
         self.status = copy.deepcopy(v.DEFAULT_STATUS)
         self.connected = True
 
@@ -70,9 +79,9 @@ class protocol(asyncio.Protocol):
         if self._report_task is not None:
             self._report_task.cancel()
         self._msg_task.cancel()
-        for q in [self._cmdq, self._updateq, self._msgq]:
-            while not q.empty():
-                q.get_nowait()
+        for queue in [self._cmdq, self._updateq, self._msgq]:
+            while not queue.empty():
+                queue.get_nowait()
         self.status = copy.deepcopy(v.DEFAULT_STATUS)
         if self._update_cb is not None:
             self.loop.create_task(self._update_cb(copy.deepcopy(self.status)))
@@ -114,10 +123,10 @@ class protocol(asyncio.Protocol):
         """Return the current watchdog state."""
         return self._watchdog_task is not None
 
-    def setup_watchdog(self, cb, timeout):
+    def setup_watchdog(self, callback, timeout):
         """Trigger a reconnect after @timeout seconds of inactivity."""
         self._watchdog_timeout = timeout
-        self._watchdog_cb = cb
+        self._watchdog_cb = callback
         self._watchdog_task = self.loop.create_task(self._watchdog(timeout))
 
     async def cancel_watchdog(self):
@@ -157,11 +166,11 @@ class protocol(asyncio.Protocol):
             _LOGGER.debug(
                 "Serial input buffer size: %d", self.transport.serial.in_waiting
             )
-        except AttributeError as e:
+        except AttributeError as err:
             _LOGGER.debug(
                 "Could not generate debug output during disconnect."
                 " Reported error: %s",
-                e,
+                err,
             )
         await self.cancel_watchdog()
         await self._watchdog_cb()
@@ -225,10 +234,11 @@ class protocol(asyncio.Protocol):
             return (recvfrom, msgtype, data_id, data_msb, data_lsb)
         return (None, None, None, None, None)
 
-    def _get_msgtype(self, byte):
+    @staticmethod
+    def _get_msgtype(byte):
         """
         Return the message type of Opentherm messages according to
-        byte 1.
+        byte.
         """
         return (byte >> 4) & 0x7
 
@@ -245,13 +255,20 @@ class protocol(asyncio.Protocol):
                 args[1],
                 *[args[i].hex().upper() for i in range(2, 5)],
             )
-            await self._process_msg(*args)
+            await self._process_msg(args)
 
-    async def _process_msg(self, src, mtype, msgid, msb, lsb):
+    async def _process_msg(self, message):
         """
         Process message and update status variables where necessary.
         Add status to queue if it was changed in the process.
         """
+        (
+            src,
+            mtype,
+            msgid,
+            msb,  # pylint: disable=possibly-unused-variable
+            lsb,  # pylint: disable=possibly-unused-variable
+        ) = message
         if msgid not in m.REGISTRY:
             return
 
@@ -303,7 +320,8 @@ class protocol(asyncio.Protocol):
 
         self._updateq.put_nowait(copy.deepcopy(self.status))
 
-    def _get_flag8(self, byte):
+    @staticmethod
+    def _get_flag8(byte):
         """
         Split a byte into a list of 8 bits (1/0).
         """
@@ -314,13 +332,15 @@ class protocol(asyncio.Protocol):
             byte = byte >> 1
         return ret
 
-    def _get_u8(self, byte):
+    @staticmethod
+    def _get_u8(byte):
         """
         Convert a byte into an unsigned int.
         """
         return struct.unpack(">B", byte)[0]
 
-    def _get_s8(self, byte):
+    @staticmethod
+    def _get_s8(byte):
         """
         Convert a byte into a signed int.
         """
@@ -365,12 +385,12 @@ class protocol(asyncio.Protocol):
             _LOGGER.debug("Stopping reporting routine")
             self._report_task = None
 
-    def set_update_cb(self, cb):
+    def set_update_cb(self, callback):
         """Register the update callback."""
         if self._report_task is not None and not self._report_task.cancelled():
             self._report_task.cancel()
-        self._update_cb = cb
-        if cb is not None:
+        self._update_cb = callback
+        if callback is not None:
             self._report_task = self.loop.create_task(self._report())
 
     async def issue_cmd(self, cmd, value, retry=3):
@@ -388,7 +408,7 @@ class protocol(asyncio.Protocol):
                     "Clearing leftover message from command queue: %s",
                     await self._cmdq.get(),
                 )
-            if type(value) == float:
+            if isinstance(value, float):
                 value = f"{value:.2f}"
             _LOGGER.debug("Sending command: %s with value %s", cmd, value)
             self.transport.write(f"{cmd}={value}\r\n".encode("ascii"))
@@ -398,7 +418,10 @@ class protocol(asyncio.Protocol):
             # to the standard response format (<cmd>: <value>) at the moment, but report
             # only the value. This will likely be fixed in the future, so we support
             # both formats.
-            elif cmd in (v.OTGW_CMD_CONTROL_HEATING_2, v.OTGW_CMD_CONTROL_SETPOINT_2,):
+            elif cmd in (
+                v.OTGW_CMD_CONTROL_HEATING_2,
+                v.OTGW_CMD_CONTROL_SETPOINT_2,
+            ):
                 expect = fr"^(?:{cmd}:\s*)?(0|1|[0-9]+\.[0-9]{{2}}|[A-Z]{{2}})$"
             else:
                 expect = fr"^{cmd}:\s*([^$]+)$"
