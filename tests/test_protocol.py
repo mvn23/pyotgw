@@ -4,8 +4,9 @@ import logging
 import re
 from unittest.mock import MagicMock, call, patch
 
-import pyotgw.vars as v
 import pytest
+
+import pyotgw.vars as v
 from tests.data import pygw_proto_messages
 from tests.helpers import has_been_called_x_times
 
@@ -13,13 +14,13 @@ pytestmark = pytest.mark.asyncio
 
 
 def test_connection_made(pygw_proto):
-    """Test protocol.connection_made()"""
+    """Test OpenThermProtocol.connection_made()"""
     # pygw_proto already calls connection_made()
     assert pygw_proto.connected
 
 
 def test_connection_lost(caplog, pygw_proto):
-    """Test protocol.connection_lost()"""
+    """Test OpenThermProtocol.connection_lost()"""
 
     async def empty_callback(status):
         return
@@ -42,14 +43,20 @@ def test_connection_lost(caplog, pygw_proto):
     assert pygw_proto.status == v.DEFAULT_STATUS
     pygw_proto._update_cb.assert_called_once_with(v.DEFAULT_STATUS)
     assert caplog.record_tuples == [
-        ("pyotgw.protocol", logging.ERROR, "Disconnected: None",),
+        (
+            "pyotgw.protocol",
+            logging.ERROR,
+            "Disconnected: None",
+        ),
     ]
 
 
 async def test_disconnect(pygw_proto):
-    """Test protocol.disconnect()"""
+    """Test OpenThermProtocol.disconnect()"""
     with patch.object(
-        pygw_proto, "watchdog_active", return_value=True,
+        pygw_proto,
+        "watchdog_active",
+        return_value=True,
     ) as wd_active, patch.object(pygw_proto, "cancel_watchdog") as cancel_watchdog:
         await pygw_proto.disconnect()
 
@@ -66,7 +73,7 @@ async def test_disconnect(pygw_proto):
 
 
 def test_data_received(caplog, pygw_proto):
-    """Test protocol.data_received()"""
+    """Test OpenThermProtocol.data_received()"""
     test_input = (
         b"ignorethis\x04A123",
         b"45678\r\n",
@@ -85,24 +92,31 @@ def test_data_received(caplog, pygw_proto):
             pygw_proto.data_received(test_input[2])
         assert pygw_proto._readbuf == b""
         assert caplog.record_tuples == [
-            ("pyotgw.protocol", logging.DEBUG, "Invalid data received, ignoring...",),
+            (
+                "pyotgw.protocol",
+                logging.DEBUG,
+                "Invalid data received, ignoring...",
+            ),
         ]
 
 
 def test_watchdog_active(pygw_proto):
-    """Test protocol.watchdog_active()"""
+    """Test OpenThermProtocol.watchdog_active()"""
     assert not pygw_proto.watchdog_active()
     pygw_proto._watchdog_task = asyncio.Future()
     assert pygw_proto.watchdog_active()
 
 
 def test_setup_watchdog(pygw_proto):
-    """Test protocol.setup_watchdog()"""
+    """Test OpenThermProtocol.setup_watchdog()"""
 
     def cb():
         return
 
-    with patch.object(pygw_proto, "_watchdog",) as wd:
+    with patch.object(
+        pygw_proto,
+        "_watchdog",
+    ) as wd:
         pygw_proto.setup_watchdog(cb, 3)
 
     assert pygw_proto._watchdog_timeout == 3
@@ -113,7 +127,7 @@ def test_setup_watchdog(pygw_proto):
 
 
 async def test_cancel_watchdog(caplog, pygw_proto):
-    """Test protocol.cancel_watchdog()"""
+    """Test OpenThermProtocol.cancel_watchdog()"""
     with caplog.at_level(logging.DEBUG):
         await pygw_proto.cancel_watchdog()
 
@@ -121,13 +135,19 @@ async def test_cancel_watchdog(caplog, pygw_proto):
 
     pygw_proto._watchdog_task = pygw_proto.loop.create_task(asyncio.sleep(0))
     with patch.object(
-        pygw_proto, "watchdog_active", return_value=True,
+        pygw_proto,
+        "watchdog_active",
+        return_value=True,
     ), caplog.at_level(logging.DEBUG):
         await pygw_proto.cancel_watchdog()
 
     assert pygw_proto._watchdog_task is None
     assert caplog.record_tuples == [
-        ("pyotgw.protocol", logging.DEBUG, "Canceling Watchdog task.",),
+        (
+            "pyotgw.protocol",
+            logging.DEBUG,
+            "Canceling Watchdog task.",
+        ),
     ]
 
 
@@ -139,32 +159,52 @@ async def test_inform_watchdog(caplog, pygw_proto):
 
     pygw_proto._watchdog_task = pygw_proto.loop.create_task(asyncio.sleep(0))
     pygw_proto._watchdog_timeout = 3
-    with patch.object(pygw_proto, "_watchdog",) as wd, caplog.at_level(logging.DEBUG):
+    with patch.object(
+        pygw_proto,
+        "_watchdog",
+    ) as wd, caplog.at_level(logging.DEBUG):
         await pygw_proto._inform_watchdog()
 
     wd.assert_called_once_with(3)
     assert caplog.record_tuples == [
-        ("pyotgw.protocol", logging.DEBUG, "Watchdog timer reset!",),
+        (
+            "pyotgw.protocol",
+            logging.DEBUG,
+            "Watchdog timer reset!",
+        ),
     ]
 
 
 async def test_watchdog(caplog, pygw_proto):
-    """Test protocol._watchdog()"""
+    """Test OpenThermProtocol._watchdog()"""
 
     async def empty_callback():
         return
 
     pygw_proto._watchdog_cb = MagicMock(side_effect=empty_callback)
 
-    with patch.object(pygw_proto, "cancel_watchdog",) as cancel_wd, caplog.at_level(
-        logging.DEBUG
-    ):
+    with patch.object(
+        pygw_proto,
+        "cancel_watchdog",
+    ) as cancel_wd, caplog.at_level(logging.DEBUG):
         await pygw_proto._watchdog(0)
 
     for item in [
-        ("pyotgw.protocol", logging.DEBUG, "Watchdog triggered!",),
-        ("pyotgw.protocol", logging.DEBUG, "Internal read buffer content: ",),
-        ("pyotgw.protocol", logging.DEBUG, "Serial input buffer size: 1",),
+        (
+            "pyotgw.protocol",
+            logging.DEBUG,
+            "Watchdog triggered!",
+        ),
+        (
+            "pyotgw.protocol",
+            logging.DEBUG,
+            "Internal read buffer content: ",
+        ),
+        (
+            "pyotgw.protocol",
+            logging.DEBUG,
+            "Serial input buffer size: 1",
+        ),
     ]:
         assert item in caplog.record_tuples
 
@@ -172,9 +212,10 @@ async def test_watchdog(caplog, pygw_proto):
     pygw_proto._watchdog_cb.assert_called_once()
 
     pygw_proto._readbuf = None
-    with patch.object(pygw_proto, "cancel_watchdog",) as cancel_wd, caplog.at_level(
-        logging.DEBUG
-    ):
+    with patch.object(
+        pygw_proto,
+        "cancel_watchdog",
+    ) as cancel_wd, caplog.at_level(logging.DEBUG):
         await pygw_proto._watchdog(0)
 
     assert caplog.record_tuples[-1] == (
@@ -186,12 +227,13 @@ async def test_watchdog(caplog, pygw_proto):
 
 
 def test_line_received(caplog, pygw_proto):
-    """Test protocol.line_received()"""
+    """Test OpenThermProtocol.line_received()"""
     test_lines = ("BCDEF", "A1A2B3C4D", "MustBeCommand", "AlsoCommand")
     message_expect = ("A", b"\x1A", b"\x2B", b"\x3C", b"\x4D")
 
     with patch.object(
-        pygw_proto, "_inform_watchdog",
+        pygw_proto,
+        "_inform_watchdog",
     ) as inform_watchdog, caplog.at_level(logging.DEBUG):
         pygw_proto.line_received(test_lines[0])
 
@@ -201,13 +243,23 @@ def test_line_received(caplog, pygw_proto):
     inform_watchdog.assert_called_once()
     assert pygw_proto._received_lines == 0
     assert caplog.record_tuples == [
-        ("pyotgw.protocol", logging.DEBUG, f"Received line 1: {test_lines[0]}",),
-        ("pyotgw.protocol", logging.DEBUG, f"Ignoring line: {test_lines[0]}",),
+        (
+            "pyotgw.protocol",
+            logging.DEBUG,
+            f"Received line 1: {test_lines[0]}",
+        ),
+        (
+            "pyotgw.protocol",
+            logging.DEBUG,
+            f"Ignoring line: {test_lines[0]}",
+        ),
     ]
     caplog.clear()
 
     with patch.object(pygw_proto, "_inform_watchdog",) as inform_watchdog, patch.object(
-        pygw_proto, "_dissect_msg", return_value=message_expect,
+        pygw_proto,
+        "_dissect_msg",
+        return_value=message_expect,
     ) as dissect_msg, caplog.at_level(logging.DEBUG):
         pygw_proto.line_received(test_lines[1])
 
@@ -220,17 +272,22 @@ def test_line_received(caplog, pygw_proto):
     assert pygw_proto._msgq.qsize() == 1
     assert pygw_proto._msgq.get_nowait() == message_expect
     assert caplog.record_tuples == [
-        ("pyotgw.protocol", logging.DEBUG, f"Received line 1: {test_lines[1]}",),
         (
             "pyotgw.protocol",
             logging.DEBUG,
-            f"Added line 1 to message queue. Queue size: 1",
+            f"Received line 1: {test_lines[1]}",
+        ),
+        (
+            "pyotgw.protocol",
+            logging.DEBUG,
+            "Added line 1 to message queue. Queue size: 1",
         ),
     ]
     caplog.clear()
 
     with patch.object(
-        pygw_proto, "_inform_watchdog",
+        pygw_proto,
+        "_inform_watchdog",
     ) as inform_watchdog, caplog.at_level(logging.DEBUG):
         pygw_proto.line_received(test_lines[2])
 
@@ -242,11 +299,15 @@ def test_line_received(caplog, pygw_proto):
     assert pygw_proto._cmdq.qsize() == 1
     assert pygw_proto._cmdq.get_nowait() == test_lines[2]
     assert caplog.record_tuples == [
-        ("pyotgw.protocol", logging.DEBUG, f"Received line 2: {test_lines[2]}",),
         (
             "pyotgw.protocol",
             logging.DEBUG,
-            f"Added line 2 to command queue. Queue size: 1",
+            f"Received line 2: {test_lines[2]}",
+        ),
+        (
+            "pyotgw.protocol",
+            logging.DEBUG,
+            "Added line 2 to command queue. Queue size: 1",
         ),
     ]
     caplog.clear()
@@ -272,7 +333,7 @@ def test_line_received(caplog, pygw_proto):
 
 
 def test_dissect_msg(caplog, pygw_proto):
-    """Test protocol._dissect_msg"""
+    """Test OpenThermProtocol._dissect_msg"""
     pat = r"^(T|B|R|A|E)([0-9A-F]{8})$"
     test_matches = (
         re.match(pat, "A10203040"),
@@ -305,32 +366,39 @@ def test_dissect_msg(caplog, pygw_proto):
 
 
 def test_get_msgtype(pygw_proto):
-    """Test protocol._get_msgtype()"""
+    """Test OpenThermProtocol._get_msgtype()"""
     assert pygw_proto._get_msgtype(int("11011111", 2)) == int("0101", 2)
     assert pygw_proto._get_msgtype(int("01000001", 2)) == int("0100", 2)
 
 
 async def test_process_msgs(caplog, pygw_proto):
-    """Test protocol._process_msgs()"""
+    """Test OpenThermProtocol._process_msgs()"""
+    test_case = (
+        "B",
+        v.READ_ACK,
+        b"\x23",
+        b"\x0A",
+        b"\x01",
+    )
     with patch.object(pygw_proto, "_process_msg") as process_msg, caplog.at_level(
         logging.DEBUG
     ):
         task = pygw_proto.loop.create_task(pygw_proto._process_msgs())
-        pygw_proto._msgq.put_nowait(("B", v.READ_ACK, b"\x23", b"\x0A", b"\x01"))
+        pygw_proto._msgq.put_nowait(test_case)
         await has_been_called_x_times(process_msg, 1)
 
     task.cancel()
     with pytest.raises(asyncio.CancelledError):
         await task
 
-    process_msg.assert_called_once_with("B", v.READ_ACK, b"\x23", b"\x0A", b"\x01")
+    process_msg.assert_called_once_with(test_case)
     assert caplog.record_tuples == [
         ("pyotgw.protocol", logging.DEBUG, "Processing: B 04 23 0A 01")
     ]
 
 
 async def test_process_msg(pygw_proto):
-    """Test protocol._process_msg()"""
+    """Test OpenThermProtocol._process_msg()"""
     # Test quirks
     test_case = (
         "B",
@@ -342,13 +410,18 @@ async def test_process_msg(pygw_proto):
     pygw_proto.status[v.BOILER]["is_boiler"] = True
 
     with patch.object(pygw_proto, "_quirk_trovrd", return_value=None) as quirk_trovrd:
-        await pygw_proto._process_msg(*test_case)
+        await pygw_proto._process_msg(test_case)
 
-    quirk_trovrd.assert_called_once_with({"is_boiler": True}, "B", b"\x10", b"\x80")
+    quirk_trovrd.assert_called_once_with(
+        {"is_boiler": True},
+        "B",
+        b"\x10",
+        b"\x80",
+    )
     pygw_proto.status = copy.deepcopy(v.DEFAULT_STATUS)
 
     for test_case, expected_result in pygw_proto_messages:
-        await pygw_proto._process_msg(*test_case)
+        await pygw_proto._process_msg(test_case)
         if expected_result is not None:
             assert pygw_proto._updateq.qsize() == 1
             assert pygw_proto._updateq.get_nowait() == expected_result
@@ -356,12 +429,15 @@ async def test_process_msg(pygw_proto):
 
 
 async def test_quirk_trovrd(pygw_proto):
-    """Test protocol._quirk_trovrd()"""
+    """Test OpenThermProtocol._quirk_trovrd()"""
     pygw_proto.status[v.OTGW][v.OTGW_THRM_DETECT] = "I"
 
     with patch.object(pygw_proto, "issue_cmd", return_value="O=c19.5"):
         await pygw_proto._quirk_trovrd(
-            pygw_proto.status[v.THERMOSTAT], "A", b"\x15", b"\x40",
+            pygw_proto.status[v.THERMOSTAT],
+            "A",
+            b"\x15",
+            b"\x40",
         )
 
     assert pygw_proto._updateq.get_nowait() == {
@@ -372,7 +448,10 @@ async def test_quirk_trovrd(pygw_proto):
 
     with patch.object(pygw_proto, "issue_cmd", return_value="O=q---"):
         await pygw_proto._quirk_trovrd(
-            pygw_proto.status[v.THERMOSTAT], "A", b"\x15", b"\x40",
+            pygw_proto.status[v.THERMOSTAT],
+            "A",
+            b"\x15",
+            b"\x40",
         )
 
     with pytest.raises(asyncio.QueueEmpty):
@@ -380,7 +459,10 @@ async def test_quirk_trovrd(pygw_proto):
     assert v.DATA_ROOM_SETPOINT_OVRD in pygw_proto.status[v.THERMOSTAT]
 
     await pygw_proto._quirk_trovrd(
-        pygw_proto.status[v.THERMOSTAT], "A", b"\x00", b"\x00",
+        pygw_proto.status[v.THERMOSTAT],
+        "A",
+        b"\x00",
+        b"\x00",
     )
     assert pygw_proto._updateq.get_nowait() == {
         v.BOILER: {},
@@ -390,7 +472,10 @@ async def test_quirk_trovrd(pygw_proto):
 
     pygw_proto.status[v.OTGW][v.OTGW_THRM_DETECT] = "D"
     await pygw_proto._quirk_trovrd(
-        pygw_proto.status[v.THERMOSTAT], "A", b"\x15", b"\x40",
+        pygw_proto.status[v.THERMOSTAT],
+        "A",
+        b"\x15",
+        b"\x40",
     )
     assert pygw_proto._updateq.get_nowait() == {
         v.BOILER: {},
@@ -401,7 +486,10 @@ async def test_quirk_trovrd(pygw_proto):
     pygw_proto.status[v.OTGW][v.OTGW_THRM_DETECT] = "I"
     with patch.object(pygw_proto, "issue_cmd", return_value="O=N"):
         await pygw_proto._quirk_trovrd(
-            pygw_proto.status[v.THERMOSTAT], "A", b"\x15", b"\x40",
+            pygw_proto.status[v.THERMOSTAT],
+            "A",
+            b"\x15",
+            b"\x40",
         )
 
     assert pygw_proto._updateq.get_nowait() == {
@@ -414,14 +502,38 @@ async def test_quirk_trovrd(pygw_proto):
 def test_get_flag8(pygw_proto):
     """Test pygw._get_flag8()"""
     test_cases = (
-        (int("00000001", 2).to_bytes(1, "big"), [1, 0, 0, 0, 0, 0, 0, 0],),
-        (int("00000010", 2).to_bytes(1, "big"), [0, 1, 0, 0, 0, 0, 0, 0],),
-        (int("00000100", 2).to_bytes(1, "big"), [0, 0, 1, 0, 0, 0, 0, 0],),
-        (int("00001000", 2).to_bytes(1, "big"), [0, 0, 0, 1, 0, 0, 0, 0],),
-        (int("00010000", 2).to_bytes(1, "big"), [0, 0, 0, 0, 1, 0, 0, 0],),
-        (int("00100000", 2).to_bytes(1, "big"), [0, 0, 0, 0, 0, 1, 0, 0],),
-        (int("01000000", 2).to_bytes(1, "big"), [0, 0, 0, 0, 0, 0, 1, 0],),
-        (int("10000000", 2).to_bytes(1, "big"), [0, 0, 0, 0, 0, 0, 0, 1],),
+        (
+            int("00000001", 2).to_bytes(1, "big"),
+            [1, 0, 0, 0, 0, 0, 0, 0],
+        ),
+        (
+            int("00000010", 2).to_bytes(1, "big"),
+            [0, 1, 0, 0, 0, 0, 0, 0],
+        ),
+        (
+            int("00000100", 2).to_bytes(1, "big"),
+            [0, 0, 1, 0, 0, 0, 0, 0],
+        ),
+        (
+            int("00001000", 2).to_bytes(1, "big"),
+            [0, 0, 0, 1, 0, 0, 0, 0],
+        ),
+        (
+            int("00010000", 2).to_bytes(1, "big"),
+            [0, 0, 0, 0, 1, 0, 0, 0],
+        ),
+        (
+            int("00100000", 2).to_bytes(1, "big"),
+            [0, 0, 0, 0, 0, 1, 0, 0],
+        ),
+        (
+            int("01000000", 2).to_bytes(1, "big"),
+            [0, 0, 0, 0, 0, 0, 1, 0],
+        ),
+        (
+            int("10000000", 2).to_bytes(1, "big"),
+            [0, 0, 0, 0, 0, 0, 0, 1],
+        ),
     )
 
     for case, res in test_cases:
@@ -431,8 +543,14 @@ def test_get_flag8(pygw_proto):
 def test_get_u8(pygw_proto):
     """Test pygw._get_u8()"""
     test_cases = (
-        (b"\x00", 0,),
-        (b"\xFF", 255,),
+        (
+            b"\x00",
+            0,
+        ),
+        (
+            b"\xFF",
+            255,
+        ),
     )
 
     for case, res in test_cases:
@@ -442,8 +560,14 @@ def test_get_u8(pygw_proto):
 def test_get_s8(pygw_proto):
     """Test pygw._get_s8()"""
     test_cases = (
-        (b"\x00", 0,),
-        (b"\xFF", -1,),
+        (
+            b"\x00",
+            0,
+        ),
+        (
+            b"\xFF",
+            -1,
+        ),
     )
 
     for case, res in test_cases:
@@ -453,8 +577,20 @@ def test_get_s8(pygw_proto):
 def test_get_f8_8(pygw_proto):
     """Test pygw._get_f8_8()"""
     test_cases = (
-        ((b"\x00", b"\x00",), 0.0,),
-        ((b"\xFF", b"\x80",), -0.5,),
+        (
+            (
+                b"\x00",
+                b"\x00",
+            ),
+            0.0,
+        ),
+        (
+            (
+                b"\xFF",
+                b"\x80",
+            ),
+            -0.5,
+        ),
     )
 
     for case, res in test_cases:
@@ -464,8 +600,20 @@ def test_get_f8_8(pygw_proto):
 def test_get_u16(pygw_proto):
     """Test pygw._get_u16()"""
     test_cases = (
-        ((b"\x00", b"\x00",), 0,),
-        ((b"\xFF", b"\xFF",), 65535,),
+        (
+            (
+                b"\x00",
+                b"\x00",
+            ),
+            0,
+        ),
+        (
+            (
+                b"\xFF",
+                b"\xFF",
+            ),
+            65535,
+        ),
     )
 
     for case, res in test_cases:
@@ -475,8 +623,20 @@ def test_get_u16(pygw_proto):
 def test_get_s16(pygw_proto):
     """Test pygw._get_s16()"""
     test_cases = (
-        ((b"\x00", b"\x00",), 0,),
-        ((b"\xFF", b"\xFF",), -1,),
+        (
+            (
+                b"\x00",
+                b"\x00",
+            ),
+            0,
+        ),
+        (
+            (
+                b"\xFF",
+                b"\xFF",
+            ),
+            -1,
+        ),
     )
 
     for case, res in test_cases:
@@ -484,7 +644,7 @@ def test_get_s16(pygw_proto):
 
 
 async def test_report(caplog, pygw_proto):
-    """Test protocol._report()"""
+    """Test OpenThermProtocol._report()"""
 
     async def empty_callback(status):
         return
@@ -498,10 +658,14 @@ async def test_report(caplog, pygw_proto):
         pygw_proto._report_task = loop.create_task(pygw_proto._report())
         await has_been_called_x_times(pygw_proto._update_cb, 1)
 
-    assert type(pygw_proto._report_task) == asyncio.Task
+    assert isinstance(pygw_proto._report_task, asyncio.Task)
     pygw_proto._update_cb.assert_called_once_with(v.DEFAULT_STATUS)
     assert caplog.record_tuples == [
-        ("pyotgw.protocol", logging.DEBUG, "Starting reporting routine",),
+        (
+            "pyotgw.protocol",
+            logging.DEBUG,
+            "Starting reporting routine",
+        ),
     ]
     caplog.clear()
 
@@ -511,12 +675,16 @@ async def test_report(caplog, pygw_proto):
 
     assert pygw_proto._report_task is None
     assert caplog.record_tuples == [
-        ("pyotgw.protocol", logging.DEBUG, "Stopping reporting routine",),
+        (
+            "pyotgw.protocol",
+            logging.DEBUG,
+            "Stopping reporting routine",
+        ),
     ]
 
 
 def test_set_update_cb(pygw_proto):
-    """Test protocol.set_update_cb()"""
+    """Test OpenThermProtocol.set_update_cb()"""
 
     async def empty_callback(status):
         return
@@ -536,7 +704,7 @@ def test_set_update_cb(pygw_proto):
 
 
 async def test_issue_cmd(caplog, pygw_proto):
-    """Test protocol.issue_cmd()"""
+    """Test OpenThermProtocol.issue_cmd()"""
     pygw_proto.connected = False
     with caplog.at_level(logging.DEBUG):
         assert await pygw_proto.issue_cmd("PS", 1, 0) is None
@@ -568,7 +736,11 @@ async def test_issue_cmd(caplog, pygw_proto):
                 logging.DEBUG,
                 "Clearing leftover message from command queue: thisshouldbecleared",
             ),
-            ("pyotgw.protocol", logging.DEBUG, "Sending command: PR with value I",),
+            (
+                "pyotgw.protocol",
+                logging.DEBUG,
+                "Sending command: PR with value I",
+            ),
         ]
         caplog.clear()
 
@@ -583,9 +755,21 @@ async def test_issue_cmd(caplog, pygw_proto):
     ]
 
     assert caplog.record_tuples == [
-        ("pyotgw.protocol", logging.DEBUG, "Got possible response for command PR: SE",),
-        ("pyotgw.protocol", logging.WARNING, "Command PR failed with SE, retrying...",),
-        ("pyotgw.protocol", logging.DEBUG, "Got possible response for command PR: SE",),
+        (
+            "pyotgw.protocol",
+            logging.DEBUG,
+            "Got possible response for command PR: SE",
+        ),
+        (
+            "pyotgw.protocol",
+            logging.WARNING,
+            "Command PR failed with SE, retrying...",
+        ),
+        (
+            "pyotgw.protocol",
+            logging.DEBUG,
+            "Got possible response for command PR: SE",
+        ),
     ]
     caplog.clear()
 
@@ -672,7 +856,7 @@ async def test_issue_cmd(caplog, pygw_proto):
 
 
 def test_active(pygw_proto):
-    """Test protocol.active()"""
+    """Test OpenThermProtocol.active()"""
     pygw_proto._active = False
     assert pygw_proto.active() is False
     pygw_proto._active = True
@@ -680,7 +864,7 @@ def test_active(pygw_proto):
 
 
 async def test_init_and_wait_for_activity(pygw_proto):
-    """Test protocol.init_and_wait_for_activity()"""
+    """Test OpenThermProtocol.init_and_wait_for_activity()"""
     loop = asyncio.get_running_loop()
 
     with patch.object(pygw_proto, "issue_cmd") as issue_cmd, patch.object(

@@ -1,8 +1,9 @@
 import asyncio
 from unittest.mock import MagicMock, patch
 
-import pyotgw
 import pytest
+
+import pyotgw
 
 
 @pytest.fixture
@@ -15,10 +16,10 @@ def pygw():
 async def pygw_proto(pygw):
     """Return a "connected" protocol object"""
     trans = MagicMock(loop=asyncio.get_running_loop())
-    proto = pyotgw.protocol.protocol()
+    proto = pyotgw.protocol.OpenThermProtocol()
     pygw._transport = trans
     pygw._protocol = proto
-    with patch("pyotgw.protocol.protocol._process_msgs", return_value=None):
+    with patch("pyotgw.protocol.OpenThermProtocol._process_msgs", return_value=None):
         proto.connection_made(trans)
     return proto
 

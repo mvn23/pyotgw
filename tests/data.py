@@ -344,7 +344,10 @@ pygw_status = SimpleNamespace(
 
 pygw_proto_messages = (
     # Invalid message ID
-    (("A", 114, None, None, None), None,),
+    (
+        ("A", 114, None, None, None),
+        None,
+    ),
     # _get_flag8
     (
         ("T", v.READ_DATA, v.MSG_STATUS, b"\x43", b"\x00"),
