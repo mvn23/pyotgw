@@ -1,3 +1,5 @@
+"""Tests for pyotgw/messages.py"""
+
 import pyotgw.messages as m
 from pyotgw.protocol import OpenThermProtocol
 
