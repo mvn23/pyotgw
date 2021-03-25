@@ -1,24 +1,6 @@
 """Asyncio protocol implementation for pyotgw"""
-# This file is part of pyotgw.
-#
-# pyotgw is free software: you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation, either version 3 of the License, or
-# (at your option) any later version.
-#
-# pyotgw is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License
-# along with pyotgw.  If not, see <http://www.gnu.org/licenses/>.
-#
-# Copyright 2018 Milan van Nugteren
-#
 
 import asyncio
-import copy
 import logging
 import re
 import struct
@@ -36,26 +18,20 @@ class OpenThermProtocol(asyncio.Protocol):
     asyncio connections.
     """
 
-    def __init__(self):
+    def __init__(self, status_manager, activity_callback):
         """Initialise the protocol object."""
         self.transport = None
         self.loop = None
         self._active = False
         self._cmd_lock = asyncio.Lock()
-        self._wd_lock = asyncio.Lock()
         self._cmdq = asyncio.Queue()
         self._msgq = asyncio.Queue()
-        self._updateq = asyncio.Queue()
         self._readbuf = b""
-        self._update_cb = None
         self._received_lines = 0
         self._msg_task = None
-        self._report_task = None
-        self._watchdog_task = None
-        self._watchdog_cb = None
-        self._watchdog_timeout = 5
-        self.status = copy.deepcopy(v.DEFAULT_STATUS)
-        self.connected = False
+        self.activity_callback = activity_callback
+        self._connected = False
+        self.status_manager = status_manager
 
     def connection_made(self, transport):
         """Gets called when a connection to the gateway is established."""
@@ -63,36 +39,34 @@ class OpenThermProtocol(asyncio.Protocol):
         self.loop = transport.loop
         self._received_lines = 0
         self._msg_task = self.loop.create_task(self._process_msgs())
-        self.status = copy.deepcopy(v.DEFAULT_STATUS)
-        self.connected = True
+        self._connected = True
 
     def connection_lost(self, exc):
         """
         Gets called when the connection to the gateway is lost.
         Tear down and clean up the protocol object.
         """
-        if self.active():
+        if self.active:
             _LOGGER.error("Disconnected: %s", exc)
         self._active = False
-        self.connected = False
+        self._connected = False
         self.transport.close()
-        if self._report_task is not None:
-            self._report_task.cancel()
         self._msg_task.cancel()
-        for queue in [self._cmdq, self._updateq, self._msgq]:
+        self.status_manager.reset()
+        for queue in [self._cmdq, self._msgq]:
             while not queue.empty():
                 queue.get_nowait()
-        self.status = copy.deepcopy(v.DEFAULT_STATUS)
-        if self._update_cb is not None:
-            self.loop.create_task(self._update_cb(copy.deepcopy(self.status)))
+
+    @property
+    def connected(self):
+        """Return the connection status"""
+        return self._connected
 
     async def disconnect(self):
         """Disconnect gracefully."""
-        if self.watchdog_active():
-            await self.cancel_watchdog()
         if self.transport.is_closing() or not self.connected:
             return
-        self.connected = False
+        self._connected = False
         self.transport.close()
 
     def data_received(self, data):
@@ -119,62 +93,6 @@ class OpenThermProtocol(asyncio.Protocol):
                     return
                 self.line_received(decoded)
 
-    def watchdog_active(self):
-        """Return the current watchdog state."""
-        return self._watchdog_task is not None
-
-    def setup_watchdog(self, callback, timeout):
-        """Trigger a reconnect after @timeout seconds of inactivity."""
-        self._watchdog_timeout = timeout
-        self._watchdog_cb = callback
-        self._watchdog_task = self.loop.create_task(self._watchdog(timeout))
-
-    async def cancel_watchdog(self):
-        """Cancel the watchdog task and related variables."""
-        if self.watchdog_active():
-            _LOGGER.debug("Canceling Watchdog task.")
-            self._watchdog_task.cancel()
-            try:
-                await self._watchdog_task
-            except asyncio.CancelledError:
-                self._watchdog_task = None
-
-    async def _inform_watchdog(self):
-        """Inform the watchdog of activity."""
-        async with self._wd_lock:
-            if not self.watchdog_active():
-                # Check within the Lock to deal with external cancel_watchdog
-                # calls with queued _inform_watchdog tasks.
-                return
-            self._watchdog_task.cancel()
-            try:
-                await self._watchdog_task
-            except asyncio.CancelledError:
-                self._watchdog_task = self.loop.create_task(
-                    self._watchdog(self._watchdog_timeout)
-                )
-                _LOGGER.debug("Watchdog timer reset!")
-
-    async def _watchdog(self, timeout):
-        """Trigger and cancel the watchdog after timeout. Call callback."""
-        await asyncio.sleep(timeout)
-        _LOGGER.debug("Watchdog triggered!")
-        try:
-            _LOGGER.debug("Internal read buffer content: %s", self._readbuf.hex())
-            _LOGGER.debug("Serial transport closing: %s", self.transport.is_closing())
-            _LOGGER.debug("Serial settings: %s", self.transport.serial.get_settings())
-            _LOGGER.debug(
-                "Serial input buffer size: %d", self.transport.serial.in_waiting
-            )
-        except AttributeError as err:
-            _LOGGER.debug(
-                "Could not generate debug output during disconnect."
-                " Reported error: %s",
-                err,
-            )
-        await self.cancel_watchdog()
-        await self._watchdog_cb()
-
     def line_received(self, line):
         """
         Gets called by data_received() when a complete line is
@@ -183,7 +101,8 @@ class OpenThermProtocol(asyncio.Protocol):
         """
         self._received_lines += 1
         _LOGGER.debug("Received line %d: %s", self._received_lines, line)
-        self.loop.create_task(self._inform_watchdog())
+        if self.activity_callback:
+            self.loop.create_task(self.activity_callback())
         pattern = r"^(T|B|R|A|E)([0-9A-F]{8})$"
         msg = re.match(pattern, line)
         if msg:
@@ -222,7 +141,7 @@ class OpenThermProtocol(asyncio.Protocol):
                 " This is not a bug in pyotgw. Ignoring: %s",
                 frame.hex().upper(),
             )
-            return (None, None, None, None, None)
+            return None, None, None, None, None
         msgtype = self._get_msgtype(frame[0])
         if msgtype in (v.READ_ACK, v.WRITE_ACK, v.READ_DATA, v.WRITE_DATA):
             # Some info is best read from the READ/WRITE_DATA messages
@@ -231,8 +150,8 @@ class OpenThermProtocol(asyncio.Protocol):
             data_id = frame[1:2]
             data_msb = frame[2:3]
             data_lsb = frame[3:4]
-            return (recvfrom, msgtype, data_id, data_msb, data_lsb)
-        return (None, None, None, None, None)
+            return recvfrom, msgtype, data_id, data_msb, data_lsb
+        return None, None, None, None, None
 
     @staticmethod
     def _get_msgtype(byte):
@@ -273,35 +192,50 @@ class OpenThermProtocol(asyncio.Protocol):
             return
 
         if src in "TA":
-            statuspart = self.status[v.THERMOSTAT]
+            part = v.THERMOSTAT
         else:  # src in "BR"
-            statuspart = self.status[v.BOILER]
+            part = v.BOILER
+        update = {}
 
         for action in m.REGISTRY[msgid][m.MSG_TYPE[mtype]]:
-            func = getattr(self, action[m.FUNC])
-            loc = locals()
-            args = (loc[arg] for arg in action[m.ARGS])
-            if asyncio.iscoroutinefunction(func):
-                ret = await func(*args)
-            else:
-                ret = func(*args)
-            ret = ret if isinstance(ret, list) else [ret]
-            for var, val in zip(action[m.RETURNS], ret):
-                if var is False:
-                    return
-                if var is None:
-                    continue
-                statuspart[var] = val
+            update.update(await self._get_dict_update_for_action(action, locals()))
 
-        self._updateq.put_nowait(copy.deepcopy(self.status))
+        if update == {}:
+            return
 
-    async def _quirk_trovrd(self, statuspart, src, msb, lsb):
+        self.status_manager.submit_partial_update(part, update)
+
+    async def _get_dict_update_for_action(self, action, env):
+        """Return a partial dict update for message"""
+        func = getattr(self, action[m.FUNC])
+        loc = locals()
+        loc.update(env)
+        args = (loc[arg] for arg in action[m.ARGS])
+        if asyncio.iscoroutinefunction(func):
+            ret = await func(*args)
+        else:
+            ret = func(*args)
+        ret = ret if isinstance(ret, list) else [ret]
+        update = {}
+        for var, val in zip(action[m.RETURNS], ret):
+            if var is False:
+                return {}
+            if var is None:
+                continue
+            update.update({var: val})
+        return update
+
+    async def _quirk_trovrd(self, part, src, msb, lsb):
         """Handle MSG_TROVRD with iSense quirk"""
+        update = {}
         ovrd_value = self._get_f8_8(msb, lsb)
         if ovrd_value > 0:
             # iSense quirk: the gateway keeps sending override value
             # even if the thermostat has cancelled the override.
-            if self.status[v.OTGW].get(v.OTGW_THRM_DETECT) == "I" and src == "A":
+            if (
+                self.status_manager.status[v.OTGW].get(v.OTGW_THRM_DETECT) == "I"
+                and src == "A"
+            ):
                 ovrd = await self.issue_cmd(
                     v.OTGW_CMD_REPORT, v.OTGW_REPORT_SETPOINT_OVRD
                 )
@@ -309,16 +243,14 @@ class OpenThermProtocol(asyncio.Protocol):
                 if not match:
                     return
                 if match.group(1) in "Nn":
-                    if v.DATA_ROOM_SETPOINT_OVRD in statuspart:
-                        del statuspart[v.DATA_ROOM_SETPOINT_OVRD]
-                elif match.group(2):
-                    statuspart[v.DATA_ROOM_SETPOINT_OVRD] = float(match.group(2))
+                    self.status_manager.delete_value(part, v.DATA_ROOM_SETPOINT_OVRD)
+                    return
+                update[v.DATA_ROOM_SETPOINT_OVRD] = float(match.group(2))
             else:
-                statuspart[v.DATA_ROOM_SETPOINT_OVRD] = ovrd_value
-        elif statuspart.get(v.DATA_ROOM_SETPOINT_OVRD):
-            del statuspart[v.DATA_ROOM_SETPOINT_OVRD]
-
-        self._updateq.put_nowait(copy.deepcopy(self.status))
+                update[v.DATA_ROOM_SETPOINT_OVRD] = ovrd_value
+            self.status_manager.submit_partial_update(part, update)
+        else:
+            self.status_manager.delete_value(part, v.DATA_ROOM_SETPOINT_OVRD)
 
     @staticmethod
     def _get_flag8(byte):
@@ -365,33 +297,6 @@ class OpenThermProtocol(asyncio.Protocol):
         """
         buf = struct.pack(">bB", self._get_s8(msb), self._get_u8(lsb))
         return int(struct.unpack(">h", buf)[0])
-
-    async def _report(self):
-        """
-        Call _update_cb with the status dict as an argument whenever a status
-        update occurs.
-
-        This method is a coroutine
-        """
-        try:
-            _LOGGER.debug("Starting reporting routine")
-            while True:
-                oldstatus = copy.deepcopy(self.status)
-                stat = await self._updateq.get()
-                if self._update_cb is not None and oldstatus != stat:
-                    # Each client gets its own copy of the dict.
-                    self.loop.create_task(self._update_cb(copy.deepcopy(stat)))
-        except asyncio.CancelledError:
-            _LOGGER.debug("Stopping reporting routine")
-            self._report_task = None
-
-    def set_update_cb(self, callback):
-        """Register the update callback."""
-        if self._report_task is not None and not self._report_task.cancelled():
-            self._report_task.cancel()
-        self._update_cb = callback
-        if callback is not None:
-            self._report_task = self.loop.create_task(self._report())
 
     async def issue_cmd(self, cmd, value, retry=3):
         """
@@ -478,6 +383,7 @@ class OpenThermProtocol(asyncio.Protocol):
                 if ret is not None:
                     return ret
 
+    @property
     def active(self):
         """Indicate that we have seen activity on the serial line."""
         return self._active
@@ -485,5 +391,5 @@ class OpenThermProtocol(asyncio.Protocol):
     async def init_and_wait_for_activity(self):
         """Wait for activity on the serial connection."""
         await self.issue_cmd(v.OTGW_CMD_SUMMARY, 0, retry=0)
-        while not self.active():
+        while not self.active:
             await asyncio.sleep(0)
