@@ -13,7 +13,7 @@ from pyotgw.status import StatusManager
 @pytest.fixture
 async def pygw():
     """Return a basic pyotgw object"""
-    gw = pyotgw.pyotgw()
+    gw = pyotgw.OpenThermGateway()
     await gw.connection.watchdog.stop()
     yield gw
     await gw.cleanup()

@@ -29,8 +29,6 @@ async def test_cleanup(pygw):
 
 async def test_connect_success_and_reconnect_with_gpio(caplog, pygw, pygw_proto):
     """Test pyotgw.connect()"""
-    loop = asyncio.get_running_loop()
-
     with patch.object(pygw, "get_reports", return_value={}), patch.object(
         pygw,
         "get_status",
@@ -44,7 +42,7 @@ async def test_connect_success_and_reconnect_with_gpio(caplog, pygw, pygw_proto)
     ), caplog.at_level(
         logging.DEBUG
     ):
-        status = await pygw.connect(loop, "loop://")
+        status = await pygw.connect("loop://")
 
         assert status == v.DEFAULT_STATUS
         init_and_wait.assert_called_once()
@@ -74,7 +72,7 @@ async def test_connect_serialexception(caplog, pygw):
         "_get_retry_timeout",
         return_value=0,
     ) as loops_done:
-        task = loop.create_task(pygw.connect(loop, "loop://"))
+        task = loop.create_task(pygw.connect("loop://"))
 
         await called_x_times(loops_done, 2)
 
@@ -96,13 +94,11 @@ async def test_connect_serialexception(caplog, pygw):
 
 async def test_connect_cancel(pygw):
     """Test pyotgw.connect() with CancelledError"""
-    loop = asyncio.get_running_loop()
-
     with patch(
         "serial_asyncio.create_serial_connection",
         side_effect=asyncio.CancelledError,
     ) as create_serial_connection:
-        status = await pygw.connect(loop, "loop://")
+        status = await pygw.connect("loop://")
 
     assert status is False
     create_serial_connection.assert_called_once()
@@ -131,7 +127,7 @@ async def test_connect_timeouterror(caplog, pygw, pygw_proto):
     ), caplog.at_level(
         logging.DEBUG
     ):
-        task = loop.create_task(pygw.connect(loop, "loop://"))
+        task = loop.create_task(pygw.connect("loop://"))
         await called_x_times(loops_done, 2)
 
         assert isinstance(pygw.connection._connecting_task, asyncio.Task)
@@ -158,7 +154,7 @@ async def test_disconnect_while_connecting(pygw):
         "serial_asyncio.create_serial_connection",
         side_effect=serial.SerialException,
     ):
-        task = loop.create_task(pygw.connect(loop, "loop://"))
+        task = loop.create_task(pygw.connect("loop://"))
 
         with patch(
             "pyotgw.protocol.OpenThermProtocol.disconnect"

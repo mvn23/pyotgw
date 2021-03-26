@@ -11,15 +11,15 @@ from pyotgw.status import StatusManager
 _LOGGER = logging.getLogger(__name__)
 
 
-class pyotgw:  # pylint: disable=invalid-name
-    """pyotgw main object abstraction"""
+class OpenThermGateway:
+    """Main OpenThermGateway object abstraction"""
 
     def __init__(self):
-        """Create a pyotgw object."""
+        """Create an OpenThermGateway object."""
         self._transport = None
         self._protocol = None
         self._gpio_task = None
-        self.loop = None
+        self.loop = asyncio.get_event_loop()
         self.status = StatusManager()
         self.connection = ConnectionManager(self.status)
 
@@ -33,7 +33,6 @@ class pyotgw:  # pylint: disable=invalid-name
 
     async def connect(
         self,
-        loop,
         port,
         timeout=None,
     ):
@@ -46,7 +45,6 @@ class pyotgw:  # pylint: disable=invalid-name
 
         This method is a coroutine
         """
-        self.loop = loop
         if not await self.connection.connect(port, timeout):
             return False
         self._protocol = self.connection.protocol
@@ -96,7 +94,6 @@ class pyotgw:  # pylint: disable=invalid-name
         """
         cmd = v.OTGW_CMD_TARGET_TEMP if temporary else v.OTGW_CMD_TARGET_TEMP_CONST
         value = f"{temp:2.1f}"
-        status_update = {v.OTGW: {}, v.THERMOSTAT: {}}
         ret = await self._wait_for_cmd(cmd, value, timeout)
         if ret is None:
             return None
@@ -209,8 +206,8 @@ class pyotgw:  # pylint: disable=invalid-name
 
     async def get_reports(self):
         """
-        Update the pyotgw object with the information from all of the
-        PR commands and return the updated status dict.
+        Update the OpenThermGateway object with the information from all
+        of the PR commands and return the updated status dict.
 
         This method is a coroutine
         """
@@ -294,8 +291,8 @@ class pyotgw:  # pylint: disable=invalid-name
 
     async def get_status(self):
         """
-        Update the pyotgw object with the information from the PS
-        command and return the updated status dict.
+        Update the OpenThermGateway object with the information from the
+        PS command and return the updated status dict.
 
         This method is a coroutine
         """

@@ -1,5 +1,5 @@
 """The main pyotgw __init__ file"""
 
-from pyotgw.pyotgw import pyotgw
+from pyotgw.pyotgw import OpenThermGateway
 
-__all__ = ["pyotgw"]
+__all__ = ["OpenThermGateway"]
