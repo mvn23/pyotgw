@@ -5,6 +5,7 @@ python:
   - "3.10"
 install:
   - pip install -e .
-  - pip install pre_commit
+  - pip install -r requirements_test.txt
 script:
+  - pytest --cov --cov-report=term-missing
   - pre-commit run --all-files
