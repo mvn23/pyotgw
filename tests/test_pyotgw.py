@@ -106,16 +106,12 @@ async def test_connect_cancel(pygw):
 
 async def test_connect_timeouterror(caplog, pygw, pygw_proto):
     """Test pyotgw.connect() with TimeoutError"""
-
-    async def empty_coroutine():
-        return
-
     loop = asyncio.get_running_loop()
 
     # Mock these before the 'with' context manager to ensure the mocks get
     # included in the patched response for create_serial_connection().
     pygw_proto.init_and_wait_for_activity = MagicMock(side_effect=asyncio.TimeoutError)
-    pygw_proto.disconnect = MagicMock(side_effect=empty_coroutine)
+    pygw_proto.disconnect = MagicMock()
 
     with patch.object(
         pygw.connection,
