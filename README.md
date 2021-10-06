@@ -59,18 +59,6 @@ Returns the added ID, or None on failure.
 This method is a coroutine.
 
 ---
-##### OpenThermGateway.clear_response(_self_, data_id, timeout=OTGW_DEFAULT_TIMEOUT)
-__Not implemented yet.__
-Clear response to the thermostat for a specific data_ID, which was previously configured with `OpenThermGateway.set_response()`.
-This method supports the following arguments:
-- __data_id__ The data-ID for which the response should be cleared. Values from 1 to 255 are allowed.
-- __timeout__ The timeout for the request. Defaults to OTGW_DEFAULT_TIMEOUT (3 seconds).
-
-Return the data ID for which the response was cleared, or None on failure.
-
-This method is a coroutine.
-
----
 ##### OpenThermGateway.connect(_self_, port, timeout=5)
 Connect to an OpenTherm Gateway and initializes the parameters obtained from the `PS` and `PR` commands.
 If called while connected, reconnect to the gateway.
@@ -216,15 +204,6 @@ Returns the currently known target temperature.
 Get the assigned function of the temperature sensor which is connected to the gateway.
 
 Returns either `O` for 'Outside Air Temperature' or `R` for 'Return Water Temperature'.
-
----
-##### OpenThermGateway.prio_message(_self_)
-__Not implemented yet.__
-Send a priority message to the boiler.
-Specify a one-time priority message to be sent to the boiler at the first opportunity. If the specified message returns the number of Transparent Slave Parameters (TSPs) or Fault History Buffers (FHBs), the gateway will proceed to request those TSPs or FHBs.
-This method supports the following arguments:
-
-This method is a coroutine.
 
 ---
 ##### OpenThermGateway.set_ch_enable_bit(_self_, ch_bit, timeout=OTGW_DEFAULT_TIMEOUT)
@@ -405,17 +384,6 @@ This method supports the following arguments:
 - __timeout__ The timeout for the request. Defaults to OTGW_DEFAULT_TIMEOUT (3 seconds).
 
 Returns the accepted value on success, `-` if a previously configured value has been cleared or `None` on failure.
-
-This method is a coroutine.
-
----
-##### OpenThermGateway.set_response(_self_)
-__Not implemented yet.__
-Configure a response to send back to the thermostat instead of the response produced by the boiler.
-This method supports the following arguments:
-
-Returns the data ID for which the response was set, or `None` on
-failure.
 
 This method is a coroutine.
 
