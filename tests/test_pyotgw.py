@@ -669,21 +669,6 @@ async def test_del_unknown_id(pygw):
     )
 
 
-async def test_prio_message(pygw):
-    """TODO: Implement and test pyotgw.prio_message()"""
-    assert await pygw.prio_message() is None
-
-
-async def test_set_response(pygw):
-    """TODO: Implement and test pyotgw.set_response()"""
-    assert await pygw.set_response() is None
-
-
-async def test_clear_response(pygw):
-    """TODO: Implement and test pyotgw.clear_response()"""
-    assert await pygw.clear_response() is None
-
-
 async def test_set_max_ch_setpoint(pygw):
     """Test pyotgw.set_max_ch_setpoint()"""
     with patch.object(

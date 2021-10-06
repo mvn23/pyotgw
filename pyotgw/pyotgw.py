@@ -693,46 +693,6 @@ class OpenThermGateway:
         if ret is not None:
             return int(ret)
 
-    async def prio_message(self):
-        """
-        NOT IMPLEMENTED YET!
-        Specify a one-time priority message to be sent to the boiler at
-        the first opportunity. If the specified message returns the
-        number of Transparent Slave Parameters (TSPs) or Fault History
-        Buffers (FHBs), the gateway will proceed to request those TSPs
-        or FHBs.
-
-        This method is a coroutine
-        """
-        # TODO: implement this, including FHB/TSP processing
-        return
-
-    async def set_response(self):
-        """
-        NOT IMPLEMENTED YET!
-        Configure a response to send back to the thermostat instead of
-        the response produced by the boiler.
-        @data is a list of either one or two hex byte values
-        Return the data ID for which the response was set, or None on
-        failure.
-
-        This method is a coroutine
-        """
-        # TODO: implement this
-        return
-
-    async def clear_response(self):
-        """
-        Clear a previously configured response to send back to the
-        thermostat for :data_id:.
-        Return the data ID for which the response was cleared, or None
-        on failure.
-
-        This method is a coroutine
-        """
-        # TODO: implement this
-        return
-
     async def set_max_ch_setpoint(self, temperature, timeout=v.OTGW_DEFAULT_TIMEOUT):
         """
         Set the maximum central heating setpoint. This command is only
