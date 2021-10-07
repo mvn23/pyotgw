@@ -217,20 +217,20 @@ class OpenThermGateway:
         ret = await self._wait_for_cmd(cmd, v.OTGW_REPORT_ABOUT)
         reports[v.OTGW_REPORT_ABOUT] = ret[2:] if ret else None
         for value in v.OTGW_REPORTS:
+
+            ver = reports.get(v.OTGW_REPORT_ABOUT)
+            if ver and int(ver[18]) < 5 and value == "D":
+                # Added in v5
+                continue
             if value == v.OTGW_REPORT_ABOUT:
                 continue
-            try:
-                ret = await self._wait_for_cmd(cmd, value)
-            except ValueError:
-                ver = reports.get(v.OTGW_REPORT_ABOUT)
-                if ver and int(ver[18]) < 5 and value == "D":
-                    # Added in v5
-                    continue
-                raise
+
+            ret = await self._wait_for_cmd(cmd, value)
             if ret is None:
                 reports[value] = None
                 continue
             reports[value] = ret[2:]
+
         status_otgw = {
             v.OTGW_ABOUT: reports.get(v.OTGW_REPORT_ABOUT),
             v.OTGW_BUILD: reports.get(v.OTGW_REPORT_BUILDDATE),
