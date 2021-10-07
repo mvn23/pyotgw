@@ -70,7 +70,7 @@ class ConnectionManager:  # pylint: disable=too-many-instance-attributes
         """Disconnect from the OpenTherm Gateway."""
         await self._cleanup()
         if self.connected:
-            await self.protocol.disconnect()
+            self.protocol.disconnect()
 
     async def reconnect(self):
         """Reconnect to the OpenTherm Gateway."""
@@ -116,6 +116,7 @@ class ConnectionManager:  # pylint: disable=too-many-instance-attributes
                         OpenThermProtocol,
                         self.status_manager,
                         self.watchdog.inform,
+                        loop,
                     ),
                     self._port,
                     write_timeout=0,
@@ -146,7 +147,7 @@ class ConnectionManager:  # pylint: disable=too-many-instance-attributes
                     )
                     self._error = err
                 if protocol:
-                    await protocol.disconnect()
+                    protocol.disconnect()
 
             transport = None
             await asyncio.sleep(self._get_retry_timeout())
@@ -154,6 +155,8 @@ class ConnectionManager:  # pylint: disable=too-many-instance-attributes
     async def _cleanup(self):
         """Cleanup possible leftovers from old connections"""
         await self.watchdog.stop()
+        if self.protocol:
+            await self.protocol.cleanup()
         if self._connecting_task is not None:
             self._connecting_task.cancel()
             try:
