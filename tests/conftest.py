@@ -28,13 +28,20 @@ async def pygw_proto(pygw):
 
     trans = MagicMock(loop=asyncio.get_running_loop())
     activity_callback = MagicMock(side_effect=empty_coroutine)
-    proto = pyotgw.protocol.OpenThermProtocol(pygw.status, activity_callback)
+    proto = pyotgw.protocol.OpenThermProtocol(
+        pygw.status,
+        activity_callback,
+        asyncio.get_event_loop(),
+    )
     proto.activity_callback = activity_callback
     pygw._transport = trans
     pygw._protocol = proto
-    with patch("pyotgw.protocol.OpenThermProtocol._process_msgs", return_value=None):
+    with patch(
+        "pyotgw.messageprocessor.MessageProcessor._process_msgs", return_value=None
+    ):
         proto.connection_made(trans)
-    return proto
+    yield proto
+    await proto.cleanup()
 
 
 @pytest.fixture
@@ -43,6 +50,12 @@ async def pygw_status():
     status_manager = StatusManager()
     yield status_manager
     await status_manager.cleanup()
+
+
+@pytest.fixture
+async def pygw_message_processor(pygw_proto):
+    """Return a MessageProcessor object"""
+    return pygw_proto.message_processor
 
 
 @pytest.fixture

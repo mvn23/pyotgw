@@ -216,6 +216,7 @@ async def test_attempt_connect_success(pygw_conn, pygw_proto):
     assert args[1].args == (
         pygw_conn.status_manager,
         pygw_conn.watchdog.inform,
+        asyncio.get_running_loop(),
     )
     assert args[2] == pygw_conn._port
     kwargs = saved_args_list[0]["kwargs"]
@@ -267,11 +268,8 @@ async def test_attempt_connect_timeouterror(caplog, pygw_conn, pygw_proto):
     loop = asyncio.get_running_loop()
     pygw_conn._port = "loop://"
 
-    async def empty_coro():
-        return
-
     pygw_proto.init_and_wait_for_activity = MagicMock(side_effect=asyncio.TimeoutError)
-    pygw_proto.disconnect = MagicMock(side_effect=empty_coro)
+    pygw_proto.disconnect = MagicMock()
 
     with patch(
         "serial_asyncio.create_serial_connection",
