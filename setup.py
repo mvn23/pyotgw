@@ -13,7 +13,7 @@ def read(fname):
 
 setup(
     name="pyotgw",
-    version="1.1b1",
+    version="2.0.0",
     author="Milan van Nugteren",
     author_email="milan@network23.nl",
     description=(
@@ -29,7 +29,7 @@ setup(
     long_description_content_type="text/markdown",
     install_requires=["pyserial-asyncio"],
     classifiers=[
-        "Development Status :: 4 - Beta",
+        "Development Status :: 5 - Production/Stable",
         "Topic :: Software Development :: Libraries",
         "License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)",
     ],
