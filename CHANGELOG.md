@@ -1,5 +1,5 @@
 #pyotgw Changelog
-###2.0b0
+###2.0.0
 - Add CHANGELOG.md
 - Make protocol.disconnect synchronous
 - Update pylint config in tox.ini and add pylint to travis
