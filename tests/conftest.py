@@ -4,13 +4,14 @@ import asyncio
 from unittest.mock import MagicMock, patch
 
 import pytest
+import pytest_asyncio
 
 import pyotgw
 from pyotgw.connection import ConnectionManager, ConnectionWatchdog
 from pyotgw.status import StatusManager
 
 
-@pytest.fixture
+@pytest_asyncio.fixture
 async def pygw():
     """Return a basic pyotgw object"""
     gw = pyotgw.OpenThermGateway()
@@ -19,7 +20,7 @@ async def pygw():
     await gw.cleanup()
 
 
-@pytest.fixture
+@pytest_asyncio.fixture
 async def pygw_proto(pygw):
     """Return a "connected" protocol object"""
 
@@ -44,7 +45,7 @@ async def pygw_proto(pygw):
     await proto.cleanup()
 
 
-@pytest.fixture
+@pytest_asyncio.fixture
 async def pygw_status():
     """Return a StatusManager object"""
     status_manager = StatusManager()
@@ -53,12 +54,12 @@ async def pygw_status():
 
 
 @pytest.fixture
-async def pygw_message_processor(pygw_proto):
+def pygw_message_processor(pygw_proto):
     """Return a MessageProcessor object"""
     return pygw_proto.message_processor
 
 
-@pytest.fixture
+@pytest_asyncio.fixture
 async def pygw_conn(pygw_status):
     """Return a ConnectionManager object"""
     connection_manager = ConnectionManager(pygw_status)
@@ -66,7 +67,7 @@ async def pygw_conn(pygw_status):
     await connection_manager.watchdog.stop()
 
 
-@pytest.fixture
+@pytest_asyncio.fixture
 async def pygw_watchdog():
     """Return a ConnectionWatchdog object"""
     watchdog = ConnectionWatchdog()
@@ -74,7 +75,7 @@ async def pygw_watchdog():
     await watchdog.stop()
 
 
-@pytest.fixture(autouse=True)
+@pytest_asyncio.fixture(autouse=True)
 async def check_task_cleanup():
     loop = asyncio.get_running_loop()
     task_count = len(asyncio.all_tasks(loop))

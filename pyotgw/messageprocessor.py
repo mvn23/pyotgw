@@ -127,7 +127,7 @@ class MessageProcessor:
         for action in m.REGISTRY[msgid][m.MSG_TYPE[mtype]]:
             update.update(await self._get_dict_update_for_action(action, locals()))
 
-        if update == {}:
+        if not update:
             return
 
         self.status_manager.submit_partial_update(part, update)
