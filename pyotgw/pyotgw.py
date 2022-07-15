@@ -1,200 +1,65 @@
 """pyotgw is a library to interface with the OpenTherm Gateway."""
-# This file is part of pyotgw.
-#
-# pyotgw is free software: you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation, either version 3 of the License, or
-# (at your option) any later version.
-#
-# pyotgw is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License
-# along with pyotgw.  If not, see <http://www.gnu.org/licenses/>.
-#
-# Copyright 2018 Milan van Nugteren
-#
-
 
 import asyncio
-import copy
 import logging
 from datetime import datetime
 
-import serial
-import serial_asyncio
-
 from pyotgw import vars as v
-from pyotgw.protocol import OpenThermProtocol
+from pyotgw.connection import ConnectionManager
+from pyotgw.status import StatusManager
 
 _LOGGER = logging.getLogger(__name__)
-MAX_RETRY_TIMEOUT = 60
-MIN_RETRY_TIMEOUT = 5
 
 
-class pyotgw:
-    """pyotgw main object abstraction"""
+class OpenThermGateway:  # pylint: disable=too-many-public-methods
+    """Main OpenThermGateway object abstraction"""
 
     def __init__(self):
-        """Create a pyotgw object."""
-        self._connected = False
-        self._conn_error = False
-        self._conn_config = {
-            "baudrate": 9600,
-            "bytesize": serial.EIGHTBITS,
-            "parity": serial.PARITY_NONE,
-            "stopbits": serial.STOPBITS_ONE,
-        }
-        self._notify = []
-        self._retry_timeout = MIN_RETRY_TIMEOUT
-        self._attempt_connect = None
+        """Create an OpenThermGateway object."""
         self._transport = None
         self._protocol = None
         self._gpio_task = None
-        self.loop = None
+        self.status = StatusManager()
+        self.connection = ConnectionManager(self.status)
+
+    async def cleanup(self):
+        """Clean up tasks."""
+        await self.connection.disconnect()
+        await self.status.cleanup()
+        if self._gpio_task:
+            self._gpio_task.cancel()
+            await self._gpio_task
 
     async def connect(
         self,
-        loop,
         port,
-        connection_timeout=10,
-        inactivity_timeout=5,
+        timeout=None,
     ):
         """
         Connect to Opentherm Gateway at @port.
         Initialize the parameters obtained from the PS= and PR=
-        commands and returns the status dict with the obtained values.
+        commands and returns the status dict with the obtained values
+        or False if cancelled.
         If called while connected, reconnect to the gateway.
 
         This method is a coroutine
         """
-        if self._connected:
-            # We are actually reconnecting, cleanup first.
-            _LOGGER.debug("Reconnecting to serial device on %s", port)
-            if self._gpio_task:
-                self._gpio_task.cancel()
-            self._connected = False
-            self._transport.close()
-        self.loop = loop
-
-        async def attempt_connect():
-            """Try to connect to the OpenTherm Gateway."""
-            transport = None
-            while transport is None:
-                try:
-                    transport, protocol = await serial_asyncio.create_serial_connection(
-                        loop,
-                        OpenThermProtocol,
-                        port,
-                        write_timeout=0,
-                        **self._conn_config,
-                    )
-                    await asyncio.wait_for(
-                        protocol.init_and_wait_for_activity(),
-                        inactivity_timeout,
-                    )
-                except serial.SerialException as err:
-                    if not self._conn_error:
-                        _LOGGER.error(
-                            "Could not connect to serial device on %s. "
-                            "Will keep trying. Reported error was: %s",
-                            port,
-                            err,
-                        )
-                        self._conn_error = True
-                    transport = None
-                    await asyncio.sleep(self._get_retry_timeout())
-                except asyncio.CancelledError:
-                    return (None, None)
-                except asyncio.TimeoutError:
-                    if not self._conn_error:
-                        _LOGGER.error(
-                            "The serial device on %s is not responding. "
-                            "Will keep trying.",
-                            port,
-                        )
-                        self._conn_error = True
-                    await protocol.disconnect()
-                    transport = None
-                    await asyncio.sleep(self._get_retry_timeout())
-            self._retry_timeout = MIN_RETRY_TIMEOUT
-            return (transport, protocol)
-
-        self._attempt_connect = self.loop.create_task(attempt_connect())
-        transport, protocol = await self._attempt_connect
-        if transport is None:
-            return {}
-        self._attempt_connect = None
-        self._conn_error = False
-        _LOGGER.debug("Connected to serial device on %s", port)
-        self._transport = transport
-        self._protocol = protocol
-        self._protocol.set_update_cb(self._send_report)
-        if 0 < inactivity_timeout < 3:
-            _LOGGER.error(
-                "Inactivity timeout too low. Should be at least 3 seconds, got %d",
-                inactivity_timeout,
-            )
-        if inactivity_timeout >= 3:
-
-            async def reconnect():
-                """Reconnect to the OpenTherm Gateway."""
-                _LOGGER.debug("Scheduling reconnect...")
-                await self.connect(
-                    loop,
-                    port,
-                    connection_timeout,
-                    inactivity_timeout,
-                )
-
-            self._protocol.setup_watchdog(reconnect, inactivity_timeout)
-
-        self._gpio_task = None
-        self._connected = True
+        if not await self.connection.connect(port, timeout):
+            return False
+        self._protocol = self.connection.protocol
         await self.get_reports()
         await self.get_status()
         await self._poll_gpio()
-        return copy.deepcopy(self._protocol.status)
+        return self.status.status
 
     async def disconnect(self):
         """Disconnect from the OpenTherm Gateway."""
-        if self._attempt_connect is not None:
-            self._attempt_connect.cancel()
-        if not self._connected:
-            return
-        await self._protocol.disconnect()
+        await self.cleanup()
+        return await self.connection.disconnect()
 
     def set_connection_options(self, **kwargs):
         """Set connection parameters."""
-        if self._connected:
-            return False
-        for arg in kwargs:
-            if arg not in self._conn_config:
-                _LOGGER.warning("Invalid connection parameter: %s", arg)
-                return False
-        self._conn_config.update(kwargs)
-        return True
-
-    def get_room_temp(self):
-        """
-        Get the current room temperature.
-        """
-        if not self._connected:
-            return None
-        return self._protocol.status[v.THERMOSTAT].get(v.DATA_ROOM_TEMP)
-
-    def get_target_temp(self):
-        """
-        Get the target temperature.
-        """
-        if not self._connected:
-            return None
-        temp_ovrd = self._protocol.status[v.THERMOSTAT].get(v.DATA_ROOM_SETPOINT_OVRD)
-        if temp_ovrd:
-            return temp_ovrd
-        return self._protocol.status[v.THERMOSTAT].get(v.DATA_ROOM_SETPOINT)
+        return self.connection.set_connection_config(**kwargs)
 
     async def set_target_temp(
         self, temp, temporary=True, timeout=v.OTGW_DEFAULT_TIMEOUT
@@ -209,7 +74,6 @@ class pyotgw:
         """
         cmd = v.OTGW_CMD_TARGET_TEMP if temporary else v.OTGW_CMD_TARGET_TEMP_CONST
         value = f"{temp:2.1f}"
-        status_update = {v.OTGW: {}, v.THERMOSTAT: {}}
         ret = await self._wait_for_cmd(cmd, value, timeout)
         if ret is None:
             return None
@@ -229,16 +93,8 @@ class pyotgw:
                     v.OTGW: {v.OTGW_SETP_OVRD_MODE: ovrd_mode},
                     v.THERMOSTAT: {v.DATA_ROOM_SETPOINT_OVRD: ret},
                 }
-            self._update_full_status(status_update)
+            self.status.submit_full_update(status_update)
             return ret
-
-    def get_temp_sensor_function(self):
-        """
-        Return the temperature sensor function.
-        """
-        if not self._connected:
-            return None
-        return self._protocol.status[v.OTGW].get(v.OTGW_TEMP_SENSOR)
 
     async def set_temp_sensor_function(self, func, timeout=v.OTGW_DEFAULT_TIMEOUT):
         """
@@ -255,18 +111,8 @@ class pyotgw:
         if ret is None:
             return None
         status_otgw = {v.OTGW_TEMP_SENSOR: ret}
-        self._update_status(v.OTGW, status_otgw)
+        self.status.submit_partial_update(v.OTGW, status_otgw)
         return ret
-
-    def get_outside_temp(self):
-        """
-        Return the outside temperature as known in the gateway.
-        """
-        if not self._connected:
-            return None
-        return self._protocol.status[v.THERMOSTAT].get(
-            v.DATA_OUTSIDE_TEMP
-        ) or self._protocol.status[v.BOILER].get(v.DATA_OUTSIDE_TEMP)
 
     async def set_outside_temp(self, temp, timeout=v.OTGW_DEFAULT_TIMEOUT):
         """
@@ -293,7 +139,7 @@ class pyotgw:
         else:
             ret = float(ret)
             status_thermostat[v.DATA_OUTSIDE_TEMP] = ret
-        self._update_status(v.THERMOSTAT, status_thermostat)
+        self.status.submit_partial_update(v.THERMOSTAT, status_thermostat)
         return ret
 
     async def set_clock(self, date=datetime.now(), timeout=v.OTGW_DEFAULT_TIMEOUT):
@@ -308,22 +154,13 @@ class pyotgw:
         This method is a coroutine
         """
         cmd = v.OTGW_CMD_SET_CLOCK
-        value = "{}/{}".format(date.strftime("%H:%M"), date.isoweekday())
+        value = f"{date.strftime('%H:%M')}/{date.isoweekday()}"
         return await self._wait_for_cmd(cmd, value, timeout)
-
-    def get_hot_water_ovrd(self):
-        """
-        Return the current hot water override mode if set, otherwise
-        None.
-        """
-        if not self._connected:
-            return None
-        return self._protocol.status[v.OTGW].get(v.OTGW_DHW_OVRD)
 
     async def get_reports(self):
         """
-        Update the pyotgw object with the information from all of the
-        PR commands and return the updated status dict.
+        Update the OpenThermGateway object with the information from all
+        of the PR commands and return the updated status dict.
 
         This method is a coroutine
         """
@@ -333,20 +170,20 @@ class pyotgw:
         ret = await self._wait_for_cmd(cmd, v.OTGW_REPORT_ABOUT)
         reports[v.OTGW_REPORT_ABOUT] = ret[2:] if ret else None
         for value in v.OTGW_REPORTS:
+
+            ver = reports.get(v.OTGW_REPORT_ABOUT)
+            if ver and int(ver[18]) < 5 and value == "D":
+                # Added in v5
+                continue
             if value == v.OTGW_REPORT_ABOUT:
                 continue
-            try:
-                ret = await self._wait_for_cmd(cmd, value)
-            except ValueError:
-                ver = reports.get(v.OTGW_REPORT_ABOUT)
-                if ver and int(ver[18]) < 5 and value == "D":
-                    # Added in v5
-                    continue
-                raise
+
+            ret = await self._wait_for_cmd(cmd, value)
             if ret is None:
                 reports[value] = None
                 continue
             reports[value] = ret[2:]
+
         status_otgw = {
             v.OTGW_ABOUT: reports.get(v.OTGW_REPORT_ABOUT),
             v.OTGW_BUILD: reports.get(v.OTGW_REPORT_BUILDDATE),
@@ -400,22 +237,24 @@ class pyotgw:
                     reports[v.OTGW_REPORT_SETPOINT_OVRD][1:]
                 )
             }
-        self._update_full_status({v.THERMOSTAT: status_thermostat, v.OTGW: status_otgw})
-        return copy.deepcopy(self._protocol.status)
+        self.status.submit_full_update(
+            {v.THERMOSTAT: status_thermostat, v.OTGW: status_otgw}
+        )
+        return self.status.status
 
     async def get_status(self):
         """
-        Update the pyotgw object with the information from the PS
-        command and return the updated status dict.
+        Update the OpenThermGateway object with the information from the
+        PS command and return the updated status dict.
 
         This method is a coroutine
         """
         cmd = v.OTGW_CMD_SUMMARY
         ret = await self._wait_for_cmd(cmd, 1)
         # Return to 'reporting' mode
-        asyncio.ensure_future(self._wait_for_cmd(cmd, 0), loop=self.loop)
         if ret is None:
             return
+        asyncio.get_running_loop().create_task(self._wait_for_cmd(cmd, 0))
         fields = ret[1].split(",")
         if len(fields) == 34:
             # OpenTherm Gateway 5.0
@@ -543,8 +382,8 @@ class pyotgw:
                 v.DATA_DHW_PUMP_HOURS: int(fields[23]),
                 v.DATA_DHW_BURNER_HOURS: int(fields[24]),
             }
-        self._update_full_status({v.BOILER: status, v.THERMOSTAT: status})
-        return copy.deepcopy(self._protocol.status)
+        self.status.submit_full_update({v.BOILER: status, v.THERMOSTAT: status})
+        return self.status.status
 
     async def set_hot_water_ovrd(self, state, timeout=v.OTGW_DEFAULT_TIMEOUT):
         """
@@ -569,17 +408,8 @@ class pyotgw:
         elif ret in ["0", "1"]:
             ret = int(ret)
             status_otgw[v.OTGW_DHW_OVRD] = ret
-        self._update_status(v.OTGW, status_otgw)
+        self.status.submit_partial_update(v.OTGW, status_otgw)
         return ret
-
-    def get_mode(self):
-        """
-        Return the last known gateway operating mode. Return "G" for
-        Gateway mode or "M" for Monitor mode.
-        """
-        if not self._connected:
-            return None
-        return self._protocol.status[v.OTGW].get(v.OTGW_MODE)
 
     async def set_mode(self, mode, timeout=v.OTGW_DEFAULT_TIMEOUT):
         """
@@ -598,22 +428,13 @@ class pyotgw:
         if ret is None:
             return None
         if mode is v.OTGW_MODE_RESET:
-            self._protocol.status = copy.deepcopy(v.DEFAULT_STATUS)
+            self.status.reset()
             await self.get_reports()
             await self.get_status()
-            return copy.deepcopy(self._protocol.status)
+            return self.status.status
         status_otgw[v.OTGW_MODE] = ret
-        self._update_status(v.OTGW, status_otgw)
+        self.status.submit_partial_update(v.OTGW, status_otgw)
         return ret
-
-    def get_led_mode(self, led_id):
-        """
-        Return the led mode for led :led_id:.
-        @led_id Character in range A-F
-        """
-        if not self._connected:
-            return None
-        return self._protocol.status[v.OTGW].get(getattr(v, f"OTGW_LED_{led_id}"))
 
     async def set_led_mode(self, led_id, mode, timeout=v.OTGW_DEFAULT_TIMEOUT):
         """
@@ -647,17 +468,8 @@ class pyotgw:
                 return None
             var = getattr(v, f"OTGW_LED_{led_id}")
             status_otgw[var] = ret
-            self._update_status(v.OTGW, status_otgw)
+            self.status.submit_partial_update(v.OTGW, status_otgw)
             return ret
-
-    def get_gpio_mode(self, gpio_id):
-        """
-        Return the gpio mode for gpio :gpio_id:.
-        @gpio_id Character A or B.
-        """
-        if not self._connected:
-            return None
-        return self._protocol.status[v.OTGW].get(getattr(v, f"OTGW_GPIO_{gpio_id}"))
 
     async def set_gpio_mode(self, gpio_id, mode, timeout=v.OTGW_DEFAULT_TIMEOUT):
         """
@@ -697,17 +509,9 @@ class pyotgw:
             ret = int(ret)
             var = getattr(v, f"OTGW_GPIO_{gpio_id}")
             status_otgw[var] = ret
-            self._update_status(v.OTGW, status_otgw)
+            self.status.submit_partial_update(v.OTGW, status_otgw)
             asyncio.ensure_future(self._poll_gpio())
             return ret
-
-    def get_setback_temp(self):
-        """
-        Return the last known setback temperature from the device.
-        """
-        if not self._connected:
-            return None
-        return self._protocol.status[v.OTGW].get(v.OTGW_SB_TEMP)
 
     async def set_setback_temp(self, sb_temp, timeout=v.OTGW_DEFAULT_TIMEOUT):
         """
@@ -724,7 +528,7 @@ class pyotgw:
             return
         ret = float(ret)
         status_otgw[v.OTGW_SB_TEMP] = ret
-        self._update_status(v.OTGW, status_otgw)
+        self.status.submit_partial_update(v.OTGW, status_otgw)
         return ret
 
     async def add_alternative(self, alt, timeout=v.OTGW_DEFAULT_TIMEOUT):
@@ -807,46 +611,6 @@ class pyotgw:
         if ret is not None:
             return int(ret)
 
-    async def prio_message(self, message, timeout=v.OTGW_DEFAULT_TIMEOUT):
-        """
-        NOT IMPLEMENTED YET!
-        Specify a one-time priority message to be sent to the boiler at
-        the first opportunity. If the specified message returns the
-        number of Transparent Slave Parameters (TSPs) or Fault History
-        Buffers (FHBs), the gateway will proceed to request those TSPs
-        or FHBs.
-
-        This method is a coroutine
-        """
-        # TODO: implement this, including FHB/TSP processing
-        return
-
-    async def set_response(self, data_id, data, timeout=v.OTGW_DEFAULT_TIMEOUT):
-        """
-        NOT IMPLEMENTED YET!
-        Configure a response to send back to the thermostat instead of
-        the response produced by the boiler.
-        @data is a list of either one or two hex byte values
-        Return the data ID for which the response was set, or None on
-        failure.
-
-        This method is a coroutine
-        """
-        # TODO: implement this
-        return
-
-    async def clear_response(self, data_id, timeout=v.OTGW_DEFAULT_TIMEOUT):
-        """
-        Clear a previously configured response to send back to the
-        thermostat for :data_id:.
-        Return the data ID for which the response was cleared, or None
-        on failure.
-
-        This method is a coroutine
-        """
-        # TODO: implement this
-        return
-
     async def set_max_ch_setpoint(self, temperature, timeout=v.OTGW_DEFAULT_TIMEOUT):
         """
         Set the maximum central heating setpoint. This command is only
@@ -862,7 +626,7 @@ class pyotgw:
             return
         ret = float(ret)
         status_boiler[v.DATA_MAX_CH_SETPOINT] = ret
-        self._update_status(v.BOILER, status_boiler)
+        self.status.submit_partial_update(v.BOILER, status_boiler)
         return ret
 
     async def set_dhw_setpoint(self, temperature, timeout=v.OTGW_DEFAULT_TIMEOUT):
@@ -880,7 +644,7 @@ class pyotgw:
             return
         ret = float(ret)
         status_boiler[v.DATA_DHW_SETPOINT] = ret
-        self._update_status(v.BOILER, status_boiler)
+        self.status.submit_partial_update(v.BOILER, status_boiler)
         return ret
 
     async def set_max_relative_mod(self, max_mod, timeout=v.OTGW_DEFAULT_TIMEOUT):
@@ -905,7 +669,7 @@ class pyotgw:
         else:
             ret = int(ret)
             status_boiler[v.DATA_SLAVE_MAX_RELATIVE_MOD] = ret
-        self._update_status(v.BOILER, status_boiler)
+        self.status.submit_partial_update(v.BOILER, status_boiler)
         return ret
 
     async def set_control_setpoint(self, setpoint, timeout=v.OTGW_DEFAULT_TIMEOUT):
@@ -923,7 +687,7 @@ class pyotgw:
             return
         ret = float(ret)
         status_boiler[v.DATA_CONTROL_SETPOINT] = ret
-        self._update_status(v.BOILER, status_boiler)
+        self.status.submit_partial_update(v.BOILER, status_boiler)
         return ret
 
     async def set_control_setpoint_2(self, setpoint, timeout=v.OTGW_DEFAULT_TIMEOUT):
@@ -941,7 +705,7 @@ class pyotgw:
             return
         ret = float(ret)
         status_boiler[v.DATA_CONTROL_SETPOINT_2] = ret
-        self._update_status(v.BOILER, status_boiler)
+        self.status.submit_partial_update(v.BOILER, status_boiler)
         return ret
 
     async def set_ch_enable_bit(self, ch_bit, timeout=v.OTGW_DEFAULT_TIMEOUT):
@@ -964,7 +728,7 @@ class pyotgw:
             return
         ret = int(ret)
         status_boiler[v.DATA_MASTER_CH_ENABLED] = ret
-        self._update_status(v.BOILER, status_boiler)
+        self.status.submit_partial_update(v.BOILER, status_boiler)
         return ret
 
     async def set_ch2_enable_bit(self, ch_bit, timeout=v.OTGW_DEFAULT_TIMEOUT):
@@ -987,7 +751,7 @@ class pyotgw:
             return
         ret = int(ret)
         status_boiler[v.DATA_MASTER_CH2_ENABLED] = ret
-        self._update_status(v.BOILER, status_boiler)
+        self.status.submit_partial_update(v.BOILER, status_boiler)
         return ret
 
     async def set_ventilation(self, pct, timeout=v.OTGW_DEFAULT_TIMEOUT):
@@ -1007,7 +771,7 @@ class pyotgw:
             return
         ret = int(ret)
         status_boiler[v.DATA_COOLING_CONTROL] = ret
-        self._update_status(v.BOILER, status_boiler)
+        self.status.submit_partial_update(v.BOILER, status_boiler)
         return ret
 
     def subscribe(self, coro):
@@ -1019,10 +783,7 @@ class pyotgw:
         Return True on success, False if not connected or already
         subscribed.
         """
-        if coro not in self._notify:
-            self._notify.append(coro)
-            return True
-        return False
+        return self.status.subscribe(coro)
 
     def unsubscribe(self, coro):
         """
@@ -1032,21 +793,7 @@ class pyotgw:
         earlier.
         Return True on success, false if not connected or subscribed.
         """
-        if coro in self._notify:
-            self._notify.remove(coro)
-            return True
-        return False
-
-    async def _send_report(self, status):
-        """
-        Call all subscribed coroutines in _notify whenever a status
-        update occurs.
-
-        This method is a coroutine
-        """
-        if len(self._notify) > 0:
-            # Each client gets its own copy of the dict.
-            asyncio.gather(*[coro(copy.deepcopy(status)) for coro in self._notify])
+        return self.status.unsubscribe(coro)
 
     async def _wait_for_cmd(self, cmd, value, timeout=v.OTGW_DEFAULT_TIMEOUT):
         """
@@ -1054,10 +801,13 @@ class pyotgw:
 
         This method is a coroutine.
         """
-        if not self._connected:
-            return
+        if not self.connection.connected:
+            return None
         try:
-            return await asyncio.wait_for(self._protocol.issue_cmd(cmd, value), timeout)
+            return await asyncio.wait_for(
+                self._protocol.command_processor.issue_cmd(cmd, value),
+                timeout,
+            )
         except asyncio.TimeoutError:
             _LOGGER.error("Timed out waiting for command: %s, value: %s.", cmd, value)
             return
@@ -1074,17 +824,15 @@ class pyotgw:
         if we want updates.
         """
         poll = 0 in (
-            self._protocol.status[v.OTGW].get(v.OTGW_GPIO_A),
-            self._protocol.status[v.OTGW].get(v.OTGW_GPIO_B),
+            self.status.status[v.OTGW].get(v.OTGW_GPIO_A),
+            self.status.status[v.OTGW].get(v.OTGW_GPIO_B),
         )
         if poll and self._gpio_task is None:
 
-            async def polling_routine(interval):
+            async def polling_routine():
                 """Poll GPIO state every @interval seconds."""
-                _LOGGER.debug("Starting GPIO polling routine")
-                while True:
-                    try:
-                        pios = None
+                try:
+                    while True:
                         ret = await self._wait_for_cmd(
                             v.OTGW_CMD_REPORT, v.OTGW_REPORT_GPIO_STATES
                         )
@@ -1094,57 +842,19 @@ class pyotgw:
                                 v.OTGW_GPIO_A_STATE: int(pios[0]),
                                 v.OTGW_GPIO_B_STATE: int(pios[1]),
                             }
-                            self._update_status(v.OTGW, status_otgw)
+                            self.status.submit_partial_update(v.OTGW, status_otgw)
                         await asyncio.sleep(interval)
-                    except asyncio.CancelledError:
-                        status_otgw = {
-                            v.OTGW_GPIO_A_STATE: 0,
-                            v.OTGW_GPIO_B_STATE: 0,
-                        }
-                        self._update_status(v.OTGW, status_otgw)
-                        self._gpio_task = None
-                        _LOGGER.debug("GPIO polling routine stopped")
-                        break
+                except asyncio.CancelledError:
+                    status_otgw = {
+                        v.OTGW_GPIO_A_STATE: 0,
+                        v.OTGW_GPIO_B_STATE: 0,
+                    }
+                    self.status.submit_partial_update(v.OTGW, status_otgw)
+                    self._gpio_task = None
+                    _LOGGER.debug("GPIO polling routine stopped")
 
-            self._gpio_task = self.loop.create_task(polling_routine(interval))
+            _LOGGER.debug("Starting GPIO polling routine")
+            self._gpio_task = asyncio.get_running_loop().create_task(polling_routine())
         elif not poll and self._gpio_task is not None:
             _LOGGER.debug("Stopping GPIO polling routine")
             self._gpio_task.cancel()
-
-    def _update_status(self, part, update):
-        """Update part of the status dict and push it to subscribers."""
-        if part not in self._protocol.status:
-            _LOGGER.error("Invalid status part for update: %s", part)
-            return
-        try:
-            if isinstance(update, dict):
-                self._protocol.status[part].update(update)
-                self._protocol._updateq.put_nowait(copy.deepcopy(self._protocol.status))
-        except AttributeError:
-            _LOGGER.warning(
-                "Error sending status update. Are we connected to the gateway?"
-            )
-
-    def _update_full_status(self, update):
-        """Update the full status dict recursively and push it to subscribers."""
-        for part in update.keys():
-            if part not in self._protocol.status:
-                _LOGGER.error("Invalid status part for update: %s", part)
-                return
-        try:
-            for part, values in update.items():
-                if isinstance(values, dict):
-                    self._protocol.status[part].update(values)
-            self._protocol._updateq.put_nowait(copy.deepcopy(self._protocol.status))
-        except AttributeError:
-            _LOGGER.warning(
-                "Error sending status update. Are we connected to the gateway?"
-            )
-
-    def _get_retry_timeout(self):
-        """Increase if needed and return the retry timeout."""
-        if self._retry_timeout == MAX_RETRY_TIMEOUT:
-            return self._retry_timeout
-        timeout = self._retry_timeout
-        self._retry_timeout = min([self._retry_timeout * 1.5, MAX_RETRY_TIMEOUT])
-        return timeout

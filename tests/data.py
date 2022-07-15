@@ -1,3 +1,5 @@
+"""Test data for pyotgw tests"""
+
 from types import SimpleNamespace
 
 import pyotgw.vars as v

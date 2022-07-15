@@ -1,4 +1,5 @@
 """Global pyotgw values"""
+
 MSG_STATUS = b"\x00"
 MSG_TSET = b"\x01"
 MSG_MCONFIG = b"\x02"

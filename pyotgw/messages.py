@@ -1,4 +1,5 @@
 """Data related to message processing"""
+
 from pyotgw import vars as v
 
 _GET_FLAG8 = "_get_flag8"
@@ -170,7 +171,7 @@ REGISTRY = {
             {
                 FUNC: "_quirk_trovrd",
                 ARGS: (
-                    "statuspart",
+                    "part",
                     "src",
                     _MSB,
                     _LSB,

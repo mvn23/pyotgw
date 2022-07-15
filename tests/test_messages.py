@@ -1,5 +1,7 @@
+"""Tests for pyotgw/messages.py"""
+
 import pyotgw.messages as m
-from pyotgw.protocol import OpenThermProtocol
+from pyotgw.messageprocessor import MessageProcessor
 
 
 def test_message_registry():
@@ -10,6 +12,6 @@ def test_message_registry():
         assert isinstance(processing[m.S2M], list)
 
         for action in [*processing[m.M2S], *processing[m.S2M]]:
-            assert hasattr(OpenThermProtocol, action[m.FUNC])
+            assert hasattr(MessageProcessor, action[m.FUNC])
             assert isinstance(action[m.ARGS], tuple)
             assert isinstance(action[m.RETURNS], tuple)
