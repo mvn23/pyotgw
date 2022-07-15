@@ -109,9 +109,7 @@ async def test_process_msgs(caplog, pygw_message_processor):
     with patch.object(
         pygw_message_processor, "_process_msg"
     ) as process_msg, caplog.at_level(logging.DEBUG):
-        task = pygw_message_processor.loop.create_task(
-            pygw_message_processor._process_msgs()
-        )
+        task = asyncio.create_task(pygw_message_processor._process_msgs())
         pygw_message_processor._msgq.put_nowait(test_case)
         await called_once(process_msg)
 

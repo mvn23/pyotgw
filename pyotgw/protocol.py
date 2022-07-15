@@ -21,24 +21,20 @@ class OpenThermProtocol(asyncio.Protocol):
         self,
         status_manager,
         activity_callback,
-        loop,
     ):
         """Initialise the protocol object."""
         self.transport = None
-        self.loop = loop
         self._readbuf = b""
         self._received_lines = 0
         self.activity_callback = activity_callback
         self.command_processor = CommandProcessor(
             self,
             status_manager,
-            loop,
         )
         self._connected = False
         self.message_processor = MessageProcessor(
             self.command_processor,
             status_manager,
-            loop,
         )
         self.status_manager = status_manager
 
@@ -110,7 +106,7 @@ class OpenThermProtocol(asyncio.Protocol):
         self._received_lines += 1
         _LOGGER.debug("Received line %d: %s", self._received_lines, line)
         if self.activity_callback:
-            self.loop.create_task(self.activity_callback())
+            asyncio.create_task(self.activity_callback())
         pattern = r"^(T|B|R|A|E)([0-9A-F]{8})$"
         msg = re.match(pattern, line)
         if msg:

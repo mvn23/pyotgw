@@ -19,7 +19,6 @@ class OpenThermGateway:
         self._transport = None
         self._protocol = None
         self._gpio_task = None
-        self.loop = asyncio.get_event_loop()
         self.status = StatusManager()
         self.connection = ConnectionManager(self.status)
 
@@ -301,7 +300,7 @@ class OpenThermGateway:
         # Return to 'reporting' mode
         if ret is None:
             return
-        self.loop.create_task(self._wait_for_cmd(cmd, 0))
+        asyncio.get_running_loop().create_task(self._wait_for_cmd(cmd, 0))
         fields = ret[1].split(",")
         if len(fields) == 34:
             # OpenTherm Gateway 5.0
@@ -936,7 +935,7 @@ class OpenThermGateway:
                     _LOGGER.debug("GPIO polling routine stopped")
 
             _LOGGER.debug("Starting GPIO polling routine")
-            self._gpio_task = self.loop.create_task(polling_routine())
+            self._gpio_task = asyncio.get_running_loop().create_task(polling_routine())
         elif not poll and self._gpio_task is not None:
             _LOGGER.debug("Stopping GPIO polling routine")
             self._gpio_task.cancel()
