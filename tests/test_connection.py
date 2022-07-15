@@ -12,9 +12,8 @@ from pyotgw.connection import MAX_RETRY_TIMEOUT
 from pyotgw.protocol import OpenThermProtocol
 from tests.helpers import called_once, called_x_times
 
-pytestmark = pytest.mark.asyncio
 
-
+@pytest.mark.asyncio
 async def test_connect_success_and_reconnect(caplog, pygw_conn, pygw_proto):
     """Test ConnectionManager.connect()"""
     pygw_conn._error = asyncio.CancelledError()
@@ -74,6 +73,7 @@ async def test_connect_success_and_reconnect(caplog, pygw_conn, pygw_proto):
     assert pygw_conn.connected
 
 
+@pytest.mark.asyncio
 async def test_connect_cancel(pygw_conn):
     """Test ConnectionManager.connect() cancellation"""
     with patch.object(
@@ -86,6 +86,7 @@ async def test_connect_cancel(pygw_conn):
     create_serial_connection.assert_called_once()
 
 
+@pytest.mark.asyncio
 async def test_disconnect(pygw_conn, pygw_proto):
     """Test ConnectionManager.disconnect()"""
     with patch.object(
@@ -103,6 +104,7 @@ async def test_disconnect(pygw_conn, pygw_proto):
     assert disconnect.called
 
 
+@pytest.mark.asyncio
 async def test_disconnect_while_connecting(pygw_conn):
     """Test ConnectionManager.disconnect() during an ongoing connection attempt"""
     loop = asyncio.get_running_loop()
@@ -124,6 +126,7 @@ async def test_disconnect_while_connecting(pygw_conn):
         assert not pygw_conn.connected
 
 
+@pytest.mark.asyncio
 async def test_reconnect(caplog, pygw_conn):
     """Test ConnectionManager.reconnect()"""
     with patch.object(pygw_conn, "disconnect") as disconnect, patch.object(
@@ -184,6 +187,7 @@ def test_set_connection_config(pygw_conn):
         assert not pygw_conn.set_connection_config()
 
 
+@pytest.mark.asyncio
 async def test_attempt_connect_success(pygw_conn, pygw_proto):
     """Test ConnectionManager._attempt_connect()"""
     pygw_conn._port = "loop://"
@@ -230,7 +234,8 @@ async def test_attempt_connect_success(pygw_conn, pygw_proto):
     init_and_wait.assert_called_once()
 
 
-async def test_attempt_connect_serialexception(caplog, pygw_conn, pygw_proto):
+@pytest.mark.asyncio
+async def test_attempt_connect_serialexception(caplog, pygw_conn):
     """Test ConnectionManager._attempt_connect() with SerialException"""
     loop = asyncio.get_running_loop()
     pygw_conn._port = "loop://"
@@ -263,6 +268,7 @@ async def test_attempt_connect_serialexception(caplog, pygw_conn, pygw_proto):
             await task
 
 
+@pytest.mark.asyncio
 async def test_attempt_connect_timeouterror(caplog, pygw_conn, pygw_proto):
     """Test ConnectionManager._attempt_connect() with SerialException"""
     loop = asyncio.get_running_loop()
@@ -299,6 +305,7 @@ async def test_attempt_connect_timeouterror(caplog, pygw_conn, pygw_proto):
             await task
 
 
+@pytest.mark.asyncio
 async def test_cleanup(pygw_conn):
     """Test ConnectionManager._cleanup()"""
     pass  # with patch.object()
@@ -319,6 +326,7 @@ def test_is_active(pygw_watchdog):
     assert pygw_watchdog.is_active
 
 
+@pytest.mark.asyncio
 async def test_inform_watchdog(caplog, pygw_watchdog):
     """Test ConnectionWatchdog.inform()"""
     await pygw_watchdog.inform()
@@ -366,6 +374,7 @@ def test_start(pygw_watchdog):
     assert not pygw_watchdog.start(callback, 10)
 
 
+@pytest.mark.asyncio
 async def test_stop(caplog, pygw_watchdog):
     """Test ConnectionWatchdog.stop()"""
     with caplog.at_level(logging.DEBUG):
@@ -390,6 +399,7 @@ async def test_stop(caplog, pygw_watchdog):
     ]
 
 
+@pytest.mark.asyncio
 async def test_watchdog(caplog, pygw_watchdog):
     """Test ConnectionWatchdog._watchdog()"""
 

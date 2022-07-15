@@ -10,11 +10,10 @@ from pyotgw import vars as v
 from tests.data import pygw_proto_messages
 from tests.helpers import called_once
 
-pytestmark = pytest.mark.asyncio
-
 MATCH_PATTERN = r"^(T|B|R|A|E)([0-9A-F]{8})$"
 
 
+@pytest.mark.asyncio
 async def test_cleanup(pygw_message_processor):
     """Test MessageProcessor.cleanup()"""
     assert pygw_message_processor._task
@@ -97,6 +96,7 @@ def test_get_msgtype(pygw_message_processor):
     assert pygw_message_processor._get_msgtype(int("01000001", 2)) == int("0100", 2)
 
 
+@pytest.mark.asyncio
 async def test_process_msgs(caplog, pygw_message_processor):
     """Test MessageProcessor._process_msgs()"""
     test_case = (
@@ -125,6 +125,7 @@ async def test_process_msgs(caplog, pygw_message_processor):
     ]
 
 
+@pytest.mark.asyncio
 async def test_process_msg(pygw_message_processor):
     """Test MessageProcessor._process_msg()"""
     # Test quirks
@@ -163,11 +164,13 @@ async def test_process_msg(pygw_message_processor):
             status_callback.reset_mock()
 
 
+@pytest.mark.asyncio
 async def test_get_dict_update_for_action():
     """Test MessageProcessor._get_dict_update_for_action"""
     assert True  # Fully tested in test_process_msg()
 
 
+@pytest.mark.asyncio
 async def test_quirk_trovrd(pygw_message_processor):
     """Test MessageProcessor._quirk_trovrd()"""
 

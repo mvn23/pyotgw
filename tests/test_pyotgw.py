@@ -12,9 +12,8 @@ import pyotgw.vars as v
 from tests.data import pygw_reports, pygw_status
 from tests.helpers import called_once, called_x_times
 
-pytestmark = pytest.mark.asyncio
 
-
+@pytest.mark.asyncio
 async def test_cleanup(pygw):
     """Test pyotgw.cleanup()"""
     pygw.status.submit_partial_update(v.OTGW, {v.OTGW_GPIO_A: 0})
@@ -27,6 +26,7 @@ async def test_cleanup(pygw):
         assert not pygw._gpio_task
 
 
+@pytest.mark.asyncio
 async def test_connect_success_and_reconnect_with_gpio(caplog, pygw, pygw_proto):
     """Test pyotgw.connect()"""
     with patch.object(pygw, "get_reports", return_value={}), patch.object(
@@ -60,6 +60,7 @@ async def test_connect_success_and_reconnect_with_gpio(caplog, pygw, pygw_proto)
         await pygw.disconnect()
 
 
+@pytest.mark.asyncio
 async def test_connect_serialexception(caplog, pygw):
     """Test pyotgw.connect() with SerialException"""
     loop = asyncio.get_running_loop()
@@ -92,6 +93,7 @@ async def test_connect_serialexception(caplog, pygw):
         assert await task is False
 
 
+@pytest.mark.asyncio
 async def test_connect_cancel(pygw):
     """Test pyotgw.connect() with CancelledError"""
     with patch(
@@ -104,6 +106,7 @@ async def test_connect_cancel(pygw):
     create_serial_connection.assert_called_once()
 
 
+@pytest.mark.asyncio
 async def test_connect_timeouterror(caplog, pygw, pygw_proto):
     """Test pyotgw.connect() with TimeoutError"""
     loop = asyncio.get_running_loop()
@@ -142,6 +145,7 @@ async def test_connect_timeouterror(caplog, pygw, pygw_proto):
         assert await task is False
 
 
+@pytest.mark.asyncio
 async def test_disconnect_while_connecting(pygw):
     """Test pyotgw.disconnect()"""
     loop = asyncio.get_running_loop()
@@ -196,6 +200,7 @@ def test_get_target_temp(pygw):
     assert temp == 20.5
 
 
+@pytest.mark.asyncio
 async def test_set_target_temp(pygw):
     """Test pyotgw.set_target_temp()"""
     with pytest.raises(TypeError):
@@ -282,6 +287,7 @@ def test_get_temp_sensor_function(pygw):
         assert pygw.get_temp_sensor_function() == "O"
 
 
+@pytest.mark.asyncio
 async def test_set_temp_sensor_function(pygw):
     """Test pyotgw.set_temp_sensor_function()"""
     assert await pygw.set_temp_sensor_function("P") is None
@@ -317,6 +323,7 @@ def test_get_outside_temp(pygw):
         assert pygw.get_outside_temp() == -5.4
 
 
+@pytest.mark.asyncio
 async def test_set_outside_temp(pygw):
     """Test pyotgw.set_outside_temp()"""
     assert await pygw.set_outside_temp(-40.1) is None
@@ -359,6 +366,7 @@ async def test_set_outside_temp(pygw):
     update_status.assert_called_once_with(v.THERMOSTAT, {v.DATA_OUTSIDE_TEMP: 0.0})
 
 
+@pytest.mark.asyncio
 async def test_set_clock(pygw):
     """Test pyotgw.set_clock()"""
     dt = datetime(year=2021, month=3, day=12, hour=12, minute=34)
@@ -385,6 +393,7 @@ def test_get_hot_water_ovrd(pygw):
         assert pygw.get_hot_water_ovrd() == 1
 
 
+@pytest.mark.asyncio
 async def test_get_reports(pygw):
     """Test pyotgw.get_reports()"""
 
@@ -418,6 +427,7 @@ async def test_get_reports(pygw):
         await pygw.get_reports()
 
 
+@pytest.mark.asyncio
 async def test_get_status(pygw):
     """Test pyotgw.get_status()"""
     pygw.loop = asyncio.get_running_loop()
@@ -432,6 +442,7 @@ async def test_get_status(pygw):
         assert await pygw.get_status() == pygw_status.expect_4
 
 
+@pytest.mark.asyncio
 async def test_set_hot_water_ovrd(pygw):
     """Test pyotgw.set_hot_water_ovrd()"""
     with patch.object(
@@ -463,6 +474,7 @@ def test_get_mode(pygw):
         assert pygw.get_mode() == "M"
 
 
+@pytest.mark.asyncio
 async def test_set_mode(pygw):
     """Test pyotgw.set_mode()"""
     with patch.object(pygw, "_wait_for_cmd", side_effect=[None, v.OTGW_MODE_MONITOR]):
@@ -493,6 +505,7 @@ def test_get_led_mode(pygw):
         assert pygw.get_led_mode("F") == "C"
 
 
+@pytest.mark.asyncio
 async def test_set_led_mode(pygw):
     """Test pyotgw.set_led_mode()"""
     assert await pygw.set_led_mode("G", "A") is None
@@ -530,6 +543,7 @@ def test_get_gpio_mode(pygw):
         assert pygw.get_gpio_mode("B") is None
 
 
+@pytest.mark.asyncio
 async def test_set_gpio_mode(pygw):
     """Test pyotgw.set_gpio_mode()"""
     assert await pygw.set_gpio_mode("A", 9) is None
@@ -569,6 +583,7 @@ def test_get_setback_temp(pygw):
         assert pygw.get_setback_temp() == 14.5
 
 
+@pytest.mark.asyncio
 async def test_set_setback_temp(pygw):
     """Test pyotgw.set_setback_temp()"""
     with patch.object(
@@ -593,6 +608,7 @@ async def test_set_setback_temp(pygw):
     update_status.assert_called_once_with(v.OTGW, {v.OTGW_SB_TEMP: 16.5})
 
 
+@pytest.mark.asyncio
 async def test_add_alternative(pygw):
     """Test pyotgw.add_alternative()"""
     assert await pygw.add_alternative(0) is None
@@ -611,6 +627,7 @@ async def test_add_alternative(pygw):
     )
 
 
+@pytest.mark.asyncio
 async def test_del_alternative(pygw):
     """Test pyotgw.del_alternative()"""
     assert await pygw.del_alternative(0) is None
@@ -629,6 +646,7 @@ async def test_del_alternative(pygw):
     )
 
 
+@pytest.mark.asyncio
 async def test_add_unknown_id(pygw):
     """Test pyotgw.add_unknown_id()"""
     assert await pygw.add_unknown_id(0) is None
@@ -647,6 +665,7 @@ async def test_add_unknown_id(pygw):
     )
 
 
+@pytest.mark.asyncio
 async def test_del_unknown_id(pygw):
     """Test pyotgw.del_unknown_id()"""
     assert await pygw.del_unknown_id(0) is None
@@ -665,6 +684,7 @@ async def test_del_unknown_id(pygw):
     )
 
 
+@pytest.mark.asyncio
 async def test_set_max_ch_setpoint(pygw):
     """Test pyotgw.set_max_ch_setpoint()"""
     with patch.object(
@@ -690,6 +710,7 @@ async def test_set_max_ch_setpoint(pygw):
     update_status.assert_called_once_with(v.BOILER, {v.DATA_MAX_CH_SETPOINT: 74.5})
 
 
+@pytest.mark.asyncio
 async def test_set_dhw_setpoint(pygw):
     """Test pyotgw.set_dhw_setpoint()"""
     with patch.object(
@@ -715,6 +736,7 @@ async def test_set_dhw_setpoint(pygw):
     update_status.assert_called_once_with(v.BOILER, {v.DATA_DHW_SETPOINT: 54.5})
 
 
+@pytest.mark.asyncio
 async def test_set_max_relative_mod(pygw):
     """Test pyotgw.set_max_relative_mod()"""
     assert await pygw.set_max_relative_mod(-1) is None
@@ -751,6 +773,7 @@ async def test_set_max_relative_mod(pygw):
     )
 
 
+@pytest.mark.asyncio
 async def test_set_control_setpoint(pygw):
     """Test pyotgw.set_control_setpoint()"""
     with patch.object(
@@ -776,6 +799,7 @@ async def test_set_control_setpoint(pygw):
     update_status.assert_called_once_with(v.BOILER, {v.DATA_CONTROL_SETPOINT: 19.5})
 
 
+@pytest.mark.asyncio
 async def test_set_control_setpoint_2(pygw):
     """Test pyotgw.set_control_setpoint_2()"""
     with patch.object(
@@ -801,6 +825,7 @@ async def test_set_control_setpoint_2(pygw):
     update_status.assert_called_once_with(v.BOILER, {v.DATA_CONTROL_SETPOINT_2: 19.5})
 
 
+@pytest.mark.asyncio
 async def test_set_ch_enable_bit(pygw):
     """Test pyotgw.set_ch_enable_bit()"""
     assert await pygw.set_ch_enable_bit(None) is None
@@ -827,6 +852,7 @@ async def test_set_ch_enable_bit(pygw):
     update_status.assert_called_once_with(v.BOILER, {v.DATA_MASTER_CH_ENABLED: 1})
 
 
+@pytest.mark.asyncio
 async def test_set_ch2_enable_bit(pygw):
     """Test pyotgw.set_ch2_enable_bit()"""
     assert await pygw.set_ch2_enable_bit(None) is None
@@ -854,6 +880,7 @@ async def test_set_ch2_enable_bit(pygw):
     update_status.assert_called_once_with(v.BOILER, {v.DATA_MASTER_CH2_ENABLED: 1})
 
 
+@pytest.mark.asyncio
 async def test_set_ventilation(pygw):
     """Test pyotgw.set_ventilation()"""
     assert await pygw.set_ventilation(-1) is None
@@ -902,6 +929,7 @@ def test_subscribe_and_unsubscribe(pygw):
     assert pygw.status._notify == [empty_coroutine_2]
 
 
+@pytest.mark.asyncio
 async def test_wait_for_cmd(caplog, pygw, pygw_proto):
     """Test pyotgw.wait_for_cmd()"""
     assert await pygw._wait_for_cmd(None, None) is None
@@ -910,7 +938,7 @@ async def test_wait_for_cmd(caplog, pygw, pygw_proto):
         "pyotgw.connection.ConnectionManager.connected",
         return_value=True,
     ), patch.object(
-        pygw_proto,
+        pygw_proto.command_processor,
         "issue_cmd",
         side_effect=[None, "0", asyncio.TimeoutError, ValueError],
     ) as issue_cmd, caplog.at_level(
@@ -946,6 +974,7 @@ async def test_wait_for_cmd(caplog, pygw, pygw_proto):
     ]
 
 
+@pytest.mark.asyncio
 async def test_poll_gpio(caplog, pygw):
     """Test pyotgw._poll_gpio()"""
     pygw._gpio_task = None

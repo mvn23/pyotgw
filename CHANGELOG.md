@@ -1,5 +1,7 @@
 #pyotgw Changelog
 ###2.0b0
+- Add CHANGELOG.md
+- Make protocol.disconnect synchronous
 - Update pylint config in tox.ini and add pylint to travis
 - Remove unimplemented methods from OpenThermGateway class
 - Update pre-commit, CI and Travis config
@@ -10,13 +12,15 @@
 - Refactor status management into a StatusManager class (pyotgw/status.py)
 - Refactor connection management into a ConnectionManager class (pyotgw/connection.py)
 - Refactor connection watchdog into a ConnectionWatchdog class (pyotgw/connection.py)
+- Refactor protocol message processing into MessageProcessor (pyotgw/messageprocessor.py)
+- Refactor command processing into CommandProcessor (pyotgw/commandprocessor.py)
 - Further improve message handling
 - Remove licence headers
 - Add test suite
 - Update pre-commit hooks
 - Address pre-commit issues
 - Prepare pylint integration
-- Support python 3.7-3.9 in pre-commit hooks
+- Support python 3.8-3.10 in pre-commit hooks
 - Refactor protocol._process_msg() message parsing
 - Refactor protocol.active into a function
 - Convert protocol.setup_watchdog() and protocol.set_update_cb() to synchronous functions

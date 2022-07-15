@@ -192,7 +192,7 @@ class OpenThermGateway:
         This method is a coroutine
         """
         cmd = v.OTGW_CMD_SET_CLOCK
-        value = "{}/{}".format(date.strftime("%H:%M"), date.isoweekday())
+        value = f"{date.strftime('%H:%M')}/{date.isoweekday()}"
         return await self._wait_for_cmd(cmd, value, timeout)
 
     def get_hot_water_ovrd(self):
@@ -886,7 +886,10 @@ class OpenThermGateway:
         if not self.connection.connected:
             return None
         try:
-            return await asyncio.wait_for(self._protocol.issue_cmd(cmd, value), timeout)
+            return await asyncio.wait_for(
+                self._protocol.command_processor.issue_cmd(cmd, value),
+                timeout,
+            )
         except asyncio.TimeoutError:
             _LOGGER.error("Timed out waiting for command: %s, value: %s.", cmd, value)
             return

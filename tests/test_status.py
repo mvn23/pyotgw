@@ -8,8 +8,6 @@ import pytest
 import pyotgw.vars as v
 from tests.helpers import called_once
 
-pytestmark = pytest.mark.asyncio
-
 
 def test_reset(pygw_status):
     """Test StatusManager.reset()"""
@@ -175,6 +173,7 @@ def test_unsubscribe(pygw_status):
     assert empty_callback not in pygw_status._notify
 
 
+@pytest.mark.asyncio
 async def test_stop_reporting(pygw_status):
     """Test StatusManager.stop_reporting()"""
     assert isinstance(pygw_status._update_task, asyncio.Task)
@@ -182,6 +181,7 @@ async def test_stop_reporting(pygw_status):
     assert pygw_status._update_task is None
 
 
+@pytest.mark.asyncio
 async def test_process_updates(caplog, pygw_status):
     """Test StatusManager._process_updates()"""
 
