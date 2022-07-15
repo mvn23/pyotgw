@@ -102,65 +102,6 @@ Return the ID that was marked as supported, or None on failure.
 This method is a coroutine.
 
 ---
-##### OpenThermGateway.get_gpio_mode(_self_, gpio_id)
-Get the mode for one of the GPIO pins.
-Possible modes are:
-- __0.__ No function, default for both ports on a freshly flashed chip.
-- __1.__ Ground - A permanently low output (0V). Could be used for a power LED.
-- __2.__ Vcc - A permanently high output (5V). Can be used as a short-proof power supply for some external circuitry used by the other GPIO port.
-- __3.__ LED E - An additional LED if you want to present more than 4 LED functions.
-- __4.__ LED F - An additional LED if you want to present more than 5 LED functions.
-- __5.__ Home - Set thermostat to setback temperature when pulled low.
-- __6.__ Away - Set thermostat to setback temperature when pulled high.
-- __7.__ DS1820 (GPIO port B only) - Data line for a DS18S20 or DS18B20 temperature sensor used to measure the outside temperature. A 4k7 resistor should be connected between GPIO port B and Vcc.
-
-This method supports the following arguments:
-- __gpio_id__ The GPIO pin for which the mode is requested. Either `A` or `B`.
-
-Returns the mode for the requested GPIO pin.
-
----
-##### OpenThermGateway.get_hot_water_ovrd(_self_)
-Get the current hot water override setting.
-
-Returns the current hot water override mode if set, otherwise `None`.
-
----
-##### OpenThermGateway.get_led_mode(_self_, led_id)
-Get the mode for one of the LEDs.
-Possible modes are:
-- __R__ Receiving an Opentherm message from the thermostat or boiler
-- __X__ Transmitting an Opentherm message to the thermostat or boiler
-- __T__ Transmitting or receiving a message on the master interface
-- __B__ Transmitting or receiving a message on the slave interface
-- __O__ Remote setpoint override is active
-- __F__ Flame is on
-- __H__ Central heating is on
-- __W__ Hot water is on
-- __C__ Comfort mode (Domestic Hot Water Enable) is on
-- __E__ Transmission error has been detected
-- __M__ Boiler requires maintenance
-- __P__ Raised power mode active on thermostat interface.
-
-This method supports the following arguments:
-- __led_id__ The LED for which the mode is requested. Must be a character in range `A-F`.
-
-Returns the mode for the requested LED.
-
----
-##### OpenThermGateway.get_mode(_self_)
-Get the current operating mode of the gateway.
-
-Returns `G` if the OpenTherm Gateway is operating in `gateway` mode or `M` for `monitor` mode.
-
----
-##### OpenThermGateway.get_outside_temp(_self_)
-Get the outside temperature as known in the gateway.
-This method provides either the temperature from an external sensor connected to the OpenTherm system, or a value provided earlier with `OpenThermGateway.set_outside_temp()`.
-
-Returns the outside air temperature as known in the OpenTherm Gateway.
-
----
 ##### OpenThermGateway.get_reports(_self_)
 Update the OpenThermGateway object with the information from all of the `PR` commands.
 This method is also called from `OpenThermGateway.connect()` to populate the status dict with initial values.
@@ -170,20 +111,6 @@ Returns the full updated status dict.
 This method is a coroutine.
 
 ---
-##### OpenThermGateway.get_room_temp(_self_)
-Get the current room temperature.
-This method provides the room temperature, normally measured by the thermostat.
-
-Returns the currently known room temperature.
-
----
-##### OpenThermGateway.get_setback_temp(_self_)
-Get the setback temperature.
-The setback temperature is used in conjunction with `away mode` on the OpenTherm Gateway.
-
-Returns the currently known setback temperature.
-
----
 ##### OpenThermGateway.get_status(_self_)
 Update the OpenThermGateway object with the information from the `PS` command.
 This method is also called from `OpenThermGateway.connect()` to populate the status dict with initial values.
@@ -191,19 +118,6 @@ This method is also called from `OpenThermGateway.connect()` to populate the sta
 Returns the full updated status dict.
 
 This method is a coroutine.
-
----
-##### OpenThermGateway.get_target_temp(_self_)
-Get the target temperature.
-The target temperature is the temperature which the system is trying to reach. This can be the room setpoint remote override if set, or the current room setpoint.
-
-Returns the currently known target temperature.
-
----
-##### OpenThermGateway.get_temp_sensor_function(_self_)
-Get the assigned function of the temperature sensor which is connected to the gateway.
-
-Returns either `O` for 'Outside Air Temperature' or `R` for 'Return Water Temperature'.
 
 ---
 ##### OpenThermGateway.set_ch_enable_bit(_self_, ch_bit, timeout=OTGW_DEFAULT_TIMEOUT)

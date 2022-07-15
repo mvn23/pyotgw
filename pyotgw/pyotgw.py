@@ -11,7 +11,7 @@ from pyotgw.status import StatusManager
 _LOGGER = logging.getLogger(__name__)
 
 
-class OpenThermGateway:
+class OpenThermGateway:  # pylint: disable=too-many-public-methods
     """Main OpenThermGateway object abstraction"""
 
     def __init__(self):
@@ -61,25 +61,6 @@ class OpenThermGateway:
         """Set connection parameters."""
         return self.connection.set_connection_config(**kwargs)
 
-    def get_room_temp(self):
-        """
-        Get the current room temperature.
-        """
-        if not self.connection.connected:
-            return None
-        return self.status.status[v.THERMOSTAT].get(v.DATA_ROOM_TEMP)
-
-    def get_target_temp(self):
-        """
-        Get the target temperature.
-        """
-        if not self.connection.connected:
-            return None
-        temp_ovrd = self.status.status[v.THERMOSTAT].get(v.DATA_ROOM_SETPOINT_OVRD)
-        if temp_ovrd:
-            return temp_ovrd
-        return self.status.status[v.THERMOSTAT].get(v.DATA_ROOM_SETPOINT)
-
     async def set_target_temp(
         self, temp, temporary=True, timeout=v.OTGW_DEFAULT_TIMEOUT
     ):
@@ -115,14 +96,6 @@ class OpenThermGateway:
             self.status.submit_full_update(status_update)
             return ret
 
-    def get_temp_sensor_function(self):
-        """
-        Return the temperature sensor function.
-        """
-        if not self.connection.connected:
-            return None
-        return self.status.status[v.OTGW].get(v.OTGW_TEMP_SENSOR)
-
     async def set_temp_sensor_function(self, func, timeout=v.OTGW_DEFAULT_TIMEOUT):
         """
         Set the temperature sensor function. The following functions are available:
@@ -140,16 +113,6 @@ class OpenThermGateway:
         status_otgw = {v.OTGW_TEMP_SENSOR: ret}
         self.status.submit_partial_update(v.OTGW, status_otgw)
         return ret
-
-    def get_outside_temp(self):
-        """
-        Return the outside temperature as known in the gateway.
-        """
-        if not self.connection.connected:
-            return None
-        return self.status.status[v.THERMOSTAT].get(
-            v.DATA_OUTSIDE_TEMP
-        ) or self.status.status[v.BOILER].get(v.DATA_OUTSIDE_TEMP)
 
     async def set_outside_temp(self, temp, timeout=v.OTGW_DEFAULT_TIMEOUT):
         """
@@ -193,15 +156,6 @@ class OpenThermGateway:
         cmd = v.OTGW_CMD_SET_CLOCK
         value = f"{date.strftime('%H:%M')}/{date.isoweekday()}"
         return await self._wait_for_cmd(cmd, value, timeout)
-
-    def get_hot_water_ovrd(self):
-        """
-        Return the current hot water override mode if set, otherwise
-        None.
-        """
-        if not self.connection.connected:
-            return None
-        return self.status.status[v.OTGW].get(v.OTGW_DHW_OVRD)
 
     async def get_reports(self):
         """
@@ -457,15 +411,6 @@ class OpenThermGateway:
         self.status.submit_partial_update(v.OTGW, status_otgw)
         return ret
 
-    def get_mode(self):
-        """
-        Return the last known gateway operating mode. Return "G" for
-        Gateway mode or "M" for Monitor mode.
-        """
-        if not self.connection.connected:
-            return None
-        return self.status.status[v.OTGW].get(v.OTGW_MODE)
-
     async def set_mode(self, mode, timeout=v.OTGW_DEFAULT_TIMEOUT):
         """
         Set the operating mode to either "Gateway" mode (:mode: =
@@ -490,15 +435,6 @@ class OpenThermGateway:
         status_otgw[v.OTGW_MODE] = ret
         self.status.submit_partial_update(v.OTGW, status_otgw)
         return ret
-
-    def get_led_mode(self, led_id):
-        """
-        Return the led mode for led :led_id:.
-        @led_id Character in range A-F
-        """
-        if not self.connection.connected:
-            return None
-        return self.status.status[v.OTGW].get(getattr(v, f"OTGW_LED_{led_id}"))
 
     async def set_led_mode(self, led_id, mode, timeout=v.OTGW_DEFAULT_TIMEOUT):
         """
@@ -534,15 +470,6 @@ class OpenThermGateway:
             status_otgw[var] = ret
             self.status.submit_partial_update(v.OTGW, status_otgw)
             return ret
-
-    def get_gpio_mode(self, gpio_id):
-        """
-        Return the gpio mode for gpio :gpio_id:.
-        @gpio_id Character A or B.
-        """
-        if not self.connection.connected:
-            return None
-        return self.status.status[v.OTGW].get(getattr(v, f"OTGW_GPIO_{gpio_id}"))
 
     async def set_gpio_mode(self, gpio_id, mode, timeout=v.OTGW_DEFAULT_TIMEOUT):
         """
@@ -585,14 +512,6 @@ class OpenThermGateway:
             self.status.submit_partial_update(v.OTGW, status_otgw)
             asyncio.ensure_future(self._poll_gpio())
             return ret
-
-    def get_setback_temp(self):
-        """
-        Return the last known setback temperature from the device.
-        """
-        if not self.connection.connected:
-            return None
-        return self.status.status[v.OTGW].get(v.OTGW_SB_TEMP)
 
     async def set_setback_temp(self, sb_temp, timeout=v.OTGW_DEFAULT_TIMEOUT):
         """

@@ -11,7 +11,9 @@ from pyotgw.messageprocessor import MessageProcessor
 _LOGGER = logging.getLogger(__name__)
 
 
-class OpenThermProtocol(asyncio.Protocol):
+class OpenThermProtocol(
+    asyncio.Protocol
+):  # pylint: disable=too-many-instance-attributes
     """
     Implementation of the Opentherm Gateway protocol to be used with
     asyncio connections.

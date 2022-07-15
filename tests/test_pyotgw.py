@@ -173,33 +173,6 @@ def test_set_connection_options(pygw):
     set_config.assert_called_once_with(just="some", random="kwargs")
 
 
-def test_get_room_temp(pygw, pygw_proto):
-    """Test pyotgw.get_room_temp()"""
-    temp = pygw.get_room_temp()
-    assert temp is None
-
-    pygw.status.submit_partial_update(v.THERMOSTAT, {v.DATA_ROOM_TEMP: 23.5})
-
-    with patch("pyotgw.connection.ConnectionManager.connected", return_value=True):
-        temp = pygw.get_room_temp()
-    assert temp == 23.5
-
-
-def test_get_target_temp(pygw):
-    """Test pyotgw.get_target_temp()"""
-    assert pygw.get_target_temp() is None
-
-    pygw.status.submit_partial_update(v.THERMOSTAT, {v.DATA_ROOM_SETPOINT: 23.5})
-    with patch("pyotgw.connection.ConnectionManager.connected", return_value=True):
-        temp = pygw.get_target_temp()
-    assert temp == 23.5
-
-    pygw.status.submit_partial_update(v.THERMOSTAT, {v.DATA_ROOM_SETPOINT_OVRD: 20.5})
-    with patch("pyotgw.connection.ConnectionManager.connected", return_value=True):
-        temp = pygw.get_target_temp()
-    assert temp == 20.5
-
-
 @pytest.mark.asyncio
 async def test_set_target_temp(pygw):
     """Test pyotgw.set_target_temp()"""
@@ -278,15 +251,6 @@ async def test_set_target_temp(pygw):
     )
 
 
-def test_get_temp_sensor_function(pygw):
-    """Test pyotgw.get_temp_sensor_function()"""
-    assert pygw.get_temp_sensor_function() is None
-
-    pygw.status.submit_partial_update(v.OTGW, {v.OTGW_TEMP_SENSOR: "O"})
-    with patch("pyotgw.connection.ConnectionManager.connected", return_value=True):
-        assert pygw.get_temp_sensor_function() == "O"
-
-
 @pytest.mark.asyncio
 async def test_set_temp_sensor_function(pygw):
     """Test pyotgw.set_temp_sensor_function()"""
@@ -312,15 +276,6 @@ async def test_set_temp_sensor_function(pygw):
 
     wait_for_cmd.assert_called_once_with(v.OTGW_CMD_TEMP_SENSOR, "R", 5)
     update_status.assert_called_once_with(v.OTGW, {v.OTGW_TEMP_SENSOR: "R"})
-
-
-def test_get_outside_temp(pygw):
-    """Test pyotgw.get_outside_temp()"""
-    assert pygw.get_outside_temp() is None
-
-    pygw.status.submit_partial_update(v.BOILER, {v.DATA_OUTSIDE_TEMP: -5.4})
-    with patch("pyotgw.connection.ConnectionManager.connected", return_value=True):
-        assert pygw.get_outside_temp() == -5.4
 
 
 @pytest.mark.asyncio
@@ -382,15 +337,6 @@ async def test_set_clock(pygw):
         assert await pygw.set_clock(dt, timeout=5) == "12:34/5"
 
     wait_for_cmd.assert_called_once_with(v.OTGW_CMD_SET_CLOCK, "12:34/5", 5)
-
-
-def test_get_hot_water_ovrd(pygw):
-    """Test pyotgw.get_hot_water_ovrd()"""
-    assert pygw.get_hot_water_ovrd() is None
-
-    pygw.status.submit_partial_update(v.OTGW, {v.OTGW_DHW_OVRD: 1})
-    with patch("pyotgw.connection.ConnectionManager.connected", return_value=True):
-        assert pygw.get_hot_water_ovrd() == 1
 
 
 @pytest.mark.asyncio
@@ -465,15 +411,6 @@ async def test_set_hot_water_ovrd(pygw):
     )
 
 
-def test_get_mode(pygw):
-    """Test pyotgw.get_mode()"""
-    assert pygw.get_mode() is None
-
-    pygw.status.submit_partial_update(v.OTGW, {v.OTGW_MODE: "M"})
-    with patch("pyotgw.connection.ConnectionManager.connected", return_value=True):
-        assert pygw.get_mode() == "M"
-
-
 @pytest.mark.asyncio
 async def test_set_mode(pygw):
     """Test pyotgw.set_mode()"""
@@ -492,17 +429,6 @@ async def test_set_mode(pygw):
         assert await pygw.set_mode(v.OTGW_MODE_RESET) == v.DEFAULT_STATUS
         get_reports.assert_called_once()
         get_status.assert_called_once()
-
-
-def test_get_led_mode(pygw):
-    """Test pyotgw.get_led_mode()"""
-    assert pygw.get_led_mode(None) is None
-
-    pygw.status.submit_partial_update(v.OTGW, {v.OTGW_LED_F: "C"})
-
-    with patch("pyotgw.connection.ConnectionManager.connected", return_value=True):
-        assert pygw.get_led_mode("A") is None
-        assert pygw.get_led_mode("F") == "C"
 
 
 @pytest.mark.asyncio
@@ -532,17 +458,6 @@ async def test_set_led_mode(pygw):
     update_status.assert_called_once_with(v.OTGW, {v.OTGW_LED_A: "X"})
 
 
-def test_get_gpio_mode(pygw):
-    """Test pyotgw.get_gpio_mode()"""
-    assert pygw.get_gpio_mode(None) is None
-
-    pygw.status.submit_partial_update(v.OTGW, {v.OTGW_GPIO_A: 1})
-
-    with patch("pyotgw.connection.ConnectionManager.connected", return_value=True):
-        assert pygw.get_gpio_mode("A") == 1
-        assert pygw.get_gpio_mode("B") is None
-
-
 @pytest.mark.asyncio
 async def test_set_gpio_mode(pygw):
     """Test pyotgw.set_gpio_mode()"""
@@ -569,18 +484,6 @@ async def test_set_gpio_mode(pygw):
     )
 
     update_status.assert_called_once_with(v.OTGW, {v.OTGW_GPIO_B: 3})
-
-
-def test_get_setback_temp(pygw):
-    """Test pyotgw.get_gpio_mode()"""
-    assert pygw.get_setback_temp() is None
-
-    with patch("pyotgw.connection.ConnectionManager.connected", return_value=True):
-        assert pygw.get_setback_temp() is None
-
-    pygw.status.submit_partial_update(v.OTGW, {v.OTGW_SB_TEMP: 14.5})
-    with patch("pyotgw.connection.ConnectionManager.connected", return_value=True):
-        assert pygw.get_setback_temp() == 14.5
 
 
 @pytest.mark.asyncio
