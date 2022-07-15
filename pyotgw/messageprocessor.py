@@ -19,13 +19,11 @@ class MessageProcessor:
         self,
         command_processor,
         status_manager,
-        loop,
     ):
         """Initialise the protocol object."""
         self._msgq = asyncio.Queue()
-        self._task = loop.create_task(self._process_msgs())
+        self._task = asyncio.get_running_loop().create_task(self._process_msgs())
         self.command_processor = command_processor
-        self.loop = loop
         self.status_manager = status_manager
 
     async def cleanup(self):

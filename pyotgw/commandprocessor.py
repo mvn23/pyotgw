@@ -17,11 +17,9 @@ class CommandProcessor:
         self,
         protocol,
         status_manager,
-        loop,
     ):
         """Initialise the CommandProcessor object."""
         self.protocol = protocol
-        self.loop = loop
         self._lock = asyncio.Lock()
         self._cmdq = asyncio.Queue()
         self.status_manager = status_manager

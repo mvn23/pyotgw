@@ -8,6 +8,7 @@
 - Drop support for python 3.7
 - Rename pyotgw class to OpenThermGateway
 - Remove loop argument from OpenThermGateway.connect()
+- Remove loop parameters from all classes
 - Add CI workflow
 - Refactor status management into a StatusManager class (pyotgw/status.py)
 - Refactor connection management into a ConnectionManager class (pyotgw/connection.py)

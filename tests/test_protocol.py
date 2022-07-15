@@ -95,7 +95,8 @@ def test_data_received(caplog, pygw_proto):
         ]
 
 
-def test_line_received(caplog, pygw_proto):
+@pytest.mark.asyncio
+async def test_line_received(caplog, pygw_proto):
     """Test OpenThermProtocol.line_received()"""
     test_lines = ("BCDEF", "A1A2B3C4D", "MustBeCommand", "AlsoCommand")
 

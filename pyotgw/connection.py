@@ -116,7 +116,6 @@ class ConnectionManager:  # pylint: disable=too-many-instance-attributes
                         OpenThermProtocol,
                         self.status_manager,
                         self.watchdog.inform,
-                        loop,
                     ),
                     self._port,
                     write_timeout=0,

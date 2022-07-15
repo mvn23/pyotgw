@@ -32,7 +32,6 @@ async def pygw_proto(pygw):
     proto = pyotgw.protocol.OpenThermProtocol(
         pygw.status,
         activity_callback,
-        asyncio.get_event_loop(),
     )
     proto.activity_callback = activity_callback
     pygw._transport = trans

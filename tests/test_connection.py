@@ -220,7 +220,6 @@ async def test_attempt_connect_success(pygw_conn, pygw_proto):
     assert args[1].args == (
         pygw_conn.status_manager,
         pygw_conn.watchdog.inform,
-        asyncio.get_running_loop(),
     )
     assert args[2] == pygw_conn._port
     kwargs = saved_args_list[0]["kwargs"]
