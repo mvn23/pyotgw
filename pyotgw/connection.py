@@ -213,14 +213,15 @@ class ConnectionWatchdog:
 
     async def stop(self):
         """Stop the watchdog"""
-        if self.is_active:
+        async with self._lock:
+            if not self.is_active:
+                return
             _LOGGER.debug("Canceling Watchdog task.")
-            async with self._lock:
-                self._wd_task.cancel()
-                try:
-                    await self._wd_task
-                except asyncio.CancelledError:
-                    self._wd_task = None
+            self._wd_task.cancel()
+            try:
+                await self._wd_task
+            except asyncio.CancelledError:
+                self._wd_task = None
 
     async def _watchdog(self, timeout):
         """Trigger and cancel the watchdog after timeout. Schedule callback."""
