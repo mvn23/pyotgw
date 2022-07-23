@@ -156,6 +156,58 @@ async def test_reconnect(caplog, pygw_conn):
     connect.assert_called_once_with("loop://")
 
 
+@pytest.mark.asyncio
+async def test_reconnect_after_connection_loss(caplog, pygw_conn, pygw_proto):
+    """Test ConnectionManager.reconnect() after connection loss"""
+    pygw_conn._error = asyncio.CancelledError()
+
+    with patch.object(
+        pygw_conn,
+        "_attempt_connect",
+        return_value=(pygw_proto.transport, pygw_proto),
+    ) as attempt_conn, patch.object(
+        pygw_conn.watchdog,
+        "start",
+        side_effect=pygw_conn.watchdog.start,
+    ) as wd_start, caplog.at_level(
+        logging.DEBUG
+    ):
+        assert await pygw_conn.connect("loop://", timeout=0.001)
+
+        caplog.clear()
+        attempt_conn.assert_called_once()
+        attempt_conn.reset_mock()
+        await called_x_times(wd_start, 2, timeout=3)
+        attempt_conn.assert_called_once()
+        assert caplog.record_tuples == [
+            (
+                "pyotgw.connection",
+                logging.DEBUG,
+                "Watchdog triggered!",
+            ),
+            (
+                "pyotgw.connection",
+                logging.DEBUG,
+                "Canceling Watchdog task.",
+            ),
+            (
+                "pyotgw.connection",
+                logging.DEBUG,
+                "Scheduling reconnect...",
+            ),
+            (
+                "pyotgw.connection",
+                logging.DEBUG,
+                "Reconnecting to serial device on loop://",
+            ),
+            (
+                "pyotgw.connection",
+                logging.DEBUG,
+                "Connected to serial device on loop://",
+            ),
+        ]
+
+
 def test_connected(pygw_conn, pygw_proto):
     """Test ConnectionManager.connected()"""
     pygw_conn.protocol = pygw_proto
