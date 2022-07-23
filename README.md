@@ -413,10 +413,9 @@ async def connect_and_subscribe():
     await asyncio.sleep(1)
 
 
-# Set up the event loop and run the connect_and_subscribe coroutine.
-loop = asyncio.get_event_loop()
+# Run the connect_and_subscribe coroutine.
 try:
-  loop.run_until_complete(connect_and_subscribe())
+  asyncio.run(connect_and_subscribe())
 except KeyboardInterrupt:
   print("Exiting")
 
