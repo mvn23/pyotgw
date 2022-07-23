@@ -156,6 +156,13 @@ Returns the accepted response from the gateway with format `HH:MM/DOW`, where DO
 This method is a coroutine.
 
 ---
+##### OpenThermGateway.set_connection_options(_self_, **kwargs)
+Set the serial connection parameters before calling connect().
+Valid kwargs are 'baudrate', 'bytesize', 'parity' and 'stopbits'.
+Returns True on success, False on fail or if already connected.
+For more information on the kwargs see the pyserial documentation.
+
+---
 ##### OpenThermGateway.set_control_setpoint(_self_, setpoint, timeout=OTGW_DEFAULT_TIMEOUT)
 Set the control setpoint.
 The control setpoint is the target temperature for the water in the central heating system. This method will cause the OpenTherm Gateway to manipulate the control setpoint which is sent to the boiler. Set the control setpoint to `0` to pass along the value specified by the thermostat.
@@ -394,7 +401,7 @@ async def connect_and_subscribe():
   gw = OpenThermGateway()
 
   # Connect to OpenTherm Gateway on PORT
-  status = await gw.connect(asyncio.get_event_loop(), PORT)
+  status = await gw.connect(PORT)
   print("Initial status after connecting:\n{}".format(status))
 
   # Subscribe to updates from the gateway
