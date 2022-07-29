@@ -51,7 +51,7 @@ class OpenThermProtocol(
         Gets called when the connection to the gateway is lost.
         Tear down and clean up the protocol object.
         """
-        if self.active:
+        if self.active and self.connected:
             _LOGGER.error("Disconnected: %s", exc)
         self._received_lines = 0
         self._connected = False
