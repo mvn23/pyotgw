@@ -1,5 +1,8 @@
 # pyotgw Changelog
 
+### 2.0.2
+- Only log unexpected disconnects
+
 ### 2.0.1
 - Fix bug in watchdog reconnect logic
 - Add test case for watchdog reconnect logic
