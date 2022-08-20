@@ -59,9 +59,9 @@ def pygw_message_processor(pygw_proto):
 
 
 @pytest_asyncio.fixture
-async def pygw_conn(pygw_status):
+async def pygw_conn(pygw):
     """Return a ConnectionManager object"""
-    connection_manager = ConnectionManager(pygw_status)
+    connection_manager = ConnectionManager(pygw)
     yield connection_manager
     await connection_manager.watchdog.stop()
 

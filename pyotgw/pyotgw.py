@@ -20,7 +20,7 @@ class OpenThermGateway:  # pylint: disable=too-many-public-methods
         self._protocol = None
         self._gpio_task = None
         self.status = StatusManager()
-        self.connection = ConnectionManager(self.status)
+        self.connection = ConnectionManager(self)
 
     async def cleanup(self):
         """Clean up tasks."""

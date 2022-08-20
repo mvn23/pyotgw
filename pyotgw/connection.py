@@ -26,7 +26,7 @@ _LOGGER = logging.getLogger(__name__)
 class ConnectionManager:  # pylint: disable=too-many-instance-attributes
     """Functionality for setting up and tearing down a connection"""
 
-    def __init__(self, status_manager):
+    def __init__(self, otgw):
         """Initialise the connection manager"""
         self._error = None
         self._port = None
@@ -38,7 +38,8 @@ class ConnectionManager:  # pylint: disable=too-many-instance-attributes
             "parity": serial.PARITY_NONE,
             "stopbits": serial.STOPBITS_ONE,
         }
-        self.status_manager = status_manager
+        self._otgw = otgw
+        self._timeout = 10
         self.watchdog = ConnectionWatchdog()
         self._transport = None
         self.protocol = None
@@ -52,6 +53,7 @@ class ConnectionManager:  # pylint: disable=too-many-instance-attributes
 
         loop = asyncio.get_running_loop()
         self._port = port
+        self._timeout = timeout if timeout else self._timeout
         self._connecting_task = loop.create_task(self._attempt_connect())
         try:
             transport, protocol = await self._connecting_task
@@ -79,7 +81,7 @@ class ConnectionManager:  # pylint: disable=too-many-instance-attributes
             return
         _LOGGER.debug("Scheduling reconnect...")
         await self.disconnect()
-        await self.connect(self._port)
+        await self._otgw.connect(self._port)
 
     @property
     def connected(self):
@@ -114,7 +116,7 @@ class ConnectionManager:  # pylint: disable=too-many-instance-attributes
                     loop,
                     partial(
                         OpenThermProtocol,
-                        self.status_manager,
+                        self._otgw.status,
                         self.watchdog.inform,
                     ),
                     self._port,

@@ -37,7 +37,7 @@ class StatusManager:
             del self._status[part][key]
         except (AttributeError, KeyError):
             return False
-        self._updateq.put_nowait(deepcopy(self._status))
+        self._updateq.put_nowait(self.status)
         return True
 
     def submit_partial_update(self, part, update):
@@ -52,7 +52,7 @@ class StatusManager:
             _LOGGER.error("Update for %s is not a dict: %s", part, update)
             return False
         self._status[part].update(update)
-        self._updateq.put_nowait(deepcopy(self.status))
+        self._updateq.put_nowait(self.status)
         return True
 
     def submit_full_update(self, update):
@@ -71,7 +71,7 @@ class StatusManager:
         for part, values in update.items():
             # Then we actually update
             self._status[part].update(values)
-        self._updateq.put_nowait(deepcopy(self.status))
+        self._updateq.put_nowait(self.status)
         return True
 
     def subscribe(self, callback):

@@ -144,7 +144,7 @@ async def test_reconnect(caplog, pygw_conn):
     caplog.clear()
     pygw_conn._port = "loop://"
     with patch.object(pygw_conn, "disconnect") as disconnect, patch.object(
-        pygw_conn,
+        pygw_conn._otgw,
         "connect",
     ) as connect, caplog.at_level(logging.DEBUG):
         await pygw_conn.reconnect()
@@ -162,6 +162,10 @@ async def test_reconnect_after_connection_loss(caplog, pygw_conn, pygw_proto):
     pygw_conn._error = asyncio.CancelledError()
 
     with patch.object(
+        pygw_conn._otgw,
+        "connect",
+        side_effect=pygw_conn.connect,
+    ), patch.object(
         pygw_conn,
         "_attempt_connect",
         return_value=(pygw_proto.transport, pygw_proto),
@@ -178,6 +182,7 @@ async def test_reconnect_after_connection_loss(caplog, pygw_conn, pygw_proto):
         attempt_conn.assert_called_once()
         attempt_conn.reset_mock()
         await called_x_times(wd_start, 2, timeout=3)
+        assert pygw_conn.protocol.connected
         attempt_conn.assert_called_once()
         assert caplog.record_tuples == [
             (
@@ -270,7 +275,7 @@ async def test_attempt_connect_success(pygw_conn, pygw_proto):
     assert isinstance(args[1], functools.partial)
     assert args[1].func == OpenThermProtocol
     assert args[1].args == (
-        pygw_conn.status_manager,
+        pygw_conn._otgw.status,
         pygw_conn.watchdog.inform,
     )
     assert args[2] == pygw_conn._port
