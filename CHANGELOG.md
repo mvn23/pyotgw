@@ -1,5 +1,10 @@
 # pyotgw Changelog
 
+### 2.0.3
+- Fix watchdog reconnect logic
+- Use deepcopy when submitting status updates to the queue
+- Fix tests for watchdog logic
+
 ### 2.0.2
 - Only log unexpected disconnects
 
