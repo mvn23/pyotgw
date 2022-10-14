@@ -19,6 +19,7 @@ class OpenThermGateway:  # pylint: disable=too-many-public-methods
         self._transport = None
         self._protocol = None
         self._gpio_task = None
+        self._skip_init = False
         self.status = StatusManager()
         self.connection = ConnectionManager(self)
 
@@ -34,6 +35,7 @@ class OpenThermGateway:  # pylint: disable=too-many-public-methods
         self,
         port,
         timeout=None,
+        skip_init=None,
     ):
         """
         Connect to Opentherm Gateway at @port.
@@ -44,11 +46,14 @@ class OpenThermGateway:  # pylint: disable=too-many-public-methods
 
         This method is a coroutine
         """
+        if skip_init is not None:
+            self._skip_init = skip_init
         if not await self.connection.connect(port, timeout):
             return False
         self._protocol = self.connection.protocol
-        await self.get_reports()
-        await self.get_status()
+        if not self._skip_init:
+            await self.get_reports()
+            await self.get_status()
         await self._poll_gpio()
         return self.status.status
 
