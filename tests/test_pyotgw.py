@@ -61,6 +61,46 @@ async def test_connect_success_and_reconnect_with_gpio(caplog, pygw, pygw_proto)
 
 
 @pytest.mark.asyncio
+async def test_connect_skip_init(caplog, pygw, pygw_proto):
+    """Test pyotgw.connect() with skip_init"""
+    with patch.object(
+        pygw, "get_reports", return_value={}
+    ) as get_reports, patch.object(
+        pygw,
+        "get_status",
+        return_value={},
+    ) as get_status, patch.object(
+        pygw, "_poll_gpio"
+    ) as poll_gpio, patch.object(
+        pygw_proto,
+        "init_and_wait_for_activity",
+    ) as init_and_wait, patch(
+        "serial_asyncio.create_serial_connection",
+        return_value=(pygw_proto.transport, pygw_proto),
+    ), caplog.at_level(
+        logging.DEBUG
+    ):
+        status = await pygw.connect("loop://", skip_init=True)
+
+        assert status == v.DEFAULT_STATUS
+        init_and_wait.assert_called_once()
+        poll_gpio.assert_called_once()
+        get_reports.assert_not_awaited()
+        get_status.assert_not_awaited()
+
+        await pygw.connection.watchdog.stop()
+        await pygw.connection.watchdog._callback()
+
+        assert (
+            "pyotgw.connection",
+            logging.DEBUG,
+            "Scheduling reconnect...",
+        ) in caplog.record_tuples
+
+        await pygw.disconnect()
+
+
+@pytest.mark.asyncio
 async def test_connect_serialexception(caplog, pygw):
     """Test pyotgw.connect() with SerialException"""
     loop = asyncio.get_running_loop()
