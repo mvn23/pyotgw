@@ -59,13 +59,14 @@ Returns the added ID, or None on failure.
 This method is a coroutine.
 
 ---
-##### OpenThermGateway.connect(_self_, port, timeout=5)
+##### OpenThermGateway.connect(_self_, port, timeout=5, skip_init=None)
 Connect to an OpenTherm Gateway and initializes the parameters obtained from the `PS` and `PR` commands.
 If called while connected, reconnect to the gateway.
 All optional serial-related arguments default to the OpenTherm Gateway default settings.
 This method supports the following arguments:
 - __port__ The port/url on which the OpenTherm Gateway can be reached as supported by [pyserial](https://pythonhosted.org/pyserial/url_handlers.html).
 - __timeout__ The inactivity timeout in seconds after which the watchdog will trigger a reconnect. Defaults to 5.
+- __skip_init__ If set to True, the PS= and PR= commands are skipped and only PS=0 is sent upon the current and future connection attempts. Defaults to None, which keeps the last known setting.
 
 Returns a status dict with all known values.
 
