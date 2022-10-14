@@ -42,6 +42,8 @@ class OpenThermGateway:  # pylint: disable=too-many-public-methods
         Initialize the parameters obtained from the PS= and PR=
         commands and returns the status dict with the obtained values
         or False if cancelled.
+        If @skip_init is True, the PS= and PR= commands are skipped and only PS=0 is
+        sent upon this and future connection attempts.
         If called while connected, reconnect to the gateway.
 
         This method is a coroutine
