@@ -215,7 +215,16 @@ REGISTRY = {
                 RETURNS: (v.DATA_ROOM_SETPOINT,),
             },
         ],
-        S2M: [],
+        S2M: [
+            {
+                FUNC: _GET_FLOAT,
+                ARGS: (
+                    _MSB,
+                    _LSB,
+                ),
+                RETURNS: (v.DATA_ROOM_SETPOINT,),
+            },
+        ],
     },
     v.MSG_RELMOD: {
         M2S: [],
