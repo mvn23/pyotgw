@@ -1,5 +1,8 @@
 # pyotgw Changelog
 
+### 2.1.1
+- Fix boiler side room_setpoint not updating
+
 ### 2.1.0
 - Add skip_init feature to OpenThermGateway.connect()
 - Add test case for skip_init feature
