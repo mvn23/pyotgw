@@ -177,6 +177,17 @@ class MessageProcessor:
         else:
             self.status_manager.delete_value(part, v.DATA_ROOM_SETPOINT_OVRD)
 
+    async def _quirk_trset_s2m(self, part, msb, lsb):
+        """Handle MSG_TRSET with gateway quirk"""
+        # Ignore s2m messages on thermostat side as they are ALWAYS WriteAcks
+        # but may contain invalid data.
+        if part == v.THERMOSTAT:
+            return
+
+        self.status_manager.submit_partial_update(
+            part, {v.DATA_ROOM_SETPOINT: self._get_f8_8(msb, lsb)}
+        )
+
     @staticmethod
     def _get_flag8(byte):
         """

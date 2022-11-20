@@ -217,12 +217,14 @@ REGISTRY = {
         ],
         S2M: [
             {
-                FUNC: _GET_FLOAT,
+                FUNC: "_quirk_trset_s2m",
                 ARGS: (
+                    "part",
+                    "msgid",
                     _MSB,
                     _LSB,
                 ),
-                RETURNS: (v.DATA_ROOM_SETPOINT,),
+                RETURNS: (False,),
             },
         ],
     },
