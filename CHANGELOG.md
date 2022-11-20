@@ -1,5 +1,9 @@
 # pyotgw Changelog
 
+### 2.1.2
+- Fix handle TRSET on thermostat side (#48)
+- Fix pre-commit flake8 repo (#47)
+
 ### 2.1.1
 - Fix boiler side room_setpoint not updating
 
