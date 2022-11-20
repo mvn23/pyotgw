@@ -220,7 +220,6 @@ REGISTRY = {
                 FUNC: "_quirk_trset_s2m",
                 ARGS: (
                     "part",
-                    "msgid",
                     _MSB,
                     _LSB,
                 ),
