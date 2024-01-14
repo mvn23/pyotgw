@@ -131,6 +131,6 @@ class OpenThermProtocol(
 
     async def init_and_wait_for_activity(self):
         """Wait for activity on the serial connection."""
-        await self.command_processor.issue_cmd(v.OTGW_CMD_SUMMARY, 0, retry=0)
+        await self.command_processor.issue_cmd(v.OTGW_CMD_SUMMARY, 0, retry=1)
         while not self.active:
             await asyncio.sleep(0)
