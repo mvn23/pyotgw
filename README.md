@@ -358,6 +358,19 @@ Return the newly accepted value, or `None` on failure.
 This method is a coroutine.
 
 ---
+##### OpenThermGateway.send_transparent_command(_self_, cmd, state, timeout=OTGW_DEFAULT_TIMEOUT)
+Send a transparent command.
+Sends custom commands through a transparent interface.
+Check https://otgw.tclcode.com/firmware.html for supported commands.
+This method supports the following arguments:
+- __cmd__ The supported command e.g. `SC` (set time/day).
+- __state__ The command argument e.g. `23:59/4` (the current time/day)
+
+Returns the gateway response, which should be equal __state__.
+
+This method is a coroutine.
+
+---
 ##### OpenThermGateway.subscribe(_self_, coro)
 Subscribe to status updates from the Opentherm Gateway.
 The subscribed coroutine must have the following signature:
