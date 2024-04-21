@@ -781,6 +781,21 @@ class OpenThermGateway:  # pylint: disable=too-many-public-methods
         self.status.submit_partial_update(v.BOILER, status_boiler)
         return ret
 
+    async def send_transparent_command(
+        self, cmd, state, timeout=v.OTGW_DEFAULT_TIMEOUT
+    ):
+        """
+        Sends custom otgw commands throug a transparent interface.
+        Check https://otgw.tclcode.com/firmware.html for supported commands.
+        @cmd the supported command e.g. 'SC' (set time/day)
+        @state the command argument e.g. '23:59/4' (the current time/day)
+        Returns the gateway response, which should be equal to @state.
+
+        This method is a coroutine
+        """
+        ret = await self._wait_for_cmd(cmd, state, timeout)
+        return ret
+
     def subscribe(self, coro):
         """
         Subscribe to status updates from the Opentherm Gateway.
