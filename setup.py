@@ -27,7 +27,7 @@ setup(
     python_requires=">=3.8",
     long_description=read("README.md"),
     long_description_content_type="text/markdown",
-    install_requires=["pyserial-asyncio"],
+    install_requires=["pyserial-asyncio-fast"],
     classifiers=[
         "Development Status :: 5 - Production/Stable",
         "Topic :: Software Development :: Libraries",

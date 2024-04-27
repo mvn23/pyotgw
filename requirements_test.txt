@@ -6,4 +6,4 @@ pylint
 pytest
 pytest-asyncio
 pytest-cov
-pyserial-asyncio
+pyserial-asyncio-fast

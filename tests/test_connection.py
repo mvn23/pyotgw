@@ -261,7 +261,7 @@ async def test_attempt_connect_success(pygw_conn, pygw_proto):
     with patch(
         "pyotgw.protocol.OpenThermProtocol.init_and_wait_for_activity",
     ) as init_and_wait, patch(
-        "serial_asyncio.create_serial_connection",
+        "serial_asyncio_fast.create_serial_connection",
         return_value=(pygw_proto.transport, pygw_proto),
         side_effect=save_args,
     ) as create_serial_connection:
@@ -297,7 +297,7 @@ async def test_attempt_connect_serialexception(caplog, pygw_conn):
     pygw_conn._port = "loop://"
 
     with patch(
-        "serial_asyncio.create_serial_connection",
+        "serial_asyncio_fast.create_serial_connection",
         side_effect=serial.SerialException,
     ) as create_serial_connection, patch.object(
         pygw_conn,
@@ -334,7 +334,7 @@ async def test_attempt_connect_timeouterror(caplog, pygw_conn, pygw_proto):
     pygw_proto.disconnect = MagicMock()
 
     with patch(
-        "serial_asyncio.create_serial_connection",
+        "serial_asyncio_fast.create_serial_connection",
         return_value=(pygw_proto.transport, pygw_proto),
     ) as create_serial_connection, patch.object(
         pygw_conn,
