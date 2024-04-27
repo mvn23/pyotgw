@@ -791,6 +791,8 @@ class OpenThermGateway:  # pylint: disable=too-many-public-methods
         @state the command argument e.g. '23:59/4' (the current time/day)
         Returns the gateway response, which should be equal to @state.
 
+        Note that unlike the set_* methods, this does not update the status object.
+
         This method is a coroutine
         """
         ret = await self._wait_for_cmd(cmd, state, timeout)
