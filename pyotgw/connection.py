@@ -148,7 +148,16 @@ class ConnectionManager:  # pylint: disable=too-many-instance-attributes
                     )
                     self._error = err
                 if protocol:
-                    protocol.disconnect()
+                    await protocol.cleanup()
+
+            except SyntaxError as err:
+                # The gateway may throw a SyntaxError on the first initialization
+                # attempt.
+                if protocol:
+                    await protocol.cleanup()
+                if isinstance(err, type(self._error)):
+                    raise
+                self._error = err
 
             transport = None
             await asyncio.sleep(self._get_retry_timeout())

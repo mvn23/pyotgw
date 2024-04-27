@@ -362,6 +362,35 @@ async def test_attempt_connect_timeouterror(caplog, pygw_conn, pygw_proto):
 
 
 @pytest.mark.asyncio
+async def test_attempt_connect_syntaxerror(caplog, pygw_conn, pygw_proto):
+    """Test ConnectionManager._attempt_connect() with SyntaxError"""
+    loop = asyncio.get_running_loop()
+    pygw_conn._port = "loop://"
+
+    pygw_proto.init_and_wait_for_activity = MagicMock(side_effect=SyntaxError)
+    pygw_proto.disconnect = MagicMock()
+
+    with patch(
+        "serial_asyncio_fast.create_serial_connection",
+        return_value=(pygw_proto.transport, pygw_proto),
+    ) as create_serial_connection, patch.object(
+        pygw_conn,
+        "_get_retry_timeout",
+        return_value=0,
+    ) as retry_timeout, caplog.at_level(
+        logging.ERROR
+    ):
+        task = loop.create_task(pygw_conn._attempt_connect())
+        with pytest.raises(SyntaxError):
+            await task
+
+        assert retry_timeout.call_count == 1
+        assert create_serial_connection.call_count >= 2
+        assert pygw_proto.disconnect.call_count >= 2
+        assert isinstance(pygw_conn._error, SyntaxError)
+
+
+@pytest.mark.asyncio
 async def test_cleanup(pygw_conn):
     """Test ConnectionManager._cleanup()"""
     pass  # with patch.object()
