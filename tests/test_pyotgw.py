@@ -37,7 +37,7 @@ async def test_connect_success_and_reconnect_with_gpio(caplog, pygw, pygw_proto)
         pygw_proto,
         "init_and_wait_for_activity",
     ) as init_and_wait, patch(
-        "serial_asyncio.create_serial_connection",
+        "serial_asyncio_fast.create_serial_connection",
         return_value=(pygw_proto.transport, pygw_proto),
     ), caplog.at_level(
         logging.DEBUG
@@ -75,7 +75,7 @@ async def test_connect_skip_init(caplog, pygw, pygw_proto):
         pygw_proto,
         "init_and_wait_for_activity",
     ) as init_and_wait, patch(
-        "serial_asyncio.create_serial_connection",
+        "serial_asyncio_fast.create_serial_connection",
         return_value=(pygw_proto.transport, pygw_proto),
     ), caplog.at_level(
         logging.DEBUG
@@ -106,7 +106,7 @@ async def test_connect_serialexception(caplog, pygw):
     loop = asyncio.get_running_loop()
 
     with patch(
-        "serial_asyncio.create_serial_connection",
+        "serial_asyncio_fast.create_serial_connection",
         side_effect=serial.serialutil.SerialException,
     ) as create_serial_connection, patch.object(
         pygw.connection,
@@ -137,7 +137,7 @@ async def test_connect_serialexception(caplog, pygw):
 async def test_connect_cancel(pygw):
     """Test pyotgw.connect() with CancelledError"""
     with patch(
-        "serial_asyncio.create_serial_connection",
+        "serial_asyncio_fast.create_serial_connection",
         side_effect=asyncio.CancelledError,
     ) as create_serial_connection:
         status = await pygw.connect("loop://")
@@ -161,7 +161,7 @@ async def test_connect_timeouterror(caplog, pygw, pygw_proto):
         "_get_retry_timeout",
         return_value=0,
     ) as loops_done, patch(
-        "serial_asyncio.create_serial_connection",
+        "serial_asyncio_fast.create_serial_connection",
         return_value=(pygw_proto.transport, pygw_proto),
     ), caplog.at_level(
         logging.DEBUG
@@ -191,7 +191,7 @@ async def test_disconnect_while_connecting(pygw):
     loop = asyncio.get_running_loop()
 
     with patch(
-        "serial_asyncio.create_serial_connection",
+        "serial_asyncio_fast.create_serial_connection",
         side_effect=serial.SerialException,
     ):
         task = loop.create_task(pygw.connect("loop://"))

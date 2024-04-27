@@ -9,7 +9,7 @@ import logging
 from functools import partial
 
 import serial
-import serial_asyncio
+import serial_asyncio_fast
 
 from pyotgw.protocol import OpenThermProtocol
 
@@ -112,7 +112,7 @@ class ConnectionManager:  # pylint: disable=too-many-instance-attributes
         self._retry_timeout = MIN_RETRY_TIMEOUT
         while transport is None:
             try:
-                transport, protocol = await serial_asyncio.create_serial_connection(
+                transport, protocol = await serial_asyncio_fast.create_serial_connection(
                     loop,
                     partial(
                         OpenThermProtocol,
