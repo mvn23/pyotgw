@@ -851,6 +851,24 @@ async def test_set_ventilation(pygw):
     update_status.assert_called_once_with(v.BOILER, {v.DATA_COOLING_CONTROL: 75})
 
 
+@pytest.mark.asyncio
+async def test_send_transparent_command(pygw):
+    """Test pyotgw.send_transparent_command()"""
+    with patch.object(
+        pygw,
+        "_wait_for_cmd",
+        side_effect=["CD"],
+    ) as wait_for_cmd:
+        assert await pygw.send_transparent_command("AB", "CD") == "CD"
+
+    assert wait_for_cmd.call_count == 1
+    wait_for_cmd.assert_has_awaits(
+        [
+            call("AB", "CD", v.OTGW_DEFAULT_TIMEOUT),
+        ],
+    )
+
+
 def test_subscribe_and_unsubscribe(pygw):
     """Test pyotgw.subscribe() and pyotgw.unsubscribe()"""
 
