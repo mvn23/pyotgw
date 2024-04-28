@@ -296,6 +296,34 @@ async def test_quirk_trovrd(pygw_message_processor):
     )
 
 
+@pytest.mark.asyncio
+async def test_quirk_trset_s2m(pygw_message_processor):
+    """Test MessageProcessor._quirk_trset_s2m()"""
+
+    async def empty_coroutine(stat):
+        return
+
+    with patch.object(
+        pygw_message_processor.status_manager,
+        "submit_partial_update"
+    ) as partial_update:
+        await pygw_message_processor._quirk_trset_s2m(
+            v.THERMOSTAT,
+            b"\x01",
+            b"\x02",
+        )
+        await pygw_message_processor._quirk_trset_s2m(
+            v.BOILER,
+            b"\x14",
+            b"\x80"
+        )
+
+    partial_update.assert_called_once_with(
+        v.BOILER,
+        {v.DATA_ROOM_SETPOINT: 20.5}
+    )
+
+
 def test_get_flag8(pygw_message_processor):
     """Test pygw._get_flag8()"""
     test_cases = (

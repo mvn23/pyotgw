@@ -1,3 +1,8 @@
+.coverage
 .project
 .pydevproject
+pyotgw.egg-info
 __pycache__
+.tox
+.venv
+.vscode
