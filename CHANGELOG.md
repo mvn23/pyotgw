@@ -1,5 +1,17 @@
 # pyotgw Changelog
 
+### 2.2.0
+- Split status line processing into functions (#65)
+- Various small fixes (#64)
+- Split get_status dict into relevant values for each side (#63)
+- Handle SyntaxError on connect (#62)
+- Switch to pyserial-asyncio-fast (#61)
+- Add tests and additional docstring for OpenThermGateway.send_transparent_command() (#60)
+- Allow retrying the first init command. (#55)
+- Add transparent command (#59)
+- Delete .travis.yml (#56)
+- Add new python versions to tox, remove older versions. (#54)
+
 ### 2.1.3
 - Fix TRSET quirk problem (#50)
 
