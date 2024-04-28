@@ -265,134 +265,9 @@ class OpenThermGateway:  # pylint: disable=too-many-public-methods
         fields = ret[1].split(",")
         if len(fields) == 34:
             # OpenTherm Gateway 5.0
-            device_status = fields[0].split("/")
-            master_status = device_status[0]
-            slave_status = device_status[1]
-            remote_params = fields[2].split("/")
-            capmodlimits = fields[6].split("/")
-            dhw_setp_bounds = fields[19].split("/")
-            ch_setp_bounds = fields[20].split("/")
-            vh_device_status = fields[23].split("/")
-            vh_master_status = vh_device_status[0]
-            vh_slave_status = vh_device_status[1]
-            thermostat_status = {
-                v.DATA_MASTER_CH_ENABLED: int(master_status[7]),
-                v.DATA_MASTER_DHW_ENABLED: int(master_status[6]),
-                v.DATA_MASTER_COOLING_ENABLED: int(master_status[5]),
-                v.DATA_MASTER_OTC_ENABLED: int(master_status[4]),
-                v.DATA_MASTER_CH2_ENABLED: int(master_status[3]),
-                v.DATA_CONTROL_SETPOINT: float(fields[1]),
-                v.DATA_ROOM_SETPOINT: float(fields[7]),
-                v.DATA_COOLING_CONTROL: float(fields[3]),
-                v.DATA_CONTROL_SETPOINT_2: float(fields[4]),
-                v.DATA_ROOM_SETPOINT_2: float(fields[11]),
-                v.DATA_ROOM_TEMP: float(fields[12]),
-                v.DATA_VH_MASTER_VENT_ENABLED: int(vh_master_status[7]),
-                v.DATA_VH_MASTER_BYPASS_POS: int(vh_master_status[6]),
-                v.DATA_VH_MASTER_BYPASS_MODE: int(vh_master_status[5]),
-                v.DATA_VH_MASTER_FREE_VENT_MODE: int(vh_master_status[4]),
-                v.DATA_VH_CONTROL_SETPOINT: int(fields[24]),
-            }
-            boiler_status = {
-                v.DATA_SLAVE_FAULT_IND: int(slave_status[7]),
-                v.DATA_SLAVE_CH_ACTIVE: int(slave_status[6]),
-                v.DATA_SLAVE_DHW_ACTIVE: int(slave_status[5]),
-                v.DATA_SLAVE_FLAME_ON: int(slave_status[4]),
-                v.DATA_SLAVE_COOLING_ACTIVE: int(slave_status[3]),
-                v.DATA_SLAVE_CH2_ACTIVE: int(slave_status[2]),
-                v.DATA_SLAVE_DIAG_IND: int(slave_status[1]),
-                v.DATA_REMOTE_TRANSFER_DHW: int(remote_params[0][7]),
-                v.DATA_REMOTE_TRANSFER_MAX_CH: int(remote_params[0][6]),
-                v.DATA_REMOTE_RW_DHW: int(remote_params[1][7]),
-                v.DATA_REMOTE_RW_MAX_CH: int(remote_params[1][6]),
-                v.DATA_SLAVE_MAX_RELATIVE_MOD: float(fields[5]),
-                v.DATA_SLAVE_MAX_CAPACITY: int(capmodlimits[0]),
-                v.DATA_SLAVE_MIN_MOD_LEVEL: int(capmodlimits[1]),
-                v.DATA_REL_MOD_LEVEL: float(fields[8]),
-                v.DATA_CH_WATER_PRESS: float(fields[9]),
-                v.DATA_DHW_FLOW_RATE: float(fields[10]),
-                v.DATA_CH_WATER_TEMP: float(fields[13]),
-                v.DATA_DHW_TEMP: float(fields[14]),
-                v.DATA_OUTSIDE_TEMP: float(fields[15]),
-                v.DATA_RETURN_WATER_TEMP: float(fields[16]),
-                v.DATA_CH_WATER_TEMP_2: float(fields[17]),
-                v.DATA_EXHAUST_TEMP: int(fields[18]),
-                v.DATA_SLAVE_DHW_MAX_SETP: int(dhw_setp_bounds[0]),
-                v.DATA_SLAVE_DHW_MIN_SETP: int(dhw_setp_bounds[1]),
-                v.DATA_SLAVE_CH_MAX_SETP: int(ch_setp_bounds[0]),
-                v.DATA_SLAVE_CH_MIN_SETP: int(ch_setp_bounds[1]),
-                v.DATA_DHW_SETPOINT: float(fields[21]),
-                v.DATA_MAX_CH_SETPOINT: float(fields[22]),
-                v.DATA_VH_SLAVE_FAULT_INDICATE: int(vh_slave_status[7]),
-                v.DATA_VH_SLAVE_VENT_MODE: int(vh_slave_status[6]),
-                v.DATA_VH_SLAVE_BYPASS_STATUS: int(vh_slave_status[5]),
-                v.DATA_VH_SLAVE_BYPASS_AUTO_STATUS: int(vh_slave_status[4]),
-                v.DATA_VH_SLAVE_FREE_VENT_STATUS: int(vh_slave_status[3]),
-                v.DATA_VH_SLAVE_DIAG_INDICATE: int(vh_slave_status[1]),
-                v.DATA_TOTAL_BURNER_STARTS: int(fields[26]),
-                v.DATA_CH_PUMP_STARTS: int(fields[27]),
-                v.DATA_DHW_PUMP_STARTS: int(fields[28]),
-                v.DATA_DHW_BURNER_STARTS: int(fields[29]),
-                v.DATA_TOTAL_BURNER_HOURS: int(fields[30]),
-                v.DATA_CH_PUMP_HOURS: int(fields[31]),
-                v.DATA_DHW_PUMP_HOURS: int(fields[32]),
-                v.DATA_DHW_BURNER_HOURS: int(fields[33]),
-                v.DATA_VH_RELATIVE_VENT: int(fields[25]),
-            }
+            boiler_status, thermostat_status = process_statusfields_v5(fields)
         else:
-            device_status = fields[0].split("/")
-            master_status = device_status[0]
-            slave_status = device_status[1]
-            remote_params = fields[2].split("/")
-            capmodlimits = fields[4].split("/")
-            dhw_setp_bounds = fields[13].split("/")
-            ch_setp_bounds = fields[14].split("/")
-            thermostat_status = {
-                v.DATA_MASTER_CH_ENABLED: int(master_status[7]),
-                v.DATA_MASTER_DHW_ENABLED: int(master_status[6]),
-                v.DATA_MASTER_COOLING_ENABLED: int(master_status[5]),
-                v.DATA_MASTER_OTC_ENABLED: int(master_status[4]),
-                v.DATA_MASTER_CH2_ENABLED: int(master_status[3]),
-                v.DATA_CONTROL_SETPOINT: float(fields[1]),
-                v.DATA_ROOM_SETPOINT: float(fields[5]),
-                v.DATA_ROOM_TEMP: float(fields[8]),
-            }
-            boiler_status = {
-                v.DATA_SLAVE_FAULT_IND: int(slave_status[7]),
-                v.DATA_SLAVE_CH_ACTIVE: int(slave_status[6]),
-                v.DATA_SLAVE_DHW_ACTIVE: int(slave_status[5]),
-                v.DATA_SLAVE_FLAME_ON: int(slave_status[4]),
-                v.DATA_SLAVE_COOLING_ACTIVE: int(slave_status[3]),
-                v.DATA_SLAVE_CH2_ACTIVE: int(slave_status[2]),
-                v.DATA_SLAVE_DIAG_IND: int(slave_status[1]),
-                v.DATA_REMOTE_TRANSFER_DHW: int(remote_params[0][7]),
-                v.DATA_REMOTE_TRANSFER_MAX_CH: int(remote_params[0][6]),
-                v.DATA_REMOTE_RW_DHW: int(remote_params[1][7]),
-                v.DATA_REMOTE_RW_MAX_CH: int(remote_params[1][6]),
-                v.DATA_SLAVE_MAX_RELATIVE_MOD: float(fields[3]),
-                v.DATA_SLAVE_MAX_CAPACITY: int(capmodlimits[0]),
-                v.DATA_SLAVE_MIN_MOD_LEVEL: int(capmodlimits[1]),
-                v.DATA_REL_MOD_LEVEL: float(fields[6]),
-                v.DATA_CH_WATER_PRESS: float(fields[7]),
-                v.DATA_CH_WATER_TEMP: float(fields[9]),
-                v.DATA_DHW_TEMP: float(fields[10]),
-                v.DATA_OUTSIDE_TEMP: float(fields[11]),
-                v.DATA_RETURN_WATER_TEMP: float(fields[12]),
-                v.DATA_SLAVE_DHW_MAX_SETP: int(dhw_setp_bounds[0]),
-                v.DATA_SLAVE_DHW_MIN_SETP: int(dhw_setp_bounds[1]),
-                v.DATA_SLAVE_CH_MAX_SETP: int(ch_setp_bounds[0]),
-                v.DATA_SLAVE_CH_MIN_SETP: int(ch_setp_bounds[1]),
-                v.DATA_DHW_SETPOINT: float(fields[15]),
-                v.DATA_MAX_CH_SETPOINT: float(fields[16]),
-                v.DATA_TOTAL_BURNER_STARTS: int(fields[17]),
-                v.DATA_CH_PUMP_STARTS: int(fields[18]),
-                v.DATA_DHW_PUMP_STARTS: int(fields[19]),
-                v.DATA_DHW_BURNER_STARTS: int(fields[20]),
-                v.DATA_TOTAL_BURNER_HOURS: int(fields[21]),
-                v.DATA_CH_PUMP_HOURS: int(fields[22]),
-                v.DATA_DHW_PUMP_HOURS: int(fields[23]),
-                v.DATA_DHW_BURNER_HOURS: int(fields[24]),
-            }
+            boiler_status, thermostat_status = process_statusfields_v4(fields)
         self.status.submit_full_update({
             v.BOILER: boiler_status,
             v.THERMOSTAT: thermostat_status
@@ -889,3 +764,150 @@ class OpenThermGateway:  # pylint: disable=too-many-public-methods
         elif not poll and self._gpio_task is not None:
             _LOGGER.debug("Stopping GPIO polling routine")
             self._gpio_task.cancel()
+
+
+def process_statusfields_v4(status_fields):
+    """
+    Process the fields of a split status line for OpenTherm Gateway firmware
+    version <5.0.
+    
+    Return a tuple of (boiler_status, thermostat_status).
+    """
+    device_status = status_fields[0].split("/")
+    master_status = device_status[0]
+    slave_status = device_status[1]
+    remote_params = status_fields[2].split("/")
+    capmodlimits = status_fields[4].split("/")
+    dhw_setp_bounds = status_fields[13].split("/")
+    ch_setp_bounds = status_fields[14].split("/")
+    thermostat_status = {
+        v.DATA_MASTER_CH_ENABLED: int(master_status[7]),
+        v.DATA_MASTER_DHW_ENABLED: int(master_status[6]),
+        v.DATA_MASTER_COOLING_ENABLED: int(master_status[5]),
+        v.DATA_MASTER_OTC_ENABLED: int(master_status[4]),
+        v.DATA_MASTER_CH2_ENABLED: int(master_status[3]),
+        v.DATA_CONTROL_SETPOINT: float(status_fields[1]),
+        v.DATA_ROOM_SETPOINT: float(status_fields[5]),
+        v.DATA_ROOM_TEMP: float(status_fields[8]),
+    }
+    boiler_status = {
+        v.DATA_SLAVE_FAULT_IND: int(slave_status[7]),
+        v.DATA_SLAVE_CH_ACTIVE: int(slave_status[6]),
+        v.DATA_SLAVE_DHW_ACTIVE: int(slave_status[5]),
+        v.DATA_SLAVE_FLAME_ON: int(slave_status[4]),
+        v.DATA_SLAVE_COOLING_ACTIVE: int(slave_status[3]),
+        v.DATA_SLAVE_CH2_ACTIVE: int(slave_status[2]),
+        v.DATA_SLAVE_DIAG_IND: int(slave_status[1]),
+        v.DATA_REMOTE_TRANSFER_DHW: int(remote_params[0][7]),
+        v.DATA_REMOTE_TRANSFER_MAX_CH: int(remote_params[0][6]),
+        v.DATA_REMOTE_RW_DHW: int(remote_params[1][7]),
+        v.DATA_REMOTE_RW_MAX_CH: int(remote_params[1][6]),
+        v.DATA_SLAVE_MAX_RELATIVE_MOD: float(status_fields[3]),
+        v.DATA_SLAVE_MAX_CAPACITY: int(capmodlimits[0]),
+        v.DATA_SLAVE_MIN_MOD_LEVEL: int(capmodlimits[1]),
+        v.DATA_REL_MOD_LEVEL: float(status_fields[6]),
+        v.DATA_CH_WATER_PRESS: float(status_fields[7]),
+        v.DATA_CH_WATER_TEMP: float(status_fields[9]),
+        v.DATA_DHW_TEMP: float(status_fields[10]),
+        v.DATA_OUTSIDE_TEMP: float(status_fields[11]),
+        v.DATA_RETURN_WATER_TEMP: float(status_fields[12]),
+        v.DATA_SLAVE_DHW_MAX_SETP: int(dhw_setp_bounds[0]),
+        v.DATA_SLAVE_DHW_MIN_SETP: int(dhw_setp_bounds[1]),
+        v.DATA_SLAVE_CH_MAX_SETP: int(ch_setp_bounds[0]),
+        v.DATA_SLAVE_CH_MIN_SETP: int(ch_setp_bounds[1]),
+        v.DATA_DHW_SETPOINT: float(status_fields[15]),
+        v.DATA_MAX_CH_SETPOINT: float(status_fields[16]),
+        v.DATA_TOTAL_BURNER_STARTS: int(status_fields[17]),
+        v.DATA_CH_PUMP_STARTS: int(status_fields[18]),
+        v.DATA_DHW_PUMP_STARTS: int(status_fields[19]),
+        v.DATA_DHW_BURNER_STARTS: int(status_fields[20]),
+        v.DATA_TOTAL_BURNER_HOURS: int(status_fields[21]),
+        v.DATA_CH_PUMP_HOURS: int(status_fields[22]),
+        v.DATA_DHW_PUMP_HOURS: int(status_fields[23]),
+        v.DATA_DHW_BURNER_HOURS: int(status_fields[24]),
+    }
+    return (boiler_status, thermostat_status)
+
+
+def process_statusfields_v5(status_fields):
+    """
+    Process the fields of a split status line for OpenTherm Gateway firmware
+    version >=5.0.
+    
+    Return a tuple of (boiler_status, thermostat_status).
+    """
+    device_status = status_fields[0].split("/")
+    master_status = device_status[0]
+    slave_status = device_status[1]
+    remote_params = status_fields[2].split("/")
+    capmodlimits = status_fields[6].split("/")
+    dhw_setp_bounds = status_fields[19].split("/")
+    ch_setp_bounds = status_fields[20].split("/")
+    vh_device_status = status_fields[23].split("/")
+    vh_master_status = vh_device_status[0]
+    vh_slave_status = vh_device_status[1]
+    thermostat_status = {
+        v.DATA_MASTER_CH_ENABLED: int(master_status[7]),
+        v.DATA_MASTER_DHW_ENABLED: int(master_status[6]),
+        v.DATA_MASTER_COOLING_ENABLED: int(master_status[5]),
+        v.DATA_MASTER_OTC_ENABLED: int(master_status[4]),
+        v.DATA_MASTER_CH2_ENABLED: int(master_status[3]),
+        v.DATA_CONTROL_SETPOINT: float(status_fields[1]),
+        v.DATA_ROOM_SETPOINT: float(status_fields[7]),
+        v.DATA_COOLING_CONTROL: float(status_fields[3]),
+        v.DATA_CONTROL_SETPOINT_2: float(status_fields[4]),
+        v.DATA_ROOM_SETPOINT_2: float(status_fields[11]),
+        v.DATA_ROOM_TEMP: float(status_fields[12]),
+        v.DATA_VH_MASTER_VENT_ENABLED: int(vh_master_status[7]),
+        v.DATA_VH_MASTER_BYPASS_POS: int(vh_master_status[6]),
+        v.DATA_VH_MASTER_BYPASS_MODE: int(vh_master_status[5]),
+        v.DATA_VH_MASTER_FREE_VENT_MODE: int(vh_master_status[4]),
+        v.DATA_VH_CONTROL_SETPOINT: int(status_fields[24]),
+    }
+    boiler_status = {
+        v.DATA_SLAVE_FAULT_IND: int(slave_status[7]),
+        v.DATA_SLAVE_CH_ACTIVE: int(slave_status[6]),
+        v.DATA_SLAVE_DHW_ACTIVE: int(slave_status[5]),
+        v.DATA_SLAVE_FLAME_ON: int(slave_status[4]),
+        v.DATA_SLAVE_COOLING_ACTIVE: int(slave_status[3]),
+        v.DATA_SLAVE_CH2_ACTIVE: int(slave_status[2]),
+        v.DATA_SLAVE_DIAG_IND: int(slave_status[1]),
+        v.DATA_REMOTE_TRANSFER_DHW: int(remote_params[0][7]),
+        v.DATA_REMOTE_TRANSFER_MAX_CH: int(remote_params[0][6]),
+        v.DATA_REMOTE_RW_DHW: int(remote_params[1][7]),
+        v.DATA_REMOTE_RW_MAX_CH: int(remote_params[1][6]),
+        v.DATA_SLAVE_MAX_RELATIVE_MOD: float(status_fields[5]),
+        v.DATA_SLAVE_MAX_CAPACITY: int(capmodlimits[0]),
+        v.DATA_SLAVE_MIN_MOD_LEVEL: int(capmodlimits[1]),
+        v.DATA_REL_MOD_LEVEL: float(status_fields[8]),
+        v.DATA_CH_WATER_PRESS: float(status_fields[9]),
+        v.DATA_DHW_FLOW_RATE: float(status_fields[10]),
+        v.DATA_CH_WATER_TEMP: float(status_fields[13]),
+        v.DATA_DHW_TEMP: float(status_fields[14]),
+        v.DATA_OUTSIDE_TEMP: float(status_fields[15]),
+        v.DATA_RETURN_WATER_TEMP: float(status_fields[16]),
+        v.DATA_CH_WATER_TEMP_2: float(status_fields[17]),
+        v.DATA_EXHAUST_TEMP: int(status_fields[18]),
+        v.DATA_SLAVE_DHW_MAX_SETP: int(dhw_setp_bounds[0]),
+        v.DATA_SLAVE_DHW_MIN_SETP: int(dhw_setp_bounds[1]),
+        v.DATA_SLAVE_CH_MAX_SETP: int(ch_setp_bounds[0]),
+        v.DATA_SLAVE_CH_MIN_SETP: int(ch_setp_bounds[1]),
+        v.DATA_DHW_SETPOINT: float(status_fields[21]),
+        v.DATA_MAX_CH_SETPOINT: float(status_fields[22]),
+        v.DATA_VH_SLAVE_FAULT_INDICATE: int(vh_slave_status[7]),
+        v.DATA_VH_SLAVE_VENT_MODE: int(vh_slave_status[6]),
+        v.DATA_VH_SLAVE_BYPASS_STATUS: int(vh_slave_status[5]),
+        v.DATA_VH_SLAVE_BYPASS_AUTO_STATUS: int(vh_slave_status[4]),
+        v.DATA_VH_SLAVE_FREE_VENT_STATUS: int(vh_slave_status[3]),
+        v.DATA_VH_SLAVE_DIAG_INDICATE: int(vh_slave_status[1]),
+        v.DATA_TOTAL_BURNER_STARTS: int(status_fields[26]),
+        v.DATA_CH_PUMP_STARTS: int(status_fields[27]),
+        v.DATA_DHW_PUMP_STARTS: int(status_fields[28]),
+        v.DATA_DHW_BURNER_STARTS: int(status_fields[29]),
+        v.DATA_TOTAL_BURNER_HOURS: int(status_fields[30]),
+        v.DATA_CH_PUMP_HOURS: int(status_fields[31]),
+        v.DATA_DHW_PUMP_HOURS: int(status_fields[32]),
+        v.DATA_DHW_BURNER_HOURS: int(status_fields[33]),
+        v.DATA_VH_RELATIVE_VENT: int(status_fields[25]),
+    }
+    return (boiler_status, thermostat_status)
