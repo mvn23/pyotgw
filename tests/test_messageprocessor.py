@@ -306,7 +306,7 @@ async def test_quirk_trset_s2m(pygw_message_processor):
     with patch.object(
         pygw_message_processor.status_manager,
         "submit_partial_update"
-     ) as partial_update:
+    ) as partial_update:
         await pygw_message_processor._quirk_trset_s2m(
             v.THERMOSTAT,
             b"\x01",
