@@ -275,12 +275,25 @@ class OpenThermGateway:  # pylint: disable=too-many-public-methods
             vh_device_status = fields[23].split("/")
             vh_master_status = vh_device_status[0]
             vh_slave_status = vh_device_status[1]
-            status = {
+            thermostat_status = {
                 v.DATA_MASTER_CH_ENABLED: int(master_status[7]),
                 v.DATA_MASTER_DHW_ENABLED: int(master_status[6]),
                 v.DATA_MASTER_COOLING_ENABLED: int(master_status[5]),
                 v.DATA_MASTER_OTC_ENABLED: int(master_status[4]),
                 v.DATA_MASTER_CH2_ENABLED: int(master_status[3]),
+                v.DATA_CONTROL_SETPOINT: float(fields[1]),
+                v.DATA_ROOM_SETPOINT: float(fields[7]),
+                v.DATA_COOLING_CONTROL: float(fields[3]),
+                v.DATA_CONTROL_SETPOINT_2: float(fields[4]),
+                v.DATA_ROOM_SETPOINT_2: float(fields[11]),
+                v.DATA_ROOM_TEMP: float(fields[12]),
+                v.DATA_VH_MASTER_VENT_ENABLED: int(vh_master_status[7]),
+                v.DATA_VH_MASTER_BYPASS_POS: int(vh_master_status[6]),
+                v.DATA_VH_MASTER_BYPASS_MODE: int(vh_master_status[5]),
+                v.DATA_VH_MASTER_FREE_VENT_MODE: int(vh_master_status[4]),
+                v.DATA_VH_CONTROL_SETPOINT: int(fields[24]),
+            }
+            boiler_status = {
                 v.DATA_SLAVE_FAULT_IND: int(slave_status[7]),
                 v.DATA_SLAVE_CH_ACTIVE: int(slave_status[6]),
                 v.DATA_SLAVE_DHW_ACTIVE: int(slave_status[5]),
@@ -288,22 +301,16 @@ class OpenThermGateway:  # pylint: disable=too-many-public-methods
                 v.DATA_SLAVE_COOLING_ACTIVE: int(slave_status[3]),
                 v.DATA_SLAVE_CH2_ACTIVE: int(slave_status[2]),
                 v.DATA_SLAVE_DIAG_IND: int(slave_status[1]),
-                v.DATA_CONTROL_SETPOINT: float(fields[1]),
                 v.DATA_REMOTE_TRANSFER_DHW: int(remote_params[0][7]),
                 v.DATA_REMOTE_TRANSFER_MAX_CH: int(remote_params[0][6]),
                 v.DATA_REMOTE_RW_DHW: int(remote_params[1][7]),
                 v.DATA_REMOTE_RW_MAX_CH: int(remote_params[1][6]),
-                v.DATA_COOLING_CONTROL: float(fields[3]),
-                v.DATA_CONTROL_SETPOINT_2: float(fields[4]),
                 v.DATA_SLAVE_MAX_RELATIVE_MOD: float(fields[5]),
                 v.DATA_SLAVE_MAX_CAPACITY: int(capmodlimits[0]),
                 v.DATA_SLAVE_MIN_MOD_LEVEL: int(capmodlimits[1]),
-                v.DATA_ROOM_SETPOINT: float(fields[7]),
                 v.DATA_REL_MOD_LEVEL: float(fields[8]),
                 v.DATA_CH_WATER_PRESS: float(fields[9]),
                 v.DATA_DHW_FLOW_RATE: float(fields[10]),
-                v.DATA_ROOM_SETPOINT_2: float(fields[11]),
-                v.DATA_ROOM_TEMP: float(fields[12]),
                 v.DATA_CH_WATER_TEMP: float(fields[13]),
                 v.DATA_DHW_TEMP: float(fields[14]),
                 v.DATA_OUTSIDE_TEMP: float(fields[15]),
@@ -316,18 +323,12 @@ class OpenThermGateway:  # pylint: disable=too-many-public-methods
                 v.DATA_SLAVE_CH_MIN_SETP: int(ch_setp_bounds[1]),
                 v.DATA_DHW_SETPOINT: float(fields[21]),
                 v.DATA_MAX_CH_SETPOINT: float(fields[22]),
-                v.DATA_VH_MASTER_VENT_ENABLED: int(vh_master_status[7]),
-                v.DATA_VH_MASTER_BYPASS_POS: int(vh_master_status[6]),
-                v.DATA_VH_MASTER_BYPASS_MODE: int(vh_master_status[5]),
-                v.DATA_VH_MASTER_FREE_VENT_MODE: int(vh_master_status[4]),
                 v.DATA_VH_SLAVE_FAULT_INDICATE: int(vh_slave_status[7]),
                 v.DATA_VH_SLAVE_VENT_MODE: int(vh_slave_status[6]),
                 v.DATA_VH_SLAVE_BYPASS_STATUS: int(vh_slave_status[5]),
                 v.DATA_VH_SLAVE_BYPASS_AUTO_STATUS: int(vh_slave_status[4]),
                 v.DATA_VH_SLAVE_FREE_VENT_STATUS: int(vh_slave_status[3]),
                 v.DATA_VH_SLAVE_DIAG_INDICATE: int(vh_slave_status[1]),
-                v.DATA_VH_CONTROL_SETPOINT: int(fields[24]),
-                v.DATA_VH_RELATIVE_VENT: int(fields[25]),
                 v.DATA_TOTAL_BURNER_STARTS: int(fields[26]),
                 v.DATA_CH_PUMP_STARTS: int(fields[27]),
                 v.DATA_DHW_PUMP_STARTS: int(fields[28]),
@@ -336,6 +337,7 @@ class OpenThermGateway:  # pylint: disable=too-many-public-methods
                 v.DATA_CH_PUMP_HOURS: int(fields[31]),
                 v.DATA_DHW_PUMP_HOURS: int(fields[32]),
                 v.DATA_DHW_BURNER_HOURS: int(fields[33]),
+                v.DATA_VH_RELATIVE_VENT: int(fields[25]),
             }
         else:
             device_status = fields[0].split("/")
@@ -345,12 +347,17 @@ class OpenThermGateway:  # pylint: disable=too-many-public-methods
             capmodlimits = fields[4].split("/")
             dhw_setp_bounds = fields[13].split("/")
             ch_setp_bounds = fields[14].split("/")
-            status = {
+            thermostat_status = {
                 v.DATA_MASTER_CH_ENABLED: int(master_status[7]),
                 v.DATA_MASTER_DHW_ENABLED: int(master_status[6]),
                 v.DATA_MASTER_COOLING_ENABLED: int(master_status[5]),
                 v.DATA_MASTER_OTC_ENABLED: int(master_status[4]),
                 v.DATA_MASTER_CH2_ENABLED: int(master_status[3]),
+                v.DATA_CONTROL_SETPOINT: float(fields[1]),
+                v.DATA_ROOM_SETPOINT: float(fields[5]),
+                v.DATA_ROOM_TEMP: float(fields[8]),
+            }
+            boiler_status = {
                 v.DATA_SLAVE_FAULT_IND: int(slave_status[7]),
                 v.DATA_SLAVE_CH_ACTIVE: int(slave_status[6]),
                 v.DATA_SLAVE_DHW_ACTIVE: int(slave_status[5]),
@@ -358,7 +365,6 @@ class OpenThermGateway:  # pylint: disable=too-many-public-methods
                 v.DATA_SLAVE_COOLING_ACTIVE: int(slave_status[3]),
                 v.DATA_SLAVE_CH2_ACTIVE: int(slave_status[2]),
                 v.DATA_SLAVE_DIAG_IND: int(slave_status[1]),
-                v.DATA_CONTROL_SETPOINT: float(fields[1]),
                 v.DATA_REMOTE_TRANSFER_DHW: int(remote_params[0][7]),
                 v.DATA_REMOTE_TRANSFER_MAX_CH: int(remote_params[0][6]),
                 v.DATA_REMOTE_RW_DHW: int(remote_params[1][7]),
@@ -366,10 +372,8 @@ class OpenThermGateway:  # pylint: disable=too-many-public-methods
                 v.DATA_SLAVE_MAX_RELATIVE_MOD: float(fields[3]),
                 v.DATA_SLAVE_MAX_CAPACITY: int(capmodlimits[0]),
                 v.DATA_SLAVE_MIN_MOD_LEVEL: int(capmodlimits[1]),
-                v.DATA_ROOM_SETPOINT: float(fields[5]),
                 v.DATA_REL_MOD_LEVEL: float(fields[6]),
                 v.DATA_CH_WATER_PRESS: float(fields[7]),
-                v.DATA_ROOM_TEMP: float(fields[8]),
                 v.DATA_CH_WATER_TEMP: float(fields[9]),
                 v.DATA_DHW_TEMP: float(fields[10]),
                 v.DATA_OUTSIDE_TEMP: float(fields[11]),
@@ -389,7 +393,10 @@ class OpenThermGateway:  # pylint: disable=too-many-public-methods
                 v.DATA_DHW_PUMP_HOURS: int(fields[23]),
                 v.DATA_DHW_BURNER_HOURS: int(fields[24]),
             }
-        self.status.submit_full_update({v.BOILER: status, v.THERMOSTAT: status})
+        self.status.submit_full_update({
+            v.BOILER: boiler_status,
+            v.THERMOSTAT: thermostat_status
+        })
         return self.status.status
 
     async def set_hot_water_ovrd(self, state, timeout=v.OTGW_DEFAULT_TIMEOUT):
