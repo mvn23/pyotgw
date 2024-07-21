@@ -285,19 +285,24 @@ class OpenThermGateway:  # pylint: disable=too-many-public-methods
         Return the accepted value, 'A' if the override is disabled
         or None on failure.
 
+        On PIC16F1847, special state 'P' requests a DHW push. In this
+        case, 'P' is returned on success and None on failure.
+        This special state is never reflected in the status dict as we
+        have no way to determine when this state is no longer active.
+        ('PR=W' never returns 'P')
+
         This method is a coroutine
         """
         cmd = v.OTGW_CMD_HOT_WATER
         status_otgw = {}
         ret = await self._wait_for_cmd(cmd, state, timeout)
         if ret is None:
-            return None
-        if ret == "A":
-            status_otgw[v.OTGW_DHW_OVRD] = None
-        elif ret in ["0", "1"]:
+            return
+        if ret in ("0", "1"):
             ret = int(ret)
+        if ret != 'P':
             status_otgw[v.OTGW_DHW_OVRD] = ret
-        self.status.submit_partial_update(v.OTGW, status_otgw)
+            self.status.submit_partial_update(v.OTGW, status_otgw)
         return ret
 
     async def set_mode(self, mode, timeout=v.OTGW_DEFAULT_TIMEOUT):
@@ -315,7 +320,7 @@ class OpenThermGateway:  # pylint: disable=too-many-public-methods
         status_otgw = {}
         ret = await self._wait_for_cmd(cmd, mode, timeout)
         if ret is None:
-            return None
+            return
         if mode is v.OTGW_MODE_RESET:
             self.status.reset()
             await self.get_reports()
@@ -354,7 +359,7 @@ class OpenThermGateway:  # pylint: disable=too-many-public-methods
             status_otgw = {}
             ret = await self._wait_for_cmd(cmd, mode, timeout)
             if ret is None:
-                return None
+                return
             var = getattr(v, f"OTGW_LED_{led_id}")
             status_otgw[var] = ret
             self.status.submit_partial_update(v.OTGW, status_otgw)
@@ -389,7 +394,7 @@ class OpenThermGateway:  # pylint: disable=too-many-public-methods
         """
         if gpio_id in "AB" and mode in range(8):
             if mode == 7 and gpio_id != "B":
-                return None
+                return
             cmd = getattr(v, f"OTGW_CMD_GPIO_{gpio_id}")
             status_otgw = {}
             ret = await self._wait_for_cmd(cmd, mode, timeout)
@@ -437,7 +442,7 @@ class OpenThermGateway:  # pylint: disable=too-many-public-methods
         cmd = v.OTGW_CMD_ADD_ALT
         alt = int(alt)
         if alt < 1 or alt > 255:
-            return None
+            return
         ret = await self._wait_for_cmd(cmd, alt, timeout)
         if ret is not None:
             return int(ret)
@@ -459,7 +464,7 @@ class OpenThermGateway:  # pylint: disable=too-many-public-methods
         cmd = v.OTGW_CMD_DEL_ALT
         alt = int(alt)
         if alt < 1 or alt > 255:
-            return None
+            return
         ret = await self._wait_for_cmd(cmd, alt, timeout)
         if ret is not None:
             return int(ret)
@@ -478,7 +483,7 @@ class OpenThermGateway:  # pylint: disable=too-many-public-methods
         cmd = v.OTGW_CMD_UNKNOWN_ID
         unknown_id = int(unknown_id)
         if unknown_id < 1 or unknown_id > 255:
-            return None
+            return
         ret = await self._wait_for_cmd(cmd, unknown_id, timeout)
         if ret is not None:
             return int(ret)
@@ -495,7 +500,7 @@ class OpenThermGateway:  # pylint: disable=too-many-public-methods
         cmd = v.OTGW_CMD_KNOWN_ID
         unknown_id = int(unknown_id)
         if unknown_id < 1 or unknown_id > 255:
-            return None
+            return
         ret = await self._wait_for_cmd(cmd, unknown_id, timeout)
         if ret is not None:
             return int(ret)
@@ -546,19 +551,17 @@ class OpenThermGateway:  # pylint: disable=too-many-public-methods
 
         This method is a coroutine
         """
-        if isinstance(max_mod, int) and not 0 <= max_mod <= 100:
-            return None
+        if not isinstance(max_mod, int) or not 0 <= max_mod <= 100:
+            return
         cmd = v.OTGW_CMD_MAX_MOD
         status_boiler = {}
         ret = await self._wait_for_cmd(cmd, max_mod, timeout)
         if ret is None:
             return
-        if ret == "-":
-            status_boiler[v.DATA_SLAVE_MAX_RELATIVE_MOD] = None
-        else:
+        if ret != "-":
             ret = int(ret)
             status_boiler[v.DATA_SLAVE_MAX_RELATIVE_MOD] = ret
-        self.status.submit_partial_update(v.BOILER, status_boiler)
+            self.status.submit_partial_update(v.BOILER, status_boiler)
         return ret
 
     async def set_control_setpoint(self, setpoint, timeout=v.OTGW_DEFAULT_TIMEOUT):
@@ -608,8 +611,8 @@ class OpenThermGateway:  # pylint: disable=too-many-public-methods
 
         This method is a coroutine
         """
-        if ch_bit not in [0, 1]:
-            return None
+        if ch_bit not in (0, 1):
+            return
         cmd = v.OTGW_CMD_CONTROL_HEATING
         status_boiler = {}
         ret = await self._wait_for_cmd(cmd, ch_bit, timeout)
@@ -631,8 +634,8 @@ class OpenThermGateway:  # pylint: disable=too-many-public-methods
 
         This method is a coroutine
         """
-        if ch_bit not in [0, 1]:
-            return None
+        if ch_bit not in (0, 1):
+            return
         cmd = v.OTGW_CMD_CONTROL_HEATING_2
         status_boiler = {}
         ret = await self._wait_for_cmd(cmd, ch_bit, timeout)
@@ -652,7 +655,7 @@ class OpenThermGateway:  # pylint: disable=too-many-public-methods
         This method is a coroutine
         """
         if not 0 <= pct <= 100:
-            return None
+            return
         cmd = v.OTGW_CMD_VENT
         status_boiler = {}
         ret = await self._wait_for_cmd(cmd, pct, timeout)
@@ -667,7 +670,7 @@ class OpenThermGateway:  # pylint: disable=too-many-public-methods
         self, cmd, state, timeout=v.OTGW_DEFAULT_TIMEOUT
     ):
         """
-        Sends custom otgw commands throug a transparent interface.
+        Sends custom otgw commands through a transparent interface.
         Check https://otgw.tclcode.com/firmware.html for supported commands.
         @cmd the supported command e.g. 'SC' (set time/day)
         @state the command argument e.g. '23:59/4' (the current time/day)
@@ -677,8 +680,7 @@ class OpenThermGateway:  # pylint: disable=too-many-public-methods
 
         This method is a coroutine
         """
-        ret = await self._wait_for_cmd(cmd, state, timeout)
-        return ret
+        return await self._wait_for_cmd(cmd, state, timeout)
 
     def subscribe(self, coro):
         """

@@ -434,18 +434,32 @@ async def test_set_hot_water_ovrd(pygw):
     with patch.object(
         pygw,
         "_wait_for_cmd",
-        side_effect=[None, "A", "1"],
-    ) as wait_for_cmd:
+        side_effect=[None, "A", "1", "P"],
+    ) as wait_for_cmd, patch.object(
+        pygw.status,
+        "submit_partial_update",
+    ) as update_status:
         assert await pygw.set_hot_water_ovrd(0) is None
         assert await pygw.set_hot_water_ovrd("A", 5) == "A"
         assert await pygw.set_hot_water_ovrd(1) == 1
+        assert await pygw.set_hot_water_ovrd("P") == "P"
 
-    assert wait_for_cmd.call_count == 3
+    assert wait_for_cmd.call_count == 4
     wait_for_cmd.assert_has_awaits(
         [
             call(v.OTGW_CMD_HOT_WATER, 0, v.OTGW_DEFAULT_TIMEOUT),
             call(v.OTGW_CMD_HOT_WATER, "A", 5),
             call(v.OTGW_CMD_HOT_WATER, 1, v.OTGW_DEFAULT_TIMEOUT),
+            call(v.OTGW_CMD_HOT_WATER, "P", v.OTGW_DEFAULT_TIMEOUT),
+        ],
+        any_order=False,
+    )
+
+    assert update_status.call_count == 2
+    update_status.assert_has_calls(
+        [
+            call(v.OTGW, {v.OTGW_DHW_OVRD: "A"}),
+            call(v.OTGW, {v.OTGW_DHW_OVRD: 1}),
         ],
         any_order=False,
     )
@@ -692,6 +706,8 @@ async def test_set_max_relative_mod(pygw):
         pygw.status,
         "submit_partial_update",
     ) as update_status:
+        assert await pygw.set_max_relative_mod("invalid") is None
+        assert await pygw.set_max_relative_mod(-1) is None
         assert await pygw.set_max_relative_mod(56) is None
         assert await pygw.set_max_relative_mod(54, 5) == "-"
         assert await pygw.set_max_relative_mod(55) == 55
@@ -706,10 +722,9 @@ async def test_set_max_relative_mod(pygw):
         any_order=False,
     )
 
-    assert update_status.call_count == 2
+    assert update_status.call_count == 1
     update_status.assert_has_calls(
         [
-            call(v.BOILER, {v.DATA_SLAVE_MAX_RELATIVE_MOD: None}),
             call(v.BOILER, {v.DATA_SLAVE_MAX_RELATIVE_MOD: 55}),
         ],
         any_order=False,
