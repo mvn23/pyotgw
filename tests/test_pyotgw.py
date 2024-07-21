@@ -692,6 +692,8 @@ async def test_set_max_relative_mod(pygw):
         pygw.status,
         "submit_partial_update",
     ) as update_status:
+        assert await pygw.set_max_relative_mod("invalid") is None
+        assert await pygw.set_max_relative_mod(-1) is None
         assert await pygw.set_max_relative_mod(56) is None
         assert await pygw.set_max_relative_mod(54, 5) == "-"
         assert await pygw.set_max_relative_mod(55) == 55
@@ -706,10 +708,9 @@ async def test_set_max_relative_mod(pygw):
         any_order=False,
     )
 
-    assert update_status.call_count == 2
+    assert update_status.call_count == 1
     update_status.assert_has_calls(
         [
-            call(v.BOILER, {v.DATA_SLAVE_MAX_RELATIVE_MOD: None}),
             call(v.BOILER, {v.DATA_SLAVE_MAX_RELATIVE_MOD: 55}),
         ],
         any_order=False,
