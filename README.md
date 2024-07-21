@@ -229,6 +229,8 @@ This method supports the following arguments:
 
 Returns the accepted value, `A` if the override is disabled or `None` on failure.
 
+On PIC16F1847, special state 'P' requests a DHW push. In this case, 'P' is returned on success and None on failure. This special state is never reflected in the status dict as we have no way to determine when this state is no longer active ('PR=W' never returns 'P').
+
 This method is a coroutine.
 
 ---
