@@ -1,11 +1,17 @@
 """OpenTherm Gateway command handler."""
 
+from __future__ import annotations
+
 import asyncio
 import logging
 import re
 from asyncio.queues import QueueFull
+from typing import TYPE_CHECKING
 
 from pyotgw import vars as v
+
+if TYPE_CHECKING:
+    from pyotgw.status import StatusManager
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -15,16 +21,18 @@ class CommandProcessor:
 
     def __init__(
         self,
-        protocol,
-        status_manager,
-    ):
+        protocol: asyncio.Protocol,
+        status_manager: StatusManager,
+    ) -> None:
         """Initialise the CommandProcessor object."""
         self.protocol = protocol
         self._lock = asyncio.Lock()
         self._cmdq = asyncio.Queue()
         self.status_manager = status_manager
 
-    async def issue_cmd(self, cmd, value, retry=3):
+    async def issue_cmd(
+        self, cmd: str, value: str | float | int, retry: int = 3
+    ) -> bool | str | list[str] | None:
         """
         Issue a command, then await and return the return value.
 
@@ -93,7 +101,7 @@ class CommandProcessor:
                 if ret is not None:
                     return ret
 
-    def clear_queue(self):
+    def clear_queue(self) -> None:
         """Clear leftover messages from the command queue"""
         while not self._cmdq.empty():
             _LOGGER.debug(
@@ -101,7 +109,7 @@ class CommandProcessor:
                 self._cmdq.get_nowait(),
             )
 
-    def submit_response(self, response):
+    def submit_response(self, response: str) -> None:
         """Add a possible response to the command queue"""
         try:
             self._cmdq.put_nowait(response)
@@ -110,7 +118,7 @@ class CommandProcessor:
             _LOGGER.error("Queue full, discarded message: %s", response)
 
     @staticmethod
-    def _get_expected_response(cmd, value):
+    def _get_expected_response(cmd: str, value: str | int) -> str:
         """Return the expected response pattern"""
         if cmd == v.OTGW_CMD_REPORT:
             return rf"^{cmd}:\s*([A-Z]{{2}}|{value}=[^$]+)$"

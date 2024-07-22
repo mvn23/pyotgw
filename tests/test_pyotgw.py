@@ -701,20 +701,21 @@ async def test_set_max_relative_mod(pygw):
     with patch.object(
         pygw,
         "_wait_for_cmd",
-        side_effect=[None, "-", 55],
+        side_effect=["-", None, "-", 55],
     ) as wait_for_cmd, patch.object(
         pygw.status,
         "submit_partial_update",
     ) as update_status:
-        assert await pygw.set_max_relative_mod("invalid") is None
+        assert await pygw.set_max_relative_mod("R") == "-"
         assert await pygw.set_max_relative_mod(-1) is None
         assert await pygw.set_max_relative_mod(56) is None
         assert await pygw.set_max_relative_mod(54, 5) == "-"
         assert await pygw.set_max_relative_mod(55) == 55
 
-    assert wait_for_cmd.call_count == 3
+    assert wait_for_cmd.call_count == 4
     wait_for_cmd.assert_has_awaits(
         [
+            call(v.OTGW_CMD_MAX_MOD, "R", v.OTGW_DEFAULT_TIMEOUT),
             call(v.OTGW_CMD_MAX_MOD, 56, v.OTGW_DEFAULT_TIMEOUT),
             call(v.OTGW_CMD_MAX_MOD, 54, 5),
             call(v.OTGW_CMD_MAX_MOD, 55, v.OTGW_DEFAULT_TIMEOUT),

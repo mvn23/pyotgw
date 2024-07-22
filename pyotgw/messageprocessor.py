@@ -1,11 +1,19 @@
 """OpenTherm Protocol message handler"""
+
+from __future__ import annotations
+
 import asyncio
 import logging
 import re
 import struct
+from typing import TYPE_CHECKING
 
 import pyotgw.messages as m
 import pyotgw.vars as v
+
+if TYPE_CHECKING:
+    from .commandprocessor import CommandProcessor
+    from .status import StatusManager
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -17,16 +25,16 @@ class MessageProcessor:
 
     def __init__(
         self,
-        command_processor,
-        status_manager,
-    ):
+        command_processor: CommandProcessor,
+        status_manager: StatusManager,
+    ) -> None:
         """Initialise the protocol object."""
         self._msgq = asyncio.Queue()
         self._task = asyncio.get_running_loop().create_task(self._process_msgs())
         self.command_processor = command_processor
         self.status_manager = status_manager
 
-    async def cleanup(self):
+    async def cleanup(self) -> None:
         """Empty the message queue and clean up running task."""
         self.connection_lost()
         if self._task:
@@ -36,7 +44,7 @@ class MessageProcessor:
             except asyncio.CancelledError:
                 self._task = None
 
-    def connection_lost(self):
+    def connection_lost(self) -> None:
         """
         Gets called when the connection to the gateway is lost.
         Tear down and clean up the object.
@@ -44,7 +52,7 @@ class MessageProcessor:
         while not self._msgq.empty():
             self._msgq.get_nowait()
 
-    def submit_matched_message(self, match):
+    def submit_matched_message(self, match: re.match) -> None:
         """Add a matched message to the processing queue."""
         src, mtype, mid, msb, lsb = self._dissect_msg(match)
         if lsb is not None:
@@ -54,7 +62,9 @@ class MessageProcessor:
                 self._msgq.qsize(),
             )
 
-    def _dissect_msg(self, match):
+    def _dissect_msg(
+        self, match: re.match
+    ) -> tuple[str, int, bytes, bytes, bytes] | tuple[None, None, None, None, None]:
         """
         Split messages into bytes and return a tuple of bytes.
         """
@@ -79,14 +89,14 @@ class MessageProcessor:
         return None, None, None, None, None
 
     @staticmethod
-    def _get_msgtype(byte):
+    def _get_msgtype(byte: bytes) -> int:
         """
         Return the message type of Opentherm messages according to
         byte.
         """
         return (byte >> 4) & 0x7
 
-    async def _process_msgs(self):
+    async def _process_msgs(self) -> None:
         """
         Get messages from the queue and pass them to _process_msg().
         Make sure we process one message at a time to keep them in sequence.
@@ -101,7 +111,7 @@ class MessageProcessor:
             )
             await self._process_msg(args)
 
-    async def _process_msg(self, message):
+    async def _process_msg(self, message: tuple[str, int, bytes, bytes, bytes]) -> None:
         """
         Process message and update status variables where necessary.
         Add status to queue if it was changed in the process.
@@ -130,7 +140,7 @@ class MessageProcessor:
 
         self.status_manager.submit_partial_update(part, update)
 
-    async def _get_dict_update_for_action(self, action, env):
+    async def _get_dict_update_for_action(self, action: dict, env: dict) -> dict:
         """Return a partial dict update for message"""
         func = getattr(self, action[m.FUNC])
         loc = locals()
@@ -150,7 +160,7 @@ class MessageProcessor:
             update.update({var: val})
         return update
 
-    async def _quirk_trovrd(self, part, src, msb, lsb):
+    async def _quirk_trovrd(self, part: str, src: str, msb: bytes, lsb: bytes) -> None:
         """Handle MSG_TROVRD with iSense quirk"""
         update = {}
         ovrd_value = self._get_f8_8(msb, lsb)
@@ -177,7 +187,7 @@ class MessageProcessor:
         else:
             self.status_manager.delete_value(part, v.DATA_ROOM_SETPOINT_OVRD)
 
-    async def _quirk_trset_s2m(self, part, msb, lsb):
+    async def _quirk_trset_s2m(self, part: str, msb: bytes, lsb: bytes) -> None:
         """Handle MSG_TRSET with gateway quirk"""
         # Ignore s2m messages on thermostat side as they are ALWAYS WriteAcks
         # but may contain invalid data.
@@ -189,7 +199,7 @@ class MessageProcessor:
         )
 
     @staticmethod
-    def _get_flag8(byte):
+    def _get_flag8(byte: bytes) -> list[int]:
         """
         Split a byte into a list of 8 bits (1/0).
         """
@@ -201,33 +211,33 @@ class MessageProcessor:
         return ret
 
     @staticmethod
-    def _get_u8(byte):
+    def _get_u8(byte: bytes) -> int:
         """
         Convert a byte into an unsigned int.
         """
         return struct.unpack(">B", byte)[0]
 
     @staticmethod
-    def _get_s8(byte):
+    def _get_s8(byte: bytes) -> int:
         """
         Convert a byte into a signed int.
         """
         return struct.unpack(">b", byte)[0]
 
-    def _get_f8_8(self, msb, lsb):
+    def _get_f8_8(self, msb: bytes, lsb: bytes) -> float:
         """
         Convert 2 bytes into an OpenTherm f8_8 (float) value.
         """
         return float(self._get_s16(msb, lsb) / 256)
 
-    def _get_u16(self, msb, lsb):
+    def _get_u16(self, msb: bytes, lsb: bytes) -> int:
         """
         Convert 2 bytes into an unsigned int.
         """
         buf = struct.pack(">BB", self._get_u8(msb), self._get_u8(lsb))
         return int(struct.unpack(">H", buf)[0])
 
-    def _get_s16(self, msb, lsb):
+    def _get_s16(self, msb: bytes, lsb: bytes) -> int:
         """
         Convert 2 bytes into a signed int.
         """

@@ -1,19 +1,24 @@
 """Asyncio protocol implementation for pyotgw"""
 
+from __future__ import annotations
+
 import asyncio
 import logging
 import re
+from typing import Callable, TYPE_CHECKING
 
 from pyotgw import vars as v
 from pyotgw.commandprocessor import CommandProcessor
 from pyotgw.messageprocessor import MessageProcessor
 
+if TYPE_CHECKING:
+    from serial import SerialException
+    from pyotgw.status import StatusManager
+
 _LOGGER = logging.getLogger(__name__)
 
 
-class OpenThermProtocol(
-    asyncio.Protocol
-):  # pylint: disable=too-many-instance-attributes
+class OpenThermProtocol(asyncio.Protocol):  # pylint: disable=too-many-instance-attributes
     """
     Implementation of the Opentherm Gateway protocol to be used with
     asyncio connections.
@@ -21,9 +26,9 @@ class OpenThermProtocol(
 
     def __init__(
         self,
-        status_manager,
-        activity_callback,
-    ):
+        status_manager: StatusManager,
+        activity_callback: Callable[[], None],
+    ) -> None:
         """Initialise the protocol object."""
         self.transport = None
         self._readbuf = b""
@@ -40,13 +45,13 @@ class OpenThermProtocol(
         )
         self.status_manager = status_manager
 
-    def connection_made(self, transport):
+    def connection_made(self, transport: asyncio.Transport) -> None:
         """Gets called when a connection to the gateway is established."""
         self.transport = transport
         self._received_lines = 0
         self._connected = True
 
-    def connection_lost(self, exc):
+    def connection_lost(self, exc: SerialException) -> None:
         """
         Gets called when the connection to the gateway is lost.
         Tear down and clean up the protocol object.
@@ -60,23 +65,23 @@ class OpenThermProtocol(
         self.status_manager.reset()
 
     @property
-    def connected(self):
+    def connected(self) -> bool:
         """Return the connection status"""
         return self._connected
 
-    async def cleanup(self):
+    async def cleanup(self) -> None:
         """Clean up"""
         self.disconnect()
         await self.message_processor.cleanup()
 
-    def disconnect(self):
+    def disconnect(self) -> None:
         """Disconnect gracefully."""
         if self.transport.is_closing() or not self.connected:
             return
         self._connected = False
         self.transport.close()
 
-    def data_received(self, data):
+    def data_received(self, data: bytes) -> None:
         """
         Gets called when new data is received on the serial interface.
         Perform line buffering and call line_received() with complete
@@ -99,7 +104,7 @@ class OpenThermProtocol(
                     return
                 self.line_received(decoded)
 
-    def line_received(self, line):
+    def line_received(self, line: str) -> None:
         """
         Gets called by data_received() when a complete line is
         received.
@@ -125,11 +130,11 @@ class OpenThermProtocol(
             self.command_processor.submit_response(line)
 
     @property
-    def active(self):
+    def active(self) -> bool:
         """Indicate that we have seen activity on the serial line."""
         return self._received_lines > 0
 
-    async def init_and_wait_for_activity(self):
+    async def init_and_wait_for_activity(self) -> None:
         """Wait for activity on the serial connection."""
         await self.command_processor.issue_cmd(v.OTGW_CMD_SUMMARY, 0, retry=1)
         while not self.active:

@@ -1,8 +1,11 @@
 """All status related code"""
 
+from __future__ import annotations
+
 import asyncio
 import logging
 from copy import deepcopy
+from typing import Callable
 
 from pyotgw import vars as v
 
@@ -12,7 +15,7 @@ _LOGGER = logging.getLogger(__name__)
 class StatusManager:
     """Manage status tracking and updates"""
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialise the status manager"""
         self.loop = asyncio.get_event_loop()
         self._updateq = asyncio.Queue()
@@ -20,18 +23,18 @@ class StatusManager:
         self._notify = []
         self._update_task = self.loop.create_task(self._process_updates())
 
-    def reset(self):
+    def reset(self) -> None:
         """Clear the queue and reset the status dict"""
         while not self._updateq.empty():
             self._updateq.get_nowait()
         self._status = deepcopy(v.DEFAULT_STATUS)
 
     @property
-    def status(self):
+    def status(self) -> dict[str, dict]:
         """Return the full status dict"""
         return deepcopy(self._status)
 
-    def delete_value(self, part, key):
+    def delete_value(self, part: str, key: str) -> bool:
         """Delete key from status part."""
         try:
             del self._status[part][key]
@@ -40,7 +43,7 @@ class StatusManager:
         self._updateq.put_nowait(self.status)
         return True
 
-    def submit_partial_update(self, part, update):
+    def submit_partial_update(self, part: str, update: dict) -> bool:
         """
         Submit an update for part of the status dict to the queue.
         Return a boolean indicating success.
@@ -55,7 +58,7 @@ class StatusManager:
         self._updateq.put_nowait(self.status)
         return True
 
-    def submit_full_update(self, update):
+    def submit_full_update(self, update: dict[str, dict]) -> bool:
         """
         Submit an update for multiple parts of the status dict to the
         queue. Return a boolean indicating success.
@@ -74,7 +77,7 @@ class StatusManager:
         self._updateq.put_nowait(self.status)
         return True
 
-    def subscribe(self, callback):
+    def subscribe(self, callback: Callable[[dict[str, dict]], None]) -> bool:
         """
         Subscribe callback for future status updates.
         Return boolean indicating success.
@@ -84,7 +87,7 @@ class StatusManager:
         self._notify.append(callback)
         return True
 
-    def unsubscribe(self, callback):
+    def unsubscribe(self, callback: Callable[[dict[str, dict]], None]) -> bool:
         """
         Unsubscribe callback from future status updates.
         Return boolean indicating success.
@@ -94,7 +97,7 @@ class StatusManager:
         self._notify.remove(callback)
         return True
 
-    async def cleanup(self):
+    async def cleanup(self) -> None:
         """Clean up task"""
         if self._update_task:
             self._update_task.cancel()
@@ -103,7 +106,7 @@ class StatusManager:
             except asyncio.CancelledError:
                 self._update_task = None
 
-    async def _process_updates(self):
+    async def _process_updates(self) -> None:
         """Process updates from the queue."""
         _LOGGER.debug("Starting reporting routine")
         while True:

@@ -1,12 +1,18 @@
 """pyotgw is a library to interface with the OpenTherm Gateway."""
 
+from __future__ import annotations
+
 import asyncio
 import logging
 from datetime import datetime
+from typing import Callable, Literal, TYPE_CHECKING
 
 from pyotgw import vars as v
 from pyotgw.connection import ConnectionManager
 from pyotgw.status import StatusManager
+
+if TYPE_CHECKING:
+    from pyotgw.connection import ConnectionConfig
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -14,7 +20,7 @@ _LOGGER = logging.getLogger(__name__)
 class OpenThermGateway:  # pylint: disable=too-many-public-methods
     """Main OpenThermGateway object abstraction"""
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Create an OpenThermGateway object."""
         self._transport = None
         self._protocol = None
@@ -23,7 +29,7 @@ class OpenThermGateway:  # pylint: disable=too-many-public-methods
         self.status = StatusManager()
         self.connection = ConnectionManager(self)
 
-    async def cleanup(self):
+    async def cleanup(self) -> None:
         """Clean up tasks."""
         await self.connection.disconnect()
         await self.status.cleanup()
@@ -33,10 +39,10 @@ class OpenThermGateway:  # pylint: disable=too-many-public-methods
 
     async def connect(
         self,
-        port,
-        timeout=None,
-        skip_init=None,
-    ):
+        port: int,
+        timeout: asyncio.Timeout = None,
+        skip_init: bool | None = None,
+    ) -> dict[str, dict]:
         """
         Connect to Opentherm Gateway at @port.
         Initialize the parameters obtained from the PS= and PR=
@@ -59,18 +65,21 @@ class OpenThermGateway:  # pylint: disable=too-many-public-methods
         await self._poll_gpio()
         return self.status.status
 
-    async def disconnect(self):
+    async def disconnect(self) -> None:
         """Disconnect from the OpenTherm Gateway."""
         await self.cleanup()
-        return await self.connection.disconnect()
+        await self.connection.disconnect()
 
-    def set_connection_options(self, **kwargs):
+    def set_connection_options(self, **kwargs: ConnectionConfig) -> bool:
         """Set connection parameters."""
         return self.connection.set_connection_config(**kwargs)
 
     async def set_target_temp(
-        self, temp, temporary=True, timeout=v.OTGW_DEFAULT_TIMEOUT
-    ):
+        self,
+        temp: float,
+        temporary: bool = True,
+        timeout: asyncio.Timeout = v.OTGW_DEFAULT_TIMEOUT,
+    ) -> float | None:
         """
         Set the thermostat setpoint and return the newly accepted
         value.
@@ -103,7 +112,9 @@ class OpenThermGateway:  # pylint: disable=too-many-public-methods
             self.status.submit_full_update(status_update)
             return ret
 
-    async def set_temp_sensor_function(self, func, timeout=v.OTGW_DEFAULT_TIMEOUT):
+    async def set_temp_sensor_function(
+        self, func: str, timeout: asyncio.Timeout = v.OTGW_DEFAULT_TIMEOUT
+    ) -> str | None:
         """
         Set the temperature sensor function. The following functions are available:
             O: Outside temperature
@@ -121,7 +132,9 @@ class OpenThermGateway:  # pylint: disable=too-many-public-methods
         self.status.submit_partial_update(v.OTGW, status_otgw)
         return ret
 
-    async def set_outside_temp(self, temp, timeout=v.OTGW_DEFAULT_TIMEOUT):
+    async def set_outside_temp(
+        self, temp: float, timeout: asyncio.Timeout = v.OTGW_DEFAULT_TIMEOUT
+    ) -> float | str | None:
         """
         Configure the outside temperature to send to the thermostat.
         Allowed values are between -40.0 and +64.0, although
@@ -149,7 +162,11 @@ class OpenThermGateway:  # pylint: disable=too-many-public-methods
         self.status.submit_partial_update(v.THERMOSTAT, status_thermostat)
         return ret
 
-    async def set_clock(self, date=datetime.now(), timeout=v.OTGW_DEFAULT_TIMEOUT):
+    async def set_clock(
+        self,
+        date: datetime = datetime.now(),
+        timeout: asyncio.Timeout = v.OTGW_DEFAULT_TIMEOUT,
+    ) -> str | None:
         """
         Change the time and day of the week of the thermostat. The
         gateway will send the specified time and day of the week in
@@ -164,7 +181,7 @@ class OpenThermGateway:  # pylint: disable=too-many-public-methods
         value = f"{date.strftime('%H:%M')}/{date.isoweekday()}"
         return await self._wait_for_cmd(cmd, value, timeout)
 
-    async def get_reports(self):
+    async def get_reports(self) -> dict[str, dict]:
         """
         Update the OpenThermGateway object with the information from all
         of the PR commands and return the updated status dict.
@@ -177,7 +194,6 @@ class OpenThermGateway:  # pylint: disable=too-many-public-methods
         ret = await self._wait_for_cmd(cmd, v.OTGW_REPORT_ABOUT)
         reports[v.OTGW_REPORT_ABOUT] = ret[2:] if ret else None
         for value in v.OTGW_REPORTS:
-
             ver = reports.get(v.OTGW_REPORT_ABOUT)
             if ver and int(ver[18]) < 5 and value == "D":
                 # Added in v5
@@ -249,7 +265,7 @@ class OpenThermGateway:  # pylint: disable=too-many-public-methods
         )
         return self.status.status
 
-    async def get_status(self):
+    async def get_status(self) -> dict[str, dict] | None:
         """
         Update the OpenThermGateway object with the information from the
         PS command and return the updated status dict.
@@ -268,13 +284,14 @@ class OpenThermGateway:  # pylint: disable=too-many-public-methods
             boiler_status, thermostat_status = process_statusfields_v5(fields)
         else:
             boiler_status, thermostat_status = process_statusfields_v4(fields)
-        self.status.submit_full_update({
-            v.BOILER: boiler_status,
-            v.THERMOSTAT: thermostat_status
-        })
+        self.status.submit_full_update(
+            {v.BOILER: boiler_status, v.THERMOSTAT: thermostat_status}
+        )
         return self.status.status
 
-    async def set_hot_water_ovrd(self, state, timeout=v.OTGW_DEFAULT_TIMEOUT):
+    async def set_hot_water_ovrd(
+        self, state: int | str, timeout: asyncio.Timeout = v.OTGW_DEFAULT_TIMEOUT
+    ) -> int | str | None:
         """
         Control the domestic hot water enable option. If the boiler has
         been configured to let the room unit control when to keep a
@@ -300,12 +317,14 @@ class OpenThermGateway:  # pylint: disable=too-many-public-methods
             return
         if ret in ("0", "1"):
             ret = int(ret)
-        if ret != 'P':
+        if ret != "P":
             status_otgw[v.OTGW_DHW_OVRD] = ret
             self.status.submit_partial_update(v.OTGW, status_otgw)
         return ret
 
-    async def set_mode(self, mode, timeout=v.OTGW_DEFAULT_TIMEOUT):
+    async def set_mode(
+        self, mode: int | str, timeout: asyncio.Timeout = v.OTGW_DEFAULT_TIMEOUT
+    ) -> int | dict[str, dict] | None:
         """
         Set the operating mode to either "Gateway" mode (:mode: =
         OTGW_MODE_GATEWAY or 1) or "Monitor" mode (:mode: =
@@ -330,7 +349,9 @@ class OpenThermGateway:  # pylint: disable=too-many-public-methods
         self.status.submit_partial_update(v.OTGW, status_otgw)
         return ret
 
-    async def set_led_mode(self, led_id, mode, timeout=v.OTGW_DEFAULT_TIMEOUT):
+    async def set_led_mode(
+        self, led_id: str, mode: str, timeout: asyncio.Timeout = v.OTGW_DEFAULT_TIMEOUT
+    ) -> str | None:
         """
         Configure the functions of the six LEDs (A-F) that can
         optionally be connected to pins RB3/RB4/RB6/RB7 and the GPIO
@@ -365,7 +386,12 @@ class OpenThermGateway:  # pylint: disable=too-many-public-methods
             self.status.submit_partial_update(v.OTGW, status_otgw)
             return ret
 
-    async def set_gpio_mode(self, gpio_id, mode, timeout=v.OTGW_DEFAULT_TIMEOUT):
+    async def set_gpio_mode(
+        self,
+        gpio_id: Literal["A", "B"],
+        mode: int,
+        timeout: asyncio.Timeout = v.OTGW_DEFAULT_TIMEOUT,
+    ) -> int | None:
         """
         Configure the functions of the two GPIO pins of the gateway.
         The following functions are available:
@@ -407,7 +433,9 @@ class OpenThermGateway:  # pylint: disable=too-many-public-methods
             asyncio.ensure_future(self._poll_gpio())
             return ret
 
-    async def set_setback_temp(self, sb_temp, timeout=v.OTGW_DEFAULT_TIMEOUT):
+    async def set_setback_temp(
+        self, sb_temp: float, timeout: asyncio.Timeout = v.OTGW_DEFAULT_TIMEOUT
+    ) -> float | None:
         """
         Configure the setback temperature to use in combination with
         GPIO functions HOME (5) and AWAY (6).
@@ -425,7 +453,9 @@ class OpenThermGateway:  # pylint: disable=too-many-public-methods
         self.status.submit_partial_update(v.OTGW, status_otgw)
         return ret
 
-    async def add_alternative(self, alt, timeout=v.OTGW_DEFAULT_TIMEOUT):
+    async def add_alternative(
+        self, alt: int, timeout: asyncio.Timeout = v.OTGW_DEFAULT_TIMEOUT
+    ) -> int | None:
         """
         Add the specified Data-ID to the list of alternative commands
         to send to the boiler instead of a Data-ID that is known to be
@@ -447,7 +477,9 @@ class OpenThermGateway:  # pylint: disable=too-many-public-methods
         if ret is not None:
             return int(ret)
 
-    async def del_alternative(self, alt, timeout=v.OTGW_DEFAULT_TIMEOUT):
+    async def del_alternative(
+        self, alt: int, timeout: asyncio.Timeout = v.OTGW_DEFAULT_TIMEOUT
+    ) -> int | None:
         """
         Remove the specified Data-ID from the list of alternative
         commands. Only one occurrence is deleted. If the Data-ID
@@ -469,7 +501,9 @@ class OpenThermGateway:  # pylint: disable=too-many-public-methods
         if ret is not None:
             return int(ret)
 
-    async def add_unknown_id(self, unknown_id, timeout=v.OTGW_DEFAULT_TIMEOUT):
+    async def add_unknown_id(
+        self, unknown_id: int, timeout: asyncio.Timeout = v.OTGW_DEFAULT_TIMEOUT
+    ) -> int | None:
         """
         Inform the gateway that the boiler doesn't support the
         specified Data-ID, even if the boiler doesn't indicate that
@@ -488,7 +522,9 @@ class OpenThermGateway:  # pylint: disable=too-many-public-methods
         if ret is not None:
             return int(ret)
 
-    async def del_unknown_id(self, unknown_id, timeout=v.OTGW_DEFAULT_TIMEOUT):
+    async def del_unknown_id(
+        self, unknown_id: int, timeout: asyncio.Timeout = v.OTGW_DEFAULT_TIMEOUT
+    ) -> int | None:
         """
         Start forwarding the specified Data-ID to the boiler again.
         This command resets the counter used to determine if the
@@ -505,7 +541,9 @@ class OpenThermGateway:  # pylint: disable=too-many-public-methods
         if ret is not None:
             return int(ret)
 
-    async def set_max_ch_setpoint(self, temperature, timeout=v.OTGW_DEFAULT_TIMEOUT):
+    async def set_max_ch_setpoint(
+        self, temperature: float, timeout: asyncio.Timeout = v.OTGW_DEFAULT_TIMEOUT
+    ) -> float | None:
         """
         Set the maximum central heating setpoint. This command is only
         available with boilers that support this function.
@@ -523,7 +561,9 @@ class OpenThermGateway:  # pylint: disable=too-many-public-methods
         self.status.submit_partial_update(v.BOILER, status_boiler)
         return ret
 
-    async def set_dhw_setpoint(self, temperature, timeout=v.OTGW_DEFAULT_TIMEOUT):
+    async def set_dhw_setpoint(
+        self, temperature: float, timeout: asyncio.Timeout = v.OTGW_DEFAULT_TIMEOUT
+    ) -> float | None:
         """
         Set the domestic hot water setpoint. This command is only
         available with boilers that support this function.
@@ -541,7 +581,9 @@ class OpenThermGateway:  # pylint: disable=too-many-public-methods
         self.status.submit_partial_update(v.BOILER, status_boiler)
         return ret
 
-    async def set_max_relative_mod(self, max_mod, timeout=v.OTGW_DEFAULT_TIMEOUT):
+    async def set_max_relative_mod(
+        self, max_mod: int, timeout: asyncio.Timeout = v.OTGW_DEFAULT_TIMEOUT
+    ) -> int | Literal["-"] | None:
         """
         Override the maximum relative modulation from the thermostat.
         Valid values are 0 through 100. Clear the setting by specifying
@@ -551,7 +593,7 @@ class OpenThermGateway:  # pylint: disable=too-many-public-methods
 
         This method is a coroutine
         """
-        if not isinstance(max_mod, int) or not 0 <= max_mod <= 100:
+        if isinstance(max_mod, int) and not 0 <= max_mod <= 100:
             return
         cmd = v.OTGW_CMD_MAX_MOD
         status_boiler = {}
@@ -564,7 +606,9 @@ class OpenThermGateway:  # pylint: disable=too-many-public-methods
             self.status.submit_partial_update(v.BOILER, status_boiler)
         return ret
 
-    async def set_control_setpoint(self, setpoint, timeout=v.OTGW_DEFAULT_TIMEOUT):
+    async def set_control_setpoint(
+        self, setpoint: float, timeout: asyncio.Timeout = v.OTGW_DEFAULT_TIMEOUT
+    ) -> float | None:
         """
         Manipulate the control setpoint being sent to the boiler. Set
         to 0 to pass along the value specified by the thermostat.
@@ -582,7 +626,9 @@ class OpenThermGateway:  # pylint: disable=too-many-public-methods
         self.status.submit_partial_update(v.BOILER, status_boiler)
         return ret
 
-    async def set_control_setpoint_2(self, setpoint, timeout=v.OTGW_DEFAULT_TIMEOUT):
+    async def set_control_setpoint_2(
+        self, setpoint: float, timeout: asyncio.Timeout = v.OTGW_DEFAULT_TIMEOUT
+    ) -> float | None:
         """
         Manipulate the control setpoint being sent to the boiler for the second
         heating circuit. Set to 0 to pass along the value specified by the thermostat.
@@ -600,7 +646,9 @@ class OpenThermGateway:  # pylint: disable=too-many-public-methods
         self.status.submit_partial_update(v.BOILER, status_boiler)
         return ret
 
-    async def set_ch_enable_bit(self, ch_bit, timeout=v.OTGW_DEFAULT_TIMEOUT):
+    async def set_ch_enable_bit(
+        self, ch_bit: Literal[0, 1], timeout: asyncio.Timeout = v.OTGW_DEFAULT_TIMEOUT
+    ) -> Literal[0, 1] | None:
         """
         Control the CH enable status bit when overriding the control
         setpoint. By default the CH enable bit is set after a call to
@@ -623,7 +671,9 @@ class OpenThermGateway:  # pylint: disable=too-many-public-methods
         self.status.submit_partial_update(v.BOILER, status_boiler)
         return ret
 
-    async def set_ch2_enable_bit(self, ch_bit, timeout=v.OTGW_DEFAULT_TIMEOUT):
+    async def set_ch2_enable_bit(
+        self, ch_bit: Literal[0, 1], timeout: asyncio.Timeout = v.OTGW_DEFAULT_TIMEOUT
+    ) -> Literal[0, 1] | None:
         """
         Control the CH enable status bit when overriding the control
         setpoint. By default the CH enable bit is set after a call to
@@ -646,7 +696,9 @@ class OpenThermGateway:  # pylint: disable=too-many-public-methods
         self.status.submit_partial_update(v.BOILER, status_boiler)
         return ret
 
-    async def set_ventilation(self, pct, timeout=v.OTGW_DEFAULT_TIMEOUT):
+    async def set_ventilation(
+        self, pct: int, timeout: asyncio.Timeout = v.OTGW_DEFAULT_TIMEOUT
+    ) -> int | None:
         """
         Configure a ventilation setpoint override value (0-100%).
         Return the newly accepted value, or None on failure.
@@ -667,8 +719,11 @@ class OpenThermGateway:  # pylint: disable=too-many-public-methods
         return ret
 
     async def send_transparent_command(
-        self, cmd, state, timeout=v.OTGW_DEFAULT_TIMEOUT
-    ):
+        self,
+        cmd: str,
+        state: str | float | int,
+        timeout: asyncio.Timeout = v.OTGW_DEFAULT_TIMEOUT,
+    ) -> bool | str | list[str] | None:
         """
         Sends custom otgw commands through a transparent interface.
         Check https://otgw.tclcode.com/firmware.html for supported commands.
@@ -682,7 +737,7 @@ class OpenThermGateway:  # pylint: disable=too-many-public-methods
         """
         return await self._wait_for_cmd(cmd, state, timeout)
 
-    def subscribe(self, coro):
+    def subscribe(self, coro: Callable[[dict[str, dict]], None]) -> bool:
         """
         Subscribe to status updates from the Opentherm Gateway.
         Can only be used after connect()
@@ -693,7 +748,7 @@ class OpenThermGateway:  # pylint: disable=too-many-public-methods
         """
         return self.status.subscribe(coro)
 
-    def unsubscribe(self, coro):
+    def unsubscribe(self, coro: Callable[[dict[str, dict]], None]) -> bool:
         """
         Unsubscribe from status updates from the Opentherm Gateway.
         Can only be used after connect()
@@ -703,7 +758,12 @@ class OpenThermGateway:  # pylint: disable=too-many-public-methods
         """
         return self.status.unsubscribe(coro)
 
-    async def _wait_for_cmd(self, cmd, value, timeout=v.OTGW_DEFAULT_TIMEOUT):
+    async def _wait_for_cmd(
+        self,
+        cmd: str,
+        value: str | float | int,
+        timeout: asyncio.Timeout = v.OTGW_DEFAULT_TIMEOUT,
+    ) -> bool | str | list[str] | None:
         """
         Wrap @cmd in applicable asyncio call.
 
@@ -724,7 +784,7 @@ class OpenThermGateway:  # pylint: disable=too-many-public-methods
                 "Command %s with value %s raised exception: %s", cmd, value, exc
             )
 
-    async def _poll_gpio(self, interval=10):
+    async def _poll_gpio(self, interval: int = 10) -> None:
         """
         Start or stop polling GPIO states.
 
@@ -737,7 +797,7 @@ class OpenThermGateway:  # pylint: disable=too-many-public-methods
         )
         if poll and self._gpio_task is None:
 
-            async def polling_routine():
+            async def polling_routine() -> None:
                 """Poll GPIO state every @interval seconds."""
                 try:
                     while True:
@@ -768,11 +828,11 @@ class OpenThermGateway:  # pylint: disable=too-many-public-methods
             self._gpio_task.cancel()
 
 
-def process_statusfields_v4(status_fields):
+def process_statusfields_v4(status_fields: list[str]) -> tuple[dict]:
     """
     Process the fields of a split status line for OpenTherm Gateway firmware
     version <5.0.
-    
+
     Return a tuple of (boiler_status, thermostat_status).
     """
     device_status = status_fields[0].split("/")
@@ -831,11 +891,11 @@ def process_statusfields_v4(status_fields):
     return (boiler_status, thermostat_status)
 
 
-def process_statusfields_v5(status_fields):
+def process_statusfields_v5(status_fields: list[str]) -> tuple[dict]:
     """
     Process the fields of a split status line for OpenTherm Gateway firmware
     version >=5.0.
-    
+
     Return a tuple of (boiler_status, thermostat_status).
     """
     device_status = status_fields[0].split("/")
