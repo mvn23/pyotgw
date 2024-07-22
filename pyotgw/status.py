@@ -5,7 +5,7 @@ from __future__ import annotations
 import asyncio
 import logging
 from copy import deepcopy
-from typing import Callable
+from typing import Awaitable, Callable
 
 from . import vars as v
 
@@ -77,7 +77,7 @@ class StatusManager:
         self._updateq.put_nowait(self.status)
         return True
 
-    def subscribe(self, callback: Callable[[dict[str, dict]], None]) -> bool:
+    def subscribe(self, callback: Callable[[dict[str, dict]], Awaitable[None]]) -> bool:
         """
         Subscribe callback for future status updates.
         Return boolean indicating success.
@@ -87,7 +87,7 @@ class StatusManager:
         self._notify.append(callback)
         return True
 
-    def unsubscribe(self, callback: Callable[[dict[str, dict]], None]) -> bool:
+    def unsubscribe(self, callback: Callable[[dict[str, dict]], Awaitable[None]]) -> bool:
         """
         Unsubscribe callback from future status updates.
         Return boolean indicating success.

@@ -5,7 +5,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import re
-from typing import Callable, TYPE_CHECKING
+from typing import Awaitable, Callable, TYPE_CHECKING
 
 from . import vars as v
 from .commandprocessor import CommandProcessor
@@ -27,7 +27,7 @@ class OpenThermProtocol(asyncio.Protocol):  # pylint: disable=too-many-instance-
     def __init__(
         self,
         status_manager: StatusManager,
-        activity_callback: Callable[[], None],
+        activity_callback: Callable[[], Awaitable[None]],
     ) -> None:
         """Initialise the protocol object."""
         self.transport = None
