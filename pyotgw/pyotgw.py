@@ -5,7 +5,7 @@ from __future__ import annotations
 import asyncio
 import logging
 from datetime import datetime
-from typing import Callable, Literal, TYPE_CHECKING
+from typing import Awaitable, Callable, Literal, TYPE_CHECKING
 
 from . import vars as v
 from .connection import ConnectionManager
@@ -737,7 +737,7 @@ class OpenThermGateway:  # pylint: disable=too-many-public-methods
         """
         return await self._wait_for_cmd(cmd, state, timeout)
 
-    def subscribe(self, coro: Callable[[dict[str, dict]], None]) -> bool:
+    def subscribe(self, coro: Callable[[dict[str, dict]], Awaitable[None]]) -> bool:
         """
         Subscribe to status updates from the Opentherm Gateway.
         Can only be used after connect()
@@ -748,7 +748,7 @@ class OpenThermGateway:  # pylint: disable=too-many-public-methods
         """
         return self.status.subscribe(coro)
 
-    def unsubscribe(self, coro: Callable[[dict[str, dict]], None]) -> bool:
+    def unsubscribe(self, coro: Callable[[dict[str, dict]], Awaitable[None]]) -> bool:
         """
         Unsubscribe from status updates from the Opentherm Gateway.
         Can only be used after connect()

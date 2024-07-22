@@ -10,7 +10,7 @@ import asyncio
 import logging
 from dataclasses import dataclass
 from functools import partial
-from typing import Callable, Literal, Optional, TYPE_CHECKING
+from typing import Awaitable, Callable, Literal, Optional, TYPE_CHECKING
 
 import serial
 import serial_asyncio_fast
@@ -247,7 +247,7 @@ class ConnectionWatchdog:
                 self._wd_task = self.loop.create_task(self._watchdog(self.timeout))
                 _LOGGER.debug("Watchdog timer reset!")
 
-    def start(self, callback: Callable[[], None], timeout: asyncio.Timeout) -> bool:
+    def start(self, callback: Callable[[], Awaitable[None]], timeout: asyncio.Timeout) -> bool:
         """Start the watchdog, return boolean indicating success"""
         if self.is_active:
             return False
