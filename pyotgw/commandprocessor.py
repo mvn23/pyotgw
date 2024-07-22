@@ -8,10 +8,10 @@ import re
 from asyncio.queues import QueueFull
 from typing import TYPE_CHECKING
 
-from pyotgw import vars as v
+from . import vars as v
 
 if TYPE_CHECKING:
-    from pyotgw.status import StatusManager
+    from .status import StatusManager
 
 _LOGGER = logging.getLogger(__name__)
 
