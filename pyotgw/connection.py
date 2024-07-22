@@ -15,10 +15,10 @@ from typing import Callable, Literal, Optional, TYPE_CHECKING
 import serial
 import serial_asyncio_fast
 
-from pyotgw.protocol import OpenThermProtocol
+from .protocol import OpenThermProtocol
 
 if TYPE_CHECKING:
-    from pyotgw import OpenThermGateway
+    from .pyotgw import OpenThermGateway
 
 CONNECTION_TIMEOUT = 5
 

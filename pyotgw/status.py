@@ -7,7 +7,7 @@ import logging
 from copy import deepcopy
 from typing import Callable
 
-from pyotgw import vars as v
+from . import vars as v
 
 _LOGGER = logging.getLogger(__name__)
 

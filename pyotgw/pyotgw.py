@@ -7,12 +7,12 @@ import logging
 from datetime import datetime
 from typing import Callable, Literal, TYPE_CHECKING
 
-from pyotgw import vars as v
-from pyotgw.connection import ConnectionManager
-from pyotgw.status import StatusManager
+from . import vars as v
+from .connection import ConnectionManager
+from .status import StatusManager
 
 if TYPE_CHECKING:
-    from pyotgw.connection import ConnectionConfig
+    from .connection import ConnectionConfig
 
 _LOGGER = logging.getLogger(__name__)
 

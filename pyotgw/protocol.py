@@ -7,13 +7,13 @@ import logging
 import re
 from typing import Callable, TYPE_CHECKING
 
-from pyotgw import vars as v
-from pyotgw.commandprocessor import CommandProcessor
-from pyotgw.messageprocessor import MessageProcessor
+from . import vars as v
+from .commandprocessor import CommandProcessor
+from .messageprocessor import MessageProcessor
 
 if TYPE_CHECKING:
     from serial import SerialException
-    from pyotgw.status import StatusManager
+    from .status import StatusManager
 
 _LOGGER = logging.getLogger(__name__)
 

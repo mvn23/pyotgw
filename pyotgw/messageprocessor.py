@@ -7,8 +7,8 @@ import logging
 import re
 from typing import TYPE_CHECKING
 
-import pyotgw.messages as m
-import pyotgw.vars as v
+from . import messages as m
+from . import vars as v
 
 if TYPE_CHECKING:
     from .commandprocessor import CommandProcessor
