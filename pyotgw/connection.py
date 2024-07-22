@@ -4,14 +4,21 @@ Everything related to making, maintaining and monitoring the connection
 to the gateway goes here.
 """
 
+from __future__ import annotations
+
 import asyncio
 import logging
+from dataclasses import dataclass
 from functools import partial
+from typing import Callable, Literal, Optional, TYPE_CHECKING
 
 import serial
 import serial_asyncio_fast
 
 from pyotgw.protocol import OpenThermProtocol
+
+if TYPE_CHECKING:
+    from pyotgw import OpenThermGateway
 
 CONNECTION_TIMEOUT = 5
 
@@ -23,10 +30,34 @@ WATCHDOG_TIMEOUT = 3
 _LOGGER = logging.getLogger(__name__)
 
 
+@dataclass
+class ConnectionConfig:
+    """Config for the serial connection."""
+
+    baudrate: Optional[int]
+    bytesize: Optional[
+        Literal[serial.FIVEBITS, serial.SIXBITS, serial.SEVENBITS, serial.EIGHTBITS]
+    ]
+    parity: Optional[
+        Literal[
+            serial.PARITY_NONE,
+            serial.PARITY_EVEN,
+            serial.PARITY_ODD,
+            serial.PARITY_MARK,
+            serial.PARITY_SPACE,
+        ]
+    ]
+    stopbits: Optional[
+        Literal[
+            serial.STOPBITS_ONE, serial.STOPBITS_ONE_POINT_FIVE, serial.STOPBITS_TWO
+        ]
+    ]
+
+
 class ConnectionManager:  # pylint: disable=too-many-instance-attributes
     """Functionality for setting up and tearing down a connection"""
 
-    def __init__(self, otgw):
+    def __init__(self, otgw: OpenThermGateway) -> None:
         """Initialise the connection manager"""
         self._error = None
         self._port = None
@@ -44,7 +75,7 @@ class ConnectionManager:  # pylint: disable=too-many-instance-attributes
         self._transport = None
         self.protocol = None
 
-    async def connect(self, port, timeout=None):
+    async def connect(self, port: int, timeout: asyncio.Timeout = None) -> bool:
         """Start connection attempts. Return True on success or False on failure."""
         if self.connected or self._connecting_task:
             # We are actually reconnecting, cleanup first.
@@ -68,13 +99,13 @@ class ConnectionManager:  # pylint: disable=too-many-instance-attributes
         self.watchdog.start(self.reconnect, timeout=timeout or WATCHDOG_TIMEOUT)
         return True
 
-    async def disconnect(self):
+    async def disconnect(self) -> None:
         """Disconnect from the OpenTherm Gateway."""
         await self._cleanup()
         if self.connected:
             self.protocol.disconnect()
 
-    async def reconnect(self):
+    async def reconnect(self) -> None:
         """Reconnect to the OpenTherm Gateway."""
         if not self._port:
             _LOGGER.error("Reconnect called before connect!")
@@ -84,11 +115,11 @@ class ConnectionManager:  # pylint: disable=too-many-instance-attributes
         await self._otgw.connect(self._port)
 
     @property
-    def connected(self):
+    def connected(self) -> bool:
         """Return the connection status"""
         return self.protocol and self.protocol.connected
 
-    def set_connection_config(self, **kwargs):
+    def set_connection_config(self, **kwargs: ConnectionConfig) -> bool:
         """
         Set the serial connection parameters before calling connect()
         Valid kwargs are 'baudrate', 'bytesize', 'parity' and 'stopbits'.
@@ -104,7 +135,7 @@ class ConnectionManager:  # pylint: disable=too-many-instance-attributes
         self._config.update(kwargs)
         return True
 
-    async def _attempt_connect(self):
+    async def _attempt_connect(self) -> tuple[asyncio.Transport, asyncio.Protocol]:
         """Try to connect to the OpenTherm Gateway."""
         loop = asyncio.get_running_loop()
         transport = None
@@ -112,18 +143,19 @@ class ConnectionManager:  # pylint: disable=too-many-instance-attributes
         self._retry_timeout = MIN_RETRY_TIMEOUT
         while transport is None:
             try:
-                transport, protocol = await (
-                    serial_asyncio_fast.create_serial_connection(
-                        loop,
-                        partial(
-                            OpenThermProtocol,
-                            self._otgw.status,
-                            self.watchdog.inform,
-                        ),
-                        self._port,
-                        write_timeout=0,
-                        **self._config,
-                    )
+                (
+                    transport,
+                    protocol,
+                ) = await serial_asyncio_fast.create_serial_connection(
+                    loop,
+                    partial(
+                        OpenThermProtocol,
+                        self._otgw.status,
+                        self.watchdog.inform,
+                    ),
+                    self._port,
+                    write_timeout=0,
+                    **self._config,
                 )
                 await asyncio.wait_for(
                     protocol.init_and_wait_for_activity(),
@@ -164,7 +196,7 @@ class ConnectionManager:  # pylint: disable=too-many-instance-attributes
             transport = None
             await asyncio.sleep(self._get_retry_timeout())
 
-    async def _cleanup(self):
+    async def _cleanup(self) -> None:
         """Cleanup possible leftovers from old connections"""
         await self.watchdog.stop()
         if self.protocol:
@@ -176,7 +208,7 @@ class ConnectionManager:  # pylint: disable=too-many-instance-attributes
             except asyncio.CancelledError:
                 self._connecting_task = None
 
-    def _get_retry_timeout(self):
+    def _get_retry_timeout(self) -> asyncio.Timeout:
         """Increase if needed and return the retry timeout."""
         if self._retry_timeout == MAX_RETRY_TIMEOUT:
             return self._retry_timeout
@@ -188,7 +220,7 @@ class ConnectionManager:  # pylint: disable=too-many-instance-attributes
 class ConnectionWatchdog:
     """Connection watchdog"""
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialise the object"""
         self._callback = None
         self.timeout = WATCHDOG_TIMEOUT
@@ -197,11 +229,11 @@ class ConnectionWatchdog:
         self.loop = asyncio.get_event_loop()
 
     @property
-    def is_active(self):
+    def is_active(self) -> bool:
         """Return watchdog status"""
         return self._wd_task is not None
 
-    async def inform(self):
+    async def inform(self) -> None:
         """Reset the watchdog timer."""
         async with self._lock:
             if not self.is_active:
@@ -215,7 +247,7 @@ class ConnectionWatchdog:
                 self._wd_task = self.loop.create_task(self._watchdog(self.timeout))
                 _LOGGER.debug("Watchdog timer reset!")
 
-    def start(self, callback, timeout):
+    def start(self, callback: Callable[[], None], timeout: asyncio.Timeout) -> bool:
         """Start the watchdog, return boolean indicating success"""
         if self.is_active:
             return False
@@ -224,7 +256,7 @@ class ConnectionWatchdog:
         self._wd_task = self.loop.create_task(self._watchdog(timeout))
         return self.is_active
 
-    async def stop(self):
+    async def stop(self) -> None:
         """Stop the watchdog"""
         async with self._lock:
             if not self.is_active:
@@ -236,7 +268,7 @@ class ConnectionWatchdog:
             except asyncio.CancelledError:
                 self._wd_task = None
 
-    async def _watchdog(self, timeout):
+    async def _watchdog(self, timeout: asyncio.Timeout) -> None:
         """Trigger and cancel the watchdog after timeout. Schedule callback."""
         await asyncio.sleep(timeout)
         _LOGGER.debug("Watchdog triggered!")
