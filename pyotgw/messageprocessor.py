@@ -5,7 +5,6 @@ from __future__ import annotations
 import asyncio
 import logging
 import re
-import struct
 from typing import TYPE_CHECKING
 
 import pyotgw.messages as m
@@ -215,14 +214,14 @@ class MessageProcessor:
         """
         Convert a byte into an unsigned int.
         """
-        return struct.unpack(">B", byte)[0]
+        return int.from_bytes(byte, "big", signed=False)
 
     @staticmethod
     def _get_s8(byte: bytes) -> int:
         """
         Convert a byte into a signed int.
         """
-        return struct.unpack(">b", byte)[0]
+        return int.from_bytes(byte, "big", signed=True)
 
     def _get_f8_8(self, msb: bytes, lsb: bytes) -> float:
         """
@@ -234,12 +233,10 @@ class MessageProcessor:
         """
         Convert 2 bytes into an unsigned int.
         """
-        buf = struct.pack(">BB", self._get_u8(msb), self._get_u8(lsb))
-        return int(struct.unpack(">H", buf)[0])
+        return (self._get_u8(msb) << 8) | self._get_u8(lsb)
 
     def _get_s16(self, msb: bytes, lsb: bytes) -> int:
         """
         Convert 2 bytes into a signed int.
         """
-        buf = struct.pack(">bB", self._get_s8(msb), self._get_u8(lsb))
-        return int(struct.unpack(">h", buf)[0])
+        return (self._get_s8(msb) << 8) | self._get_u8(lsb)
