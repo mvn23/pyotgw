@@ -6,3 +6,5 @@ __pycache__
 .tox
 .venv
 .vscode
+build/
+dist/

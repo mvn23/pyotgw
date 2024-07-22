@@ -8,33 +8,24 @@ repos:
   - id: check-yaml
   - id: debug-statements
   - id: check-ast
-- repo: https://github.com/psf/black
-  rev: 22.3.0
+- repo: https://github.com/astral-sh/ruff-pre-commit
+  rev: v0.5.4
   hooks:
-  - id: black
-- repo: https://github.com/pycqa/flake8
-  rev: 7.0.0
-  hooks:
-  - id: flake8
-    args:
-    - --max-line-length=88
+    - id: ruff
+      args: [ --fix ]
+    - id: ruff-format
 - repo: https://github.com/asottile/pyupgrade
-  rev: v2.10.1
+  rev: v3.16.0
   hooks:
   - id: pyupgrade
-    args: ['--py38-plus']
-- repo: https://github.com/pre-commit/mirrors-isort
-  rev: v5.7.0
-  hooks:
-  - id: isort
-    args:
-      - --multi-line=3
-      - --trailing-comma
-      - --force-grid-wrap=0
-      - --use-parentheses
-      - --line-width=88
+    args: ['--py310-plus']
+- repo: https://github.com/pycqa/isort
+    rev: 5.13.2
+    hooks:
+      - id: isort
+        name: isort (python)
 - repo: https://github.com/PyCQA/bandit
-  rev: 1.7.0
+  rev: 1.7.9
   hooks:
   - id: bandit
     args:
