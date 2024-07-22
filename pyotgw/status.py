@@ -1,5 +1,7 @@
 """All status related code"""
 
+from __future__ import annotations
+
 import asyncio
 import logging
 from copy import deepcopy
