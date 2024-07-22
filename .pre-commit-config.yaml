@@ -11,19 +11,19 @@ repos:
 - repo: https://github.com/astral-sh/ruff-pre-commit
   rev: v0.5.4
   hooks:
-    - id: ruff
-      args: [ --fix ]
-    - id: ruff-format
+  - id: ruff
+    args: [ --fix ]
+  - id: ruff-format
 - repo: https://github.com/asottile/pyupgrade
   rev: v3.16.0
   hooks:
   - id: pyupgrade
     args: ['--py310-plus']
 - repo: https://github.com/pycqa/isort
-    rev: 5.13.2
-    hooks:
-      - id: isort
-        name: isort (python)
+  rev: 5.13.2
+  hooks:
+  - id: isort
+    name: isort (python)
 - repo: https://github.com/PyCQA/bandit
   rev: 1.7.9
   hooks:
