@@ -1,4 +1,5 @@
 """Test for pyotgw/messageprocessor.py"""
+
 import asyncio
 import logging
 import re
@@ -7,6 +8,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from pyotgw import vars as v
+from pyotgw.types import OpenThermMessageType
 from tests.data import pygw_proto_messages
 from tests.helpers import called_once
 
@@ -50,7 +52,7 @@ def test_submit_matched_message(caplog, pygw_message_processor):
     ]
     assert pygw_message_processor._msgq.get_nowait() == (
         "A",
-        v.READ_DATA,
+        OpenThermMessageType.READ_DATA,
         b"\x02",
         b"\x03",
         b"\x04",
@@ -69,7 +71,7 @@ def test_dissect_msg(caplog, pygw_message_processor):
 
     assert pygw_message_processor._dissect_msg(test_matches[0]) == (
         "A",
-        v.WRITE_DATA,
+        OpenThermMessageType.WRITE_DATA,
         b"\x20",
         b"\x30",
         b"\x40",
@@ -101,9 +103,9 @@ async def test_process_msgs(caplog, pygw_message_processor):
     """Test MessageProcessor._process_msgs()"""
     test_case = (
         "B",
-        v.READ_ACK,
+        OpenThermMessageType.READ_ACK,
         b"\x23",
-        b"\x0A",
+        b"\x0a",
         b"\x01",
     )
     with patch.object(
@@ -129,7 +131,7 @@ async def test_process_msg(pygw_message_processor):
     # Test quirks
     test_case = (
         "B",
-        v.READ_ACK,
+        OpenThermMessageType.READ_ACK,
         v.MSG_TROVRD,
         b"\x10",
         b"\x80",
@@ -304,24 +306,16 @@ async def test_quirk_trset_s2m(pygw_message_processor):
         return
 
     with patch.object(
-        pygw_message_processor.status_manager,
-        "submit_partial_update"
+        pygw_message_processor.status_manager, "submit_partial_update"
     ) as partial_update:
         await pygw_message_processor._quirk_trset_s2m(
             v.THERMOSTAT,
             b"\x01",
             b"\x02",
         )
-        await pygw_message_processor._quirk_trset_s2m(
-            v.BOILER,
-            b"\x14",
-            b"\x80"
-        )
+        await pygw_message_processor._quirk_trset_s2m(v.BOILER, b"\x14", b"\x80")
 
-    partial_update.assert_called_once_with(
-        v.BOILER,
-        {v.DATA_ROOM_SETPOINT: 20.5}
-    )
+    partial_update.assert_called_once_with(v.BOILER, {v.DATA_ROOM_SETPOINT: 20.5})
 
 
 def test_get_flag8(pygw_message_processor):
@@ -373,7 +367,7 @@ def test_get_u8(pygw_message_processor):
             0,
         ),
         (
-            b"\xFF",
+            b"\xff",
             255,
         ),
     )
@@ -390,7 +384,7 @@ def test_get_s8(pygw_message_processor):
             0,
         ),
         (
-            b"\xFF",
+            b"\xff",
             -1,
         ),
     )
@@ -411,7 +405,7 @@ def test_get_f8_8(pygw_message_processor):
         ),
         (
             (
-                b"\xFF",
+                b"\xff",
                 b"\x80",
             ),
             -0.5,
@@ -434,8 +428,8 @@ def test_get_u16(pygw_message_processor):
         ),
         (
             (
-                b"\xFF",
-                b"\xFF",
+                b"\xff",
+                b"\xff",
             ),
             65535,
         ),
@@ -457,8 +451,8 @@ def test_get_s16(pygw_message_processor):
         ),
         (
             (
-                b"\xFF",
-                b"\xFF",
+                b"\xff",
+                b"\xff",
             ),
             -1,
         ),

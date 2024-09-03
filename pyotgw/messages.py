@@ -1,6 +1,7 @@
 """Data related to message processing"""
 
 from . import vars as v
+from .types import OpenThermMessageType
 
 _GET_FLAG8 = "_get_flag8"
 _GET_FLOAT = "_get_f8_8"
@@ -18,10 +19,10 @@ RETURNS = "returns"
 S2M = "s2m"
 
 MSG_TYPE = {
-    v.READ_DATA: M2S,
-    v.WRITE_DATA: M2S,
-    v.READ_ACK: S2M,
-    v.WRITE_ACK: S2M,
+    OpenThermMessageType.READ_DATA: M2S,
+    OpenThermMessageType.WRITE_DATA: M2S,
+    OpenThermMessageType.READ_ACK: S2M,
+    OpenThermMessageType.WRITE_ACK: S2M,
 }
 
 REGISTRY = {

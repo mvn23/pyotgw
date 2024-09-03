@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING
 
 from . import messages as m
 from . import vars as v
+from .types import OpenThermMessageType
 
 if TYPE_CHECKING:
     from .commandprocessor import CommandProcessor
@@ -77,7 +78,12 @@ class MessageProcessor:
             )
             return None, None, None, None, None
         msgtype = self._get_msgtype(frame[0])
-        if msgtype in (v.READ_ACK, v.WRITE_ACK, v.READ_DATA, v.WRITE_DATA):
+        if msgtype in (
+            OpenThermMessageType.READ_ACK,
+            OpenThermMessageType.WRITE_ACK,
+            OpenThermMessageType.READ_DATA,
+            OpenThermMessageType.WRITE_DATA,
+        ):
             # Some info is best read from the READ/WRITE_DATA messages
             # as the boiler may not support the data ID.
             # Slice syntax is used to prevent implicit cast to int.
@@ -88,12 +94,12 @@ class MessageProcessor:
         return None, None, None, None, None
 
     @staticmethod
-    def _get_msgtype(byte: bytes) -> int:
+    def _get_msgtype(byte: bytes) -> OpenThermMessageType:
         """
         Return the message type of Opentherm messages according to
         byte.
         """
-        return (byte >> 4) & 0x7
+        return OpenThermMessageType((byte >> 4) & 0x7)
 
     async def _process_msgs(self) -> None:
         """

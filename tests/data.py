@@ -3,6 +3,7 @@
 from types import SimpleNamespace
 
 import pyotgw.vars as v
+from pyotgw.types import OpenThermMessageType
 
 _report_responses_51 = {
     v.OTGW_REPORT_ABOUT: "A=OpenTherm Gateway 5.1",
@@ -250,7 +251,7 @@ pygw_proto_messages = (
     ),
     # _get_flag8
     (
-        ("T", v.READ_DATA, v.MSG_STATUS, b"\x43", b"\x00"),
+        ("T", OpenThermMessageType.READ_DATA, v.MSG_STATUS, b"\x43", b"\x00"),
         {
             v.BOILER: {},
             v.OTGW: {},
@@ -265,14 +266,14 @@ pygw_proto_messages = (
     ),
     # _get_f8_8
     (
-        ("B", v.WRITE_ACK, v.MSG_TDHWSET, b"\x14", b"\x80"),
+        ("B", OpenThermMessageType.WRITE_ACK, v.MSG_TDHWSET, b"\x14", b"\x80"),
         {v.BOILER: {v.DATA_DHW_SETPOINT: 20.5}, v.OTGW: {}, v.THERMOSTAT: {}},
     ),
     # _get_flag8 with skipped bits
     (
         (
             "R",
-            v.READ_ACK,
+            OpenThermMessageType.READ_ACK,
             v.MSG_STATUSVH,
             b"\00",
             int("01010101", 2).to_bytes(1, "big"),
@@ -294,10 +295,10 @@ pygw_proto_messages = (
     (
         (
             "R",
-            v.WRITE_ACK,
+            OpenThermMessageType.WRITE_ACK,
             v.MSG_SCONFIG,
             int("10101010", 2).to_bytes(1, "big"),
-            b"\xFF",
+            b"\xff",
         ),
         {
             v.BOILER: {
@@ -315,12 +316,12 @@ pygw_proto_messages = (
     ),
     # _get_u16
     (
-        ("A", v.READ_ACK, v.MSG_BURNSTARTS, b"\x12", b"\xAA"),
+        ("A", OpenThermMessageType.READ_ACK, v.MSG_BURNSTARTS, b"\x12", b"\xaa"),
         {v.BOILER: {}, v.OTGW: {}, v.THERMOSTAT: {v.DATA_TOTAL_BURNER_STARTS: 4778}},
     ),
     # _get_s8
     (
-        ("R", v.WRITE_ACK, v.MSG_TCHSETUL, b"\x50", b"\x1E"),
+        ("R", OpenThermMessageType.WRITE_ACK, v.MSG_TCHSETUL, b"\x50", b"\x1e"),
         {
             v.BOILER: {v.DATA_SLAVE_CH_MAX_SETP: 80, v.DATA_SLAVE_CH_MIN_SETP: 30},
             v.OTGW: {},
@@ -329,7 +330,7 @@ pygw_proto_messages = (
     ),
     # _get_s16
     (
-        ("B", v.READ_ACK, v.MSG_TEXHAUST, b"\xFF", b"\x83"),
+        ("B", OpenThermMessageType.READ_ACK, v.MSG_TEXHAUST, b"\xff", b"\x83"),
         {v.BOILER: {v.DATA_EXHAUST_TEMP: -125}, v.OTGW: {}, v.THERMOSTAT: {}},
     ),
 )
