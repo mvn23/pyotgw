@@ -4,12 +4,14 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from collections.abc import Awaitable, Callable
 from datetime import datetime
-from typing import Awaitable, Callable, Literal, TYPE_CHECKING
+from typing import TYPE_CHECKING, Literal
 
 from . import vars as v
 from .connection import ConnectionManager
 from .status import StatusManager
+from .types import OpenThermDataSource
 
 if TYPE_CHECKING:
     from .connection import ConnectionConfig
@@ -97,8 +99,10 @@ class OpenThermGateway:  # pylint: disable=too-many-public-methods
         if 0 <= ret <= 30:
             if ret == 0:
                 status_update = {
-                    v.OTGW: {v.OTGW_SETP_OVRD_MODE: v.OTGW_SETP_OVRD_DISABLED},
-                    v.THERMOSTAT: {v.DATA_ROOM_SETPOINT_OVRD: None},
+                    OpenThermDataSource.GATEWAY: {
+                        v.OTGW_SETP_OVRD_MODE: v.OTGW_SETP_OVRD_DISABLED
+                    },
+                    OpenThermDataSource.THERMOSTAT: {v.DATA_ROOM_SETPOINT_OVRD: None},
                 }
             else:
                 if temporary:
@@ -106,8 +110,8 @@ class OpenThermGateway:  # pylint: disable=too-many-public-methods
                 else:
                     ovrd_mode = v.OTGW_SETP_OVRD_PERMANENT
                 status_update = {
-                    v.OTGW: {v.OTGW_SETP_OVRD_MODE: ovrd_mode},
-                    v.THERMOSTAT: {v.DATA_ROOM_SETPOINT_OVRD: ret},
+                    OpenThermDataSource.GATEWAY: {v.OTGW_SETP_OVRD_MODE: ovrd_mode},
+                    OpenThermDataSource.THERMOSTAT: {v.DATA_ROOM_SETPOINT_OVRD: ret},
                 }
             self.status.submit_full_update(status_update)
             return ret
@@ -129,7 +133,7 @@ class OpenThermGateway:  # pylint: disable=too-many-public-methods
         if ret is None:
             return None
         status_otgw = {v.OTGW_TEMP_SENSOR: ret}
-        self.status.submit_partial_update(v.OTGW, status_otgw)
+        self.status.submit_partial_update(OpenThermDataSource.GATEWAY, status_otgw)
         return ret
 
     async def set_outside_temp(
@@ -159,7 +163,9 @@ class OpenThermGateway:  # pylint: disable=too-many-public-methods
         else:
             ret = float(ret)
             status_thermostat[v.DATA_OUTSIDE_TEMP] = ret
-        self.status.submit_partial_update(v.THERMOSTAT, status_thermostat)
+        self.status.submit_partial_update(
+            OpenThermDataSource.THERMOSTAT, status_thermostat
+        )
         return ret
 
     async def set_clock(
@@ -261,7 +267,10 @@ class OpenThermGateway:  # pylint: disable=too-many-public-methods
                 )
             }
         self.status.submit_full_update(
-            {v.THERMOSTAT: status_thermostat, v.OTGW: status_otgw}
+            {
+                OpenThermDataSource.THERMOSTAT: status_thermostat,
+                OpenThermDataSource.GATEWAY: status_otgw,
+            }
         )
         return self.status.status
 
@@ -285,7 +294,10 @@ class OpenThermGateway:  # pylint: disable=too-many-public-methods
         else:
             boiler_status, thermostat_status = process_statusfields_v4(fields)
         self.status.submit_full_update(
-            {v.BOILER: boiler_status, v.THERMOSTAT: thermostat_status}
+            {
+                OpenThermDataSource.BOILER: boiler_status,
+                OpenThermDataSource.THERMOSTAT: thermostat_status,
+            }
         )
         return self.status.status
 
@@ -319,7 +331,7 @@ class OpenThermGateway:  # pylint: disable=too-many-public-methods
             ret = int(ret)
         if ret != "P":
             status_otgw[v.OTGW_DHW_OVRD] = ret
-            self.status.submit_partial_update(v.OTGW, status_otgw)
+            self.status.submit_partial_update(OpenThermDataSource.GATEWAY, status_otgw)
         return ret
 
     async def set_mode(
@@ -346,7 +358,7 @@ class OpenThermGateway:  # pylint: disable=too-many-public-methods
             await self.get_status()
             return self.status.status
         status_otgw[v.OTGW_MODE] = ret
-        self.status.submit_partial_update(v.OTGW, status_otgw)
+        self.status.submit_partial_update(OpenThermDataSource.GATEWAY, status_otgw)
         return ret
 
     async def set_led_mode(
@@ -383,7 +395,7 @@ class OpenThermGateway:  # pylint: disable=too-many-public-methods
                 return
             var = getattr(v, f"OTGW_LED_{led_id}")
             status_otgw[var] = ret
-            self.status.submit_partial_update(v.OTGW, status_otgw)
+            self.status.submit_partial_update(OpenThermDataSource.GATEWAY, status_otgw)
             return ret
 
     async def set_gpio_mode(
@@ -429,7 +441,7 @@ class OpenThermGateway:  # pylint: disable=too-many-public-methods
             ret = int(ret)
             var = getattr(v, f"OTGW_GPIO_{gpio_id}")
             status_otgw[var] = ret
-            self.status.submit_partial_update(v.OTGW, status_otgw)
+            self.status.submit_partial_update(OpenThermDataSource.GATEWAY, status_otgw)
             asyncio.ensure_future(self._poll_gpio())
             return ret
 
@@ -450,7 +462,7 @@ class OpenThermGateway:  # pylint: disable=too-many-public-methods
             return
         ret = float(ret)
         status_otgw[v.OTGW_SB_TEMP] = ret
-        self.status.submit_partial_update(v.OTGW, status_otgw)
+        self.status.submit_partial_update(OpenThermDataSource.GATEWAY, status_otgw)
         return ret
 
     async def add_alternative(
@@ -558,7 +570,7 @@ class OpenThermGateway:  # pylint: disable=too-many-public-methods
             return
         ret = float(ret)
         status_boiler[v.DATA_MAX_CH_SETPOINT] = ret
-        self.status.submit_partial_update(v.BOILER, status_boiler)
+        self.status.submit_partial_update(OpenThermDataSource.BOILER, status_boiler)
         return ret
 
     async def set_dhw_setpoint(
@@ -578,7 +590,7 @@ class OpenThermGateway:  # pylint: disable=too-many-public-methods
             return
         ret = float(ret)
         status_boiler[v.DATA_DHW_SETPOINT] = ret
-        self.status.submit_partial_update(v.BOILER, status_boiler)
+        self.status.submit_partial_update(OpenThermDataSource.BOILER, status_boiler)
         return ret
 
     async def set_max_relative_mod(
@@ -603,7 +615,7 @@ class OpenThermGateway:  # pylint: disable=too-many-public-methods
         if ret != "-":
             ret = int(ret)
             status_boiler[v.DATA_SLAVE_MAX_RELATIVE_MOD] = ret
-            self.status.submit_partial_update(v.BOILER, status_boiler)
+            self.status.submit_partial_update(OpenThermDataSource.BOILER, status_boiler)
         return ret
 
     async def set_control_setpoint(
@@ -623,7 +635,7 @@ class OpenThermGateway:  # pylint: disable=too-many-public-methods
             return
         ret = float(ret)
         status_boiler[v.DATA_CONTROL_SETPOINT] = ret
-        self.status.submit_partial_update(v.BOILER, status_boiler)
+        self.status.submit_partial_update(OpenThermDataSource.BOILER, status_boiler)
         return ret
 
     async def set_control_setpoint_2(
@@ -643,7 +655,7 @@ class OpenThermGateway:  # pylint: disable=too-many-public-methods
             return
         ret = float(ret)
         status_boiler[v.DATA_CONTROL_SETPOINT_2] = ret
-        self.status.submit_partial_update(v.BOILER, status_boiler)
+        self.status.submit_partial_update(OpenThermDataSource.BOILER, status_boiler)
         return ret
 
     async def set_ch_enable_bit(
@@ -668,7 +680,7 @@ class OpenThermGateway:  # pylint: disable=too-many-public-methods
             return
         ret = int(ret)
         status_boiler[v.DATA_MASTER_CH_ENABLED] = ret
-        self.status.submit_partial_update(v.BOILER, status_boiler)
+        self.status.submit_partial_update(OpenThermDataSource.BOILER, status_boiler)
         return ret
 
     async def set_ch2_enable_bit(
@@ -693,7 +705,7 @@ class OpenThermGateway:  # pylint: disable=too-many-public-methods
             return
         ret = int(ret)
         status_boiler[v.DATA_MASTER_CH2_ENABLED] = ret
-        self.status.submit_partial_update(v.BOILER, status_boiler)
+        self.status.submit_partial_update(OpenThermDataSource.BOILER, status_boiler)
         return ret
 
     async def set_ventilation(
@@ -715,7 +727,7 @@ class OpenThermGateway:  # pylint: disable=too-many-public-methods
             return
         ret = int(ret)
         status_boiler[v.DATA_COOLING_CONTROL] = ret
-        self.status.submit_partial_update(v.BOILER, status_boiler)
+        self.status.submit_partial_update(OpenThermDataSource.BOILER, status_boiler)
         return ret
 
     async def send_transparent_command(
@@ -792,8 +804,8 @@ class OpenThermGateway:  # pylint: disable=too-many-public-methods
         if we want updates.
         """
         poll = 0 in (
-            self.status.status[v.OTGW].get(v.OTGW_GPIO_A),
-            self.status.status[v.OTGW].get(v.OTGW_GPIO_B),
+            self.status.status[OpenThermDataSource.GATEWAY].get(v.OTGW_GPIO_A),
+            self.status.status[OpenThermDataSource.GATEWAY].get(v.OTGW_GPIO_B),
         )
         if poll and self._gpio_task is None:
 
@@ -810,14 +822,18 @@ class OpenThermGateway:  # pylint: disable=too-many-public-methods
                                 v.OTGW_GPIO_A_STATE: int(pios[0]),
                                 v.OTGW_GPIO_B_STATE: int(pios[1]),
                             }
-                            self.status.submit_partial_update(v.OTGW, status_otgw)
+                            self.status.submit_partial_update(
+                                OpenThermDataSource.GATEWAY, status_otgw
+                            )
                         await asyncio.sleep(interval)
                 except asyncio.CancelledError:
                     status_otgw = {
                         v.OTGW_GPIO_A_STATE: 0,
                         v.OTGW_GPIO_B_STATE: 0,
                     }
-                    self.status.submit_partial_update(v.OTGW, status_otgw)
+                    self.status.submit_partial_update(
+                        OpenThermDataSource.GATEWAY, status_otgw
+                    )
                     self._gpio_task = None
                     _LOGGER.debug("GPIO polling routine stopped")
 

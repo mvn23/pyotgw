@@ -1,5 +1,7 @@
 """Global pyotgw values"""
 
+from .types import OpenThermDataSource
+
 MSG_STATUS = b"\x00"
 MSG_TSET = b"\x01"
 MSG_MCONFIG = b"\x02"
@@ -58,11 +60,11 @@ MSG_OTVERS = b"\x7d"
 MSG_MVER = b"\x7e"
 MSG_SVER = b"\x7f"
 
-BOILER = "boiler"
-OTGW = "gateway"
-THERMOSTAT = "thermostat"
-
-DEFAULT_STATUS = {BOILER: {}, OTGW: {}, THERMOSTAT: {}}
+DEFAULT_STATUS = {
+    OpenThermDataSource.BOILER: {},
+    OpenThermDataSource.GATEWAY: {},
+    OpenThermDataSource.THERMOSTAT: {},
+}
 
 # MSG_STATUS
 DATA_MASTER_CH_ENABLED = "master_ch_enabled"

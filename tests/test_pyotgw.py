@@ -9,6 +9,7 @@ import pytest
 import serial
 
 import pyotgw.vars as v
+from pyotgw.types import OpenThermDataSource
 from tests.data import pygw_reports, pygw_status
 from tests.helpers import called_once, called_x_times
 
@@ -16,7 +17,7 @@ from tests.helpers import called_once, called_x_times
 @pytest.mark.asyncio
 async def test_cleanup(pygw):
     """Test pyotgw.cleanup()"""
-    pygw.status.submit_partial_update(v.OTGW, {v.OTGW_GPIO_A: 0})
+    pygw.status.submit_partial_update(OpenThermDataSource.GATEWAY, {v.OTGW_GPIO_A: 0})
     pygw.loop = asyncio.get_running_loop()
 
     with patch.object(pygw, "_wait_for_cmd"):
@@ -39,9 +40,7 @@ async def test_connect_success_and_reconnect_with_gpio(caplog, pygw, pygw_proto)
     ) as init_and_wait, patch(
         "serial_asyncio_fast.create_serial_connection",
         return_value=(pygw_proto.transport, pygw_proto),
-    ), caplog.at_level(
-        logging.DEBUG
-    ):
+    ), caplog.at_level(logging.DEBUG):
         status = await pygw.connect("loop://")
 
         assert status == v.DEFAULT_STATUS
@@ -69,17 +68,13 @@ async def test_connect_skip_init(caplog, pygw, pygw_proto):
         pygw,
         "get_status",
         return_value={},
-    ) as get_status, patch.object(
-        pygw, "_poll_gpio"
-    ) as poll_gpio, patch.object(
+    ) as get_status, patch.object(pygw, "_poll_gpio") as poll_gpio, patch.object(
         pygw_proto,
         "init_and_wait_for_activity",
     ) as init_and_wait, patch(
         "serial_asyncio_fast.create_serial_connection",
         return_value=(pygw_proto.transport, pygw_proto),
-    ), caplog.at_level(
-        logging.DEBUG
-    ):
+    ), caplog.at_level(logging.DEBUG):
         status = await pygw.connect("loop://", skip_init=True)
 
         assert status == v.DEFAULT_STATUS
@@ -163,9 +158,7 @@ async def test_connect_timeouterror(caplog, pygw, pygw_proto):
     ) as loops_done, patch(
         "serial_asyncio_fast.create_serial_connection",
         return_value=(pygw_proto.transport, pygw_proto),
-    ), caplog.at_level(
-        logging.DEBUG
-    ):
+    ), caplog.at_level(logging.DEBUG):
         task = loop.create_task(pygw.connect("loop://"))
         await called_x_times(loops_done, 2)
 
@@ -247,8 +240,10 @@ async def test_set_target_temp(pygw):
     )
     update_full_status.assert_called_once_with(
         {
-            v.OTGW: {v.OTGW_SETP_OVRD_MODE: v.OTGW_SETP_OVRD_DISABLED},
-            v.THERMOSTAT: {v.DATA_ROOM_SETPOINT_OVRD: None},
+            OpenThermDataSource.GATEWAY: {
+                v.OTGW_SETP_OVRD_MODE: v.OTGW_SETP_OVRD_DISABLED
+            },
+            OpenThermDataSource.THERMOSTAT: {v.DATA_ROOM_SETPOINT_OVRD: None},
         }
     )
 
@@ -266,8 +261,10 @@ async def test_set_target_temp(pygw):
     wait_for_cmd.assert_called_once_with(v.OTGW_CMD_TARGET_TEMP, "15.5", 3)
     update_full_status.assert_called_once_with(
         {
-            v.OTGW: {v.OTGW_SETP_OVRD_MODE: v.OTGW_SETP_OVRD_TEMPORARY},
-            v.THERMOSTAT: {v.DATA_ROOM_SETPOINT_OVRD: 15.5},
+            OpenThermDataSource.GATEWAY: {
+                v.OTGW_SETP_OVRD_MODE: v.OTGW_SETP_OVRD_TEMPORARY
+            },
+            OpenThermDataSource.THERMOSTAT: {v.DATA_ROOM_SETPOINT_OVRD: 15.5},
         }
     )
 
@@ -285,8 +282,10 @@ async def test_set_target_temp(pygw):
     wait_for_cmd.assert_called_once_with(v.OTGW_CMD_TARGET_TEMP_CONST, "20.5", 3)
     update_full_status.assert_called_once_with(
         {
-            v.OTGW: {v.OTGW_SETP_OVRD_MODE: v.OTGW_SETP_OVRD_PERMANENT},
-            v.THERMOSTAT: {v.DATA_ROOM_SETPOINT_OVRD: 20.5},
+            OpenThermDataSource.GATEWAY: {
+                v.OTGW_SETP_OVRD_MODE: v.OTGW_SETP_OVRD_PERMANENT
+            },
+            OpenThermDataSource.THERMOSTAT: {v.DATA_ROOM_SETPOINT_OVRD: 20.5},
         }
     )
 
@@ -315,7 +314,9 @@ async def test_set_temp_sensor_function(pygw):
         assert await pygw.set_temp_sensor_function("R", timeout=5) == "R"
 
     wait_for_cmd.assert_called_once_with(v.OTGW_CMD_TEMP_SENSOR, "R", 5)
-    update_status.assert_called_once_with(v.OTGW, {v.OTGW_TEMP_SENSOR: "R"})
+    update_status.assert_called_once_with(
+        OpenThermDataSource.GATEWAY, {v.OTGW_TEMP_SENSOR: "R"}
+    )
 
 
 @pytest.mark.asyncio
@@ -343,7 +344,9 @@ async def test_set_outside_temp(pygw):
     wait_for_cmd.assert_called_once_with(
         v.OTGW_CMD_OUTSIDE_TEMP, "23.5", v.OTGW_DEFAULT_TIMEOUT
     )
-    update_status.assert_called_once_with(v.THERMOSTAT, {v.DATA_OUTSIDE_TEMP: 23.5})
+    update_status.assert_called_once_with(
+        OpenThermDataSource.THERMOSTAT, {v.DATA_OUTSIDE_TEMP: 23.5}
+    )
 
     with patch.object(
         pygw,
@@ -358,7 +361,9 @@ async def test_set_outside_temp(pygw):
     wait_for_cmd.assert_called_once_with(
         v.OTGW_CMD_OUTSIDE_TEMP, "99.0", v.OTGW_DEFAULT_TIMEOUT
     )
-    update_status.assert_called_once_with(v.THERMOSTAT, {v.DATA_OUTSIDE_TEMP: 0.0})
+    update_status.assert_called_once_with(
+        OpenThermDataSource.THERMOSTAT, {v.DATA_OUTSIDE_TEMP: 0.0}
+    )
 
 
 @pytest.mark.asyncio
@@ -458,8 +463,8 @@ async def test_set_hot_water_ovrd(pygw):
     assert update_status.call_count == 2
     update_status.assert_has_calls(
         [
-            call(v.OTGW, {v.OTGW_DHW_OVRD: "A"}),
-            call(v.OTGW, {v.OTGW_DHW_OVRD: 1}),
+            call(OpenThermDataSource.GATEWAY, {v.OTGW_DHW_OVRD: "A"}),
+            call(OpenThermDataSource.GATEWAY, {v.OTGW_DHW_OVRD: 1}),
         ],
         any_order=False,
     )
@@ -509,7 +514,9 @@ async def test_set_led_mode(pygw):
         any_order=False,
     )
 
-    update_status.assert_called_once_with(v.OTGW, {v.OTGW_LED_A: "X"})
+    update_status.assert_called_once_with(
+        OpenThermDataSource.GATEWAY, {v.OTGW_LED_A: "X"}
+    )
 
 
 @pytest.mark.asyncio
@@ -537,7 +544,9 @@ async def test_set_gpio_mode(pygw):
         any_order=False,
     )
 
-    update_status.assert_called_once_with(v.OTGW, {v.OTGW_GPIO_B: 3})
+    update_status.assert_called_once_with(
+        OpenThermDataSource.GATEWAY, {v.OTGW_GPIO_B: 3}
+    )
 
 
 @pytest.mark.asyncio
@@ -562,7 +571,9 @@ async def test_set_setback_temp(pygw):
         any_order=False,
     )
 
-    update_status.assert_called_once_with(v.OTGW, {v.OTGW_SB_TEMP: 16.5})
+    update_status.assert_called_once_with(
+        OpenThermDataSource.GATEWAY, {v.OTGW_SB_TEMP: 16.5}
+    )
 
 
 @pytest.mark.asyncio
@@ -664,7 +675,9 @@ async def test_set_max_ch_setpoint(pygw):
         any_order=False,
     )
 
-    update_status.assert_called_once_with(v.BOILER, {v.DATA_MAX_CH_SETPOINT: 74.5})
+    update_status.assert_called_once_with(
+        OpenThermDataSource.BOILER, {v.DATA_MAX_CH_SETPOINT: 74.5}
+    )
 
 
 @pytest.mark.asyncio
@@ -690,7 +703,9 @@ async def test_set_dhw_setpoint(pygw):
         any_order=False,
     )
 
-    update_status.assert_called_once_with(v.BOILER, {v.DATA_DHW_SETPOINT: 54.5})
+    update_status.assert_called_once_with(
+        OpenThermDataSource.BOILER, {v.DATA_DHW_SETPOINT: 54.5}
+    )
 
 
 @pytest.mark.asyncio
@@ -726,7 +741,7 @@ async def test_set_max_relative_mod(pygw):
     assert update_status.call_count == 1
     update_status.assert_has_calls(
         [
-            call(v.BOILER, {v.DATA_SLAVE_MAX_RELATIVE_MOD: 55}),
+            call(OpenThermDataSource.BOILER, {v.DATA_SLAVE_MAX_RELATIVE_MOD: 55}),
         ],
         any_order=False,
     )
@@ -755,7 +770,9 @@ async def test_set_control_setpoint(pygw):
         any_order=False,
     )
 
-    update_status.assert_called_once_with(v.BOILER, {v.DATA_CONTROL_SETPOINT: 19.5})
+    update_status.assert_called_once_with(
+        OpenThermDataSource.BOILER, {v.DATA_CONTROL_SETPOINT: 19.5}
+    )
 
 
 @pytest.mark.asyncio
@@ -781,7 +798,9 @@ async def test_set_control_setpoint_2(pygw):
         any_order=False,
     )
 
-    update_status.assert_called_once_with(v.BOILER, {v.DATA_CONTROL_SETPOINT_2: 19.5})
+    update_status.assert_called_once_with(
+        OpenThermDataSource.BOILER, {v.DATA_CONTROL_SETPOINT_2: 19.5}
+    )
 
 
 @pytest.mark.asyncio
@@ -808,7 +827,9 @@ async def test_set_ch_enable_bit(pygw):
         any_order=False,
     )
 
-    update_status.assert_called_once_with(v.BOILER, {v.DATA_MASTER_CH_ENABLED: 1})
+    update_status.assert_called_once_with(
+        OpenThermDataSource.BOILER, {v.DATA_MASTER_CH_ENABLED: 1}
+    )
 
 
 @pytest.mark.asyncio
@@ -836,7 +857,9 @@ async def test_set_ch2_enable_bit(pygw):
         any_order=False,
     )
 
-    update_status.assert_called_once_with(v.BOILER, {v.DATA_MASTER_CH2_ENABLED: 1})
+    update_status.assert_called_once_with(
+        OpenThermDataSource.BOILER, {v.DATA_MASTER_CH2_ENABLED: 1}
+    )
 
 
 @pytest.mark.asyncio
@@ -864,7 +887,9 @@ async def test_set_ventilation(pygw):
         any_order=False,
     )
 
-    update_status.assert_called_once_with(v.BOILER, {v.DATA_COOLING_CONTROL: 75})
+    update_status.assert_called_once_with(
+        OpenThermDataSource.BOILER, {v.DATA_COOLING_CONTROL: 75}
+    )
 
 
 @pytest.mark.asyncio
@@ -918,9 +943,7 @@ async def test_wait_for_cmd(caplog, pygw, pygw_proto):
         pygw_proto.command_processor,
         "issue_cmd",
         side_effect=[None, "0", asyncio.TimeoutError, ValueError],
-    ) as issue_cmd, caplog.at_level(
-        logging.ERROR
-    ):
+    ) as issue_cmd, caplog.at_level(logging.ERROR):
         assert await pygw._wait_for_cmd(v.OTGW_CMD_MODE, "G") is None
         assert await pygw._wait_for_cmd(v.OTGW_CMD_SUMMARY, 0) == "0"
         assert await pygw._wait_for_cmd(v.OTGW_CMD_REPORT, "I", 1) is None
@@ -956,13 +979,15 @@ async def test_poll_gpio(caplog, pygw):
     """Test pyotgw._poll_gpio()"""
     pygw._gpio_task = None
     pygw.loop = asyncio.get_running_loop()
-    pygw.status.submit_partial_update(v.OTGW, {v.OTGW_GPIO_A: 4, v.OTGW_GPIO_B: 1})
+    pygw.status.submit_partial_update(
+        OpenThermDataSource.GATEWAY, {v.OTGW_GPIO_A: 4, v.OTGW_GPIO_B: 1}
+    )
 
     with caplog.at_level(logging.DEBUG):
         await pygw._poll_gpio()
     assert len(caplog.records) == 0
 
-    pygw.status.submit_partial_update(v.OTGW, {v.OTGW_GPIO_B: 0})
+    pygw.status.submit_partial_update(OpenThermDataSource.GATEWAY, {v.OTGW_GPIO_B: 0})
     with patch.object(
         pygw,
         "_wait_for_cmd",
@@ -970,16 +995,14 @@ async def test_poll_gpio(caplog, pygw):
     ) as wait_for_cmd, patch.object(
         pygw.status,
         "submit_partial_update",
-    ) as update_status, caplog.at_level(
-        logging.DEBUG
-    ):
+    ) as update_status, caplog.at_level(logging.DEBUG):
         await pygw._poll_gpio()
         await called_once(update_status)
 
     assert isinstance(pygw._gpio_task, asyncio.Task)
     wait_for_cmd.assert_awaited_once_with(v.OTGW_CMD_REPORT, v.OTGW_REPORT_GPIO_STATES)
     update_status.assert_called_once_with(
-        v.OTGW,
+        OpenThermDataSource.GATEWAY,
         {v.OTGW_GPIO_A_STATE: 1, v.OTGW_GPIO_B_STATE: 0},
     )
     assert caplog.record_tuples == [
@@ -987,7 +1010,7 @@ async def test_poll_gpio(caplog, pygw):
     ]
 
     caplog.clear()
-    pygw.status.submit_partial_update(v.OTGW, {v.OTGW_GPIO_B: 1})
+    pygw.status.submit_partial_update(OpenThermDataSource.GATEWAY, {v.OTGW_GPIO_B: 1})
     with patch.object(
         pygw.status,
         "submit_partial_update",
@@ -997,7 +1020,7 @@ async def test_poll_gpio(caplog, pygw):
 
     assert pygw._gpio_task is None
     update_status.assert_called_once_with(
-        v.OTGW,
+        OpenThermDataSource.GATEWAY,
         {v.OTGW_GPIO_A_STATE: 0, v.OTGW_GPIO_B_STATE: 0},
     )
     assert caplog.record_tuples == [

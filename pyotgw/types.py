@@ -1,6 +1,14 @@
 """pyotgw types."""
 
-from enum import IntEnum
+from enum import IntEnum, StrEnum
+
+
+class OpenThermDataSource(StrEnum):
+    """OpenTherm data sources."""
+
+    BOILER = "boiler"
+    GATEWAY = "gateway"
+    THERMOSTAT = "thermostat"
 
 
 class OpenThermMessageType(IntEnum):

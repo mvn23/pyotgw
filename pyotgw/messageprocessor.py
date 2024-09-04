@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING
 
 from . import messages as m
 from . import vars as v
-from .types import OpenThermMessageType
+from .types import OpenThermDataSource, OpenThermMessageType
 
 if TYPE_CHECKING:
     from .commandprocessor import CommandProcessor
@@ -132,9 +132,9 @@ class MessageProcessor:
             return
 
         if src in "TA":
-            part = v.THERMOSTAT
+            part = OpenThermDataSource.THERMOSTAT
         else:  # src in "BR"
-            part = v.BOILER
+            part = OpenThermDataSource.BOILER
         update = {}
 
         for action in m.REGISTRY[msgid][m.MSG_TYPE[mtype]]:
@@ -165,7 +165,9 @@ class MessageProcessor:
             update.update({var: val})
         return update
 
-    async def _quirk_trovrd(self, part: str, src: str, msb: bytes, lsb: bytes) -> None:
+    async def _quirk_trovrd(
+        self, part: OpenThermDataSource, src: str, msb: bytes, lsb: bytes
+    ) -> None:
         """Handle MSG_TROVRD with iSense quirk"""
         update = {}
         ovrd_value = self._get_f8_8(msb, lsb)
@@ -173,7 +175,10 @@ class MessageProcessor:
             # iSense quirk: the gateway keeps sending override value
             # even if the thermostat has cancelled the override.
             if (
-                self.status_manager.status[v.OTGW].get(v.OTGW_THRM_DETECT) == "I"
+                self.status_manager.status[OpenThermDataSource.GATEWAY].get(
+                    v.OTGW_THRM_DETECT
+                )
+                == "I"
                 and src == "A"
             ):
                 ovrd = await self.command_processor.issue_cmd(
@@ -192,11 +197,13 @@ class MessageProcessor:
         else:
             self.status_manager.delete_value(part, v.DATA_ROOM_SETPOINT_OVRD)
 
-    async def _quirk_trset_s2m(self, part: str, msb: bytes, lsb: bytes) -> None:
+    async def _quirk_trset_s2m(
+        self, part: OpenThermDataSource, msb: bytes, lsb: bytes
+    ) -> None:
         """Handle MSG_TRSET with gateway quirk"""
         # Ignore s2m messages on thermostat side as they are ALWAYS WriteAcks
         # but may contain invalid data.
-        if part == v.THERMOSTAT:
+        if part == OpenThermDataSource.THERMOSTAT:
             return
 
         self.status_manager.submit_partial_update(

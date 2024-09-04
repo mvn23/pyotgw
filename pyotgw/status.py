@@ -4,10 +4,11 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from collections.abc import Awaitable, Callable
 from copy import deepcopy
-from typing import Awaitable, Callable
 
 from . import vars as v
+from .types import OpenThermDataSource
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -30,11 +31,11 @@ class StatusManager:
         self._status = deepcopy(v.DEFAULT_STATUS)
 
     @property
-    def status(self) -> dict[str, dict]:
+    def status(self) -> dict[OpenThermDataSource, dict]:
         """Return the full status dict"""
         return deepcopy(self._status)
 
-    def delete_value(self, part: str, key: str) -> bool:
+    def delete_value(self, part: OpenThermDataSource, key: str) -> bool:
         """Delete key from status part."""
         try:
             del self._status[part][key]
@@ -43,7 +44,7 @@ class StatusManager:
         self._updateq.put_nowait(self.status)
         return True
 
-    def submit_partial_update(self, part: str, update: dict) -> bool:
+    def submit_partial_update(self, part: OpenThermDataSource, update: dict) -> bool:
         """
         Submit an update for part of the status dict to the queue.
         Return a boolean indicating success.
@@ -58,14 +59,14 @@ class StatusManager:
         self._updateq.put_nowait(self.status)
         return True
 
-    def submit_full_update(self, update: dict[str, dict]) -> bool:
+    def submit_full_update(self, update: dict[OpenThermDataSource, dict]) -> bool:
         """
         Submit an update for multiple parts of the status dict to the
         queue. Return a boolean indicating success.
         """
         for part, values in update.items():
             # First we verify all data
-            if part not in self.status:
+            if not isinstance(part, OpenThermDataSource):
                 _LOGGER.error("Invalid status part for update: %s", part)
                 return False
             if not isinstance(values, dict):
@@ -77,7 +78,9 @@ class StatusManager:
         self._updateq.put_nowait(self.status)
         return True
 
-    def subscribe(self, callback: Callable[[dict[str, dict]], Awaitable[None]]) -> bool:
+    def subscribe(
+        self, callback: Callable[[dict[OpenThermDataSource, dict]], Awaitable[None]]
+    ) -> bool:
         """
         Subscribe callback for future status updates.
         Return boolean indicating success.
@@ -87,7 +90,9 @@ class StatusManager:
         self._notify.append(callback)
         return True
 
-    def unsubscribe(self, callback: Callable[[dict[str, dict]], Awaitable[None]]) -> bool:
+    def unsubscribe(
+        self, callback: Callable[[dict[OpenThermDataSource, dict]], Awaitable[None]]
+    ) -> bool:
         """
         Unsubscribe callback from future status updates.
         Return boolean indicating success.

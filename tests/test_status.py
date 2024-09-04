@@ -1,4 +1,5 @@
 """Tests for pyotgw/status.py"""
+
 import asyncio
 import logging
 from unittest.mock import MagicMock
@@ -6,6 +7,7 @@ from unittest.mock import MagicMock
 import pytest
 
 import pyotgw.vars as v
+from pyotgw.types import OpenThermDataSource
 from tests.helpers import called_once
 
 
@@ -13,7 +15,7 @@ def test_reset(pygw_status):
     """Test StatusManager.reset()"""
     assert pygw_status.status == v.DEFAULT_STATUS
 
-    pygw_status.submit_partial_update(v.OTGW, {"Test": "value"})
+    pygw_status.submit_partial_update(OpenThermDataSource.GATEWAY, {"Test": "value"})
 
     assert pygw_status.status != v.DEFAULT_STATUS
     assert not pygw_status._updateq.empty()
@@ -33,12 +35,16 @@ def test_status(pygw_status):
 def test_delete_value(pygw_status):
     """Test StatusManager.delete_value()"""
     assert not pygw_status.delete_value("Invalid", v.OTGW_MODE)
-    assert not pygw_status.delete_value(v.OTGW, v.OTGW_MODE)
+    assert not pygw_status.delete_value(OpenThermDataSource.GATEWAY, v.OTGW_MODE)
 
-    pygw_status.submit_partial_update(v.THERMOSTAT, {v.DATA_ROOM_SETPOINT: 20.5})
+    pygw_status.submit_partial_update(
+        OpenThermDataSource.THERMOSTAT, {v.DATA_ROOM_SETPOINT: 20.5}
+    )
     pygw_status._updateq.get_nowait()
 
-    assert pygw_status.delete_value(v.THERMOSTAT, v.DATA_ROOM_SETPOINT)
+    assert pygw_status.delete_value(
+        OpenThermDataSource.THERMOSTAT, v.DATA_ROOM_SETPOINT
+    )
     assert pygw_status._updateq.get_nowait() == v.DEFAULT_STATUS
 
 
@@ -58,42 +64,50 @@ def test_submit_partial_update(caplog, pygw_status):
     caplog.clear()
 
     with caplog.at_level(logging.ERROR):
-        assert not pygw_status.submit_partial_update(v.OTGW, "Invalid")
+        assert not pygw_status.submit_partial_update(
+            OpenThermDataSource.GATEWAY, "Invalid"
+        )
 
     assert pygw_status._updateq.empty()
     assert caplog.record_tuples == [
         (
             "pyotgw.status",
             logging.ERROR,
-            f"Update for {v.OTGW} is not a dict: Invalid",
+            f"Update for {OpenThermDataSource.GATEWAY} is not a dict: Invalid",
         ),
     ]
     caplog.clear()
 
-    pygw_status.submit_partial_update(v.BOILER, {v.DATA_CONTROL_SETPOINT: 1.5})
-    pygw_status.submit_partial_update(v.OTGW, {v.OTGW_ABOUT: "test value"})
-    pygw_status.submit_partial_update(v.THERMOSTAT, {v.DATA_ROOM_SETPOINT: 20})
+    pygw_status.submit_partial_update(
+        OpenThermDataSource.BOILER, {v.DATA_CONTROL_SETPOINT: 1.5}
+    )
+    pygw_status.submit_partial_update(
+        OpenThermDataSource.GATEWAY, {v.OTGW_ABOUT: "test value"}
+    )
+    pygw_status.submit_partial_update(
+        OpenThermDataSource.THERMOSTAT, {v.DATA_ROOM_SETPOINT: 20}
+    )
 
     assert pygw_status.status == {
-        v.BOILER: {v.DATA_CONTROL_SETPOINT: 1.5},
-        v.OTGW: {v.OTGW_ABOUT: "test value"},
-        v.THERMOSTAT: {v.DATA_ROOM_SETPOINT: 20},
+        OpenThermDataSource.BOILER: {v.DATA_CONTROL_SETPOINT: 1.5},
+        OpenThermDataSource.GATEWAY: {v.OTGW_ABOUT: "test value"},
+        OpenThermDataSource.THERMOSTAT: {v.DATA_ROOM_SETPOINT: 20},
     }
     assert pygw_status._updateq.qsize() == 3
     assert pygw_status._updateq.get_nowait() == {
-        v.BOILER: {v.DATA_CONTROL_SETPOINT: 1.5},
-        v.OTGW: {},
-        v.THERMOSTAT: {},
+        OpenThermDataSource.BOILER: {v.DATA_CONTROL_SETPOINT: 1.5},
+        OpenThermDataSource.GATEWAY: {},
+        OpenThermDataSource.THERMOSTAT: {},
     }
     assert pygw_status._updateq.get_nowait() == {
-        v.BOILER: {v.DATA_CONTROL_SETPOINT: 1.5},
-        v.OTGW: {v.OTGW_ABOUT: "test value"},
-        v.THERMOSTAT: {},
+        OpenThermDataSource.BOILER: {v.DATA_CONTROL_SETPOINT: 1.5},
+        OpenThermDataSource.GATEWAY: {v.OTGW_ABOUT: "test value"},
+        OpenThermDataSource.THERMOSTAT: {},
     }
     assert pygw_status._updateq.get_nowait() == {
-        v.BOILER: {v.DATA_CONTROL_SETPOINT: 1.5},
-        v.OTGW: {v.OTGW_ABOUT: "test value"},
-        v.THERMOSTAT: {v.DATA_ROOM_SETPOINT: 20},
+        OpenThermDataSource.BOILER: {v.DATA_CONTROL_SETPOINT: 1.5},
+        OpenThermDataSource.GATEWAY: {v.OTGW_ABOUT: "test value"},
+        OpenThermDataSource.THERMOSTAT: {v.DATA_ROOM_SETPOINT: 20},
     }
 
 
@@ -117,36 +131,36 @@ def test_submit_full_update(caplog, pygw_status):
     caplog.clear()
 
     with caplog.at_level(logging.ERROR):
-        pygw_status.submit_full_update({v.OTGW: "Invalid"})
+        pygw_status.submit_full_update({OpenThermDataSource.GATEWAY: "Invalid"})
 
     assert pygw_status._updateq.empty()
     assert caplog.record_tuples == [
         (
             "pyotgw.status",
             logging.ERROR,
-            f"Update for {v.OTGW} is not a dict: Invalid",
+            f"Update for {OpenThermDataSource.GATEWAY} is not a dict: Invalid",
         ),
     ]
     caplog.clear()
 
     pygw_status.submit_full_update(
         {
-            v.BOILER: {v.DATA_CONTROL_SETPOINT: 1.5},
-            v.OTGW: {v.OTGW_ABOUT: "test value"},
-            v.THERMOSTAT: {v.DATA_ROOM_SETPOINT: 20},
+            OpenThermDataSource.BOILER: {v.DATA_CONTROL_SETPOINT: 1.5},
+            OpenThermDataSource.GATEWAY: {v.OTGW_ABOUT: "test value"},
+            OpenThermDataSource.THERMOSTAT: {v.DATA_ROOM_SETPOINT: 20},
         }
     )
 
     assert pygw_status.status == {
-        v.BOILER: {v.DATA_CONTROL_SETPOINT: 1.5},
-        v.OTGW: {v.OTGW_ABOUT: "test value"},
-        v.THERMOSTAT: {v.DATA_ROOM_SETPOINT: 20},
+        OpenThermDataSource.BOILER: {v.DATA_CONTROL_SETPOINT: 1.5},
+        OpenThermDataSource.GATEWAY: {v.OTGW_ABOUT: "test value"},
+        OpenThermDataSource.THERMOSTAT: {v.DATA_ROOM_SETPOINT: 20},
     }
     assert pygw_status._updateq.qsize() == 1
     assert pygw_status._updateq.get_nowait() == {
-        v.BOILER: {v.DATA_CONTROL_SETPOINT: 1.5},
-        v.OTGW: {v.OTGW_ABOUT: "test value"},
-        v.THERMOSTAT: {v.DATA_ROOM_SETPOINT: 20},
+        OpenThermDataSource.BOILER: {v.DATA_CONTROL_SETPOINT: 1.5},
+        OpenThermDataSource.GATEWAY: {v.OTGW_ABOUT: "test value"},
+        OpenThermDataSource.THERMOSTAT: {v.DATA_ROOM_SETPOINT: 20},
     }
 
 
@@ -212,14 +226,16 @@ async def test_process_updates(caplog, pygw_status):
 
     pygw_status.subscribe(mock_callback_1)
     pygw_status.subscribe(mock_callback_2)
-    pygw_status.submit_partial_update(v.OTGW, {v.OTGW_ABOUT: "Test Value"})
+    pygw_status.submit_partial_update(
+        OpenThermDataSource.GATEWAY, {v.OTGW_ABOUT: "Test Value"}
+    )
     await asyncio.gather(called_once(mock_callback_1), called_once(mock_callback_2))
 
     for mock in (mock_callback_1, mock_callback_2):
         mock.assert_called_once_with(
             {
-                v.BOILER: {},
-                v.OTGW: {v.OTGW_ABOUT: "Test Value"},
-                v.THERMOSTAT: {},
+                OpenThermDataSource.BOILER: {},
+                OpenThermDataSource.GATEWAY: {v.OTGW_ABOUT: "Test Value"},
+                OpenThermDataSource.THERMOSTAT: {},
             }
         )
