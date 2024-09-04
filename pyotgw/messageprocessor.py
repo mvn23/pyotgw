@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING
 
 from . import messages as m
 from . import vars as v
-from .types import OpenThermDataSource, OpenThermMessageType
+from .types import OpenThermCommand, OpenThermDataSource, OpenThermMessageType
 
 if TYPE_CHECKING:
     from .commandprocessor import CommandProcessor
@@ -182,7 +182,7 @@ class MessageProcessor:
                 and src == "A"
             ):
                 ovrd = await self.command_processor.issue_cmd(
-                    v.OTGW_CMD_REPORT, v.OTGW_REPORT_SETPOINT_OVRD
+                    OpenThermCommand.REPORT, v.OTGW_REPORT_SETPOINT_OVRD
                 )
                 match = re.match(r"^O=(N|[CT]([0-9]+.[0-9]+))$", ovrd, re.IGNORECASE)
                 if not match:

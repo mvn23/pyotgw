@@ -5,14 +5,16 @@ from __future__ import annotations
 import asyncio
 import logging
 import re
-from typing import Awaitable, Callable, TYPE_CHECKING
+from collections.abc import Awaitable, Callable
+from typing import TYPE_CHECKING
 
-from . import vars as v
 from .commandprocessor import CommandProcessor
 from .messageprocessor import MessageProcessor
+from .types import OpenThermCommand
 
 if TYPE_CHECKING:
     from serial import SerialException
+
     from .status import StatusManager
 
 _LOGGER = logging.getLogger(__name__)
@@ -136,6 +138,6 @@ class OpenThermProtocol(asyncio.Protocol):  # pylint: disable=too-many-instance-
 
     async def init_and_wait_for_activity(self) -> None:
         """Wait for activity on the serial connection."""
-        await self.command_processor.issue_cmd(v.OTGW_CMD_SUMMARY, 0, retry=1)
+        await self.command_processor.issue_cmd(OpenThermCommand.SUMMARY, 0, retry=1)
         while not self.active:
             await asyncio.sleep(0)
