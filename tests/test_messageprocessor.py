@@ -8,7 +8,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from pyotgw import vars as v
-from pyotgw.types import OpenThermDataSource, OpenThermMessageType
+from pyotgw.types import OpenThermDataSource, OpenThermMessageID, OpenThermMessageType
 from tests.data import pygw_proto_messages
 from tests.helpers import called_once
 
@@ -132,7 +132,7 @@ async def test_process_msg(pygw_message_processor):
     test_case = (
         "B",
         OpenThermMessageType.READ_ACK,
-        v.MSG_TROVRD,
+        OpenThermMessageID.TROVRD,
         b"\x10",
         b"\x80",
     )

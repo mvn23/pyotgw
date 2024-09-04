@@ -9,7 +9,12 @@ from typing import TYPE_CHECKING
 
 from . import messages as m
 from . import vars as v
-from .types import OpenThermCommand, OpenThermDataSource, OpenThermMessageType
+from .types import (
+    OpenThermCommand,
+    OpenThermDataSource,
+    OpenThermMessageID,
+    OpenThermMessageType,
+)
 
 if TYPE_CHECKING:
     from .commandprocessor import CommandProcessor
@@ -64,7 +69,10 @@ class MessageProcessor:
 
     def _dissect_msg(
         self, match: re.match
-    ) -> tuple[str, int, bytes, bytes, bytes] | tuple[None, None, None, None, None]:
+    ) -> (
+        tuple[str, OpenThermMessageType, OpenThermMessageID, bytes, bytes]
+        | tuple[None, None, None, None, None]
+    ):
         """
         Split messages into bytes and return a tuple of bytes.
         """
@@ -116,7 +124,10 @@ class MessageProcessor:
             )
             await self._process_msg(args)
 
-    async def _process_msg(self, message: tuple[str, int, bytes, bytes, bytes]) -> None:
+    async def _process_msg(
+        self,
+        message: tuple[str, OpenThermMessageType, OpenThermMessageID, bytes, bytes],
+    ) -> None:
         """
         Process message and update status variables where necessary.
         Add status to queue if it was changed in the process.

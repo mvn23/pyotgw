@@ -3,7 +3,7 @@
 from types import SimpleNamespace
 
 import pyotgw.vars as v
-from pyotgw.types import OpenThermDataSource, OpenThermMessageType
+from pyotgw.types import OpenThermDataSource, OpenThermMessageID, OpenThermMessageType
 
 _report_responses_51 = {
     v.OTGW_REPORT_ABOUT: "A=OpenTherm Gateway 5.1",
@@ -251,7 +251,13 @@ pygw_proto_messages = (
     ),
     # _get_flag8
     (
-        ("T", OpenThermMessageType.READ_DATA, v.MSG_STATUS, b"\x43", b"\x00"),
+        (
+            "T",
+            OpenThermMessageType.READ_DATA,
+            OpenThermMessageID.STATUS,
+            b"\x43",
+            b"\x00",
+        ),
         {
             OpenThermDataSource.BOILER: {},
             OpenThermDataSource.GATEWAY: {},
@@ -266,7 +272,13 @@ pygw_proto_messages = (
     ),
     # _get_f8_8
     (
-        ("B", OpenThermMessageType.WRITE_ACK, v.MSG_TDHWSET, b"\x14", b"\x80"),
+        (
+            "B",
+            OpenThermMessageType.WRITE_ACK,
+            OpenThermMessageID.TDHWSET,
+            b"\x14",
+            b"\x80",
+        ),
         {
             OpenThermDataSource.BOILER: {v.DATA_DHW_SETPOINT: 20.5},
             OpenThermDataSource.GATEWAY: {},
@@ -278,7 +290,7 @@ pygw_proto_messages = (
         (
             "R",
             OpenThermMessageType.READ_ACK,
-            v.MSG_STATUSVH,
+            OpenThermMessageID.STATUSVH,
             b"\00",
             int("01010101", 2).to_bytes(1, "big"),
         ),
@@ -300,7 +312,7 @@ pygw_proto_messages = (
         (
             "R",
             OpenThermMessageType.WRITE_ACK,
-            v.MSG_SCONFIG,
+            OpenThermMessageID.SCONFIG,
             int("10101010", 2).to_bytes(1, "big"),
             b"\xff",
         ),
@@ -320,7 +332,13 @@ pygw_proto_messages = (
     ),
     # _get_u16
     (
-        ("A", OpenThermMessageType.READ_ACK, v.MSG_BURNSTARTS, b"\x12", b"\xaa"),
+        (
+            "A",
+            OpenThermMessageType.READ_ACK,
+            OpenThermMessageID.BURNSTARTS,
+            b"\x12",
+            b"\xaa",
+        ),
         {
             OpenThermDataSource.BOILER: {},
             OpenThermDataSource.GATEWAY: {},
@@ -329,7 +347,13 @@ pygw_proto_messages = (
     ),
     # _get_s8
     (
-        ("R", OpenThermMessageType.WRITE_ACK, v.MSG_TCHSETUL, b"\x50", b"\x1e"),
+        (
+            "R",
+            OpenThermMessageType.WRITE_ACK,
+            OpenThermMessageID.TCHSETUL,
+            b"\x50",
+            b"\x1e",
+        ),
         {
             OpenThermDataSource.BOILER: {
                 v.DATA_SLAVE_CH_MAX_SETP: 80,
@@ -341,7 +365,13 @@ pygw_proto_messages = (
     ),
     # _get_s16
     (
-        ("B", OpenThermMessageType.READ_ACK, v.MSG_TEXHAUST, b"\xff", b"\x83"),
+        (
+            "B",
+            OpenThermMessageType.READ_ACK,
+            OpenThermMessageID.TEXHAUST,
+            b"\xff",
+            b"\x83",
+        ),
         {
             OpenThermDataSource.BOILER: {v.DATA_EXHAUST_TEMP: -125},
             OpenThermDataSource.GATEWAY: {},
