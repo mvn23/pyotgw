@@ -6,7 +6,7 @@ from unittest.mock import MagicMock, call, patch
 
 import pytest
 
-import pyotgw.vars as v
+from pyotgw.types import OpenThermCommand
 from tests.helpers import called_once, let_queue_drain
 
 
@@ -36,13 +36,16 @@ async def test_issue_cmd(caplog, pygw_proto):
     """Test OpenThermProtocol.issue_cmd()"""
     pygw_proto._connected = False
     with caplog.at_level(logging.DEBUG):
-        assert await pygw_proto.command_processor.issue_cmd("PS", 1, 0) is None
+        assert (
+            await pygw_proto.command_processor.issue_cmd(OpenThermCommand.SUMMARY, 1, 0)
+            is None
+        )
 
     assert caplog.record_tuples == [
         (
             "pyotgw.commandprocessor",
             logging.DEBUG,
-            "Serial transport closed, not sending command PS",
+            f"Serial transport closed, not sending command {OpenThermCommand.SUMMARY}",
         ),
     ]
     caplog.clear()
@@ -55,7 +58,7 @@ async def test_issue_cmd(caplog, pygw_proto):
     with caplog.at_level(logging.DEBUG):
         task = loop.create_task(
             pygw_proto.command_processor.issue_cmd(
-                v.OTGW_CMD_REPORT,
+                OpenThermCommand.REPORT,
                 "I",
                 1,
             )
@@ -72,7 +75,7 @@ async def test_issue_cmd(caplog, pygw_proto):
             (
                 "pyotgw.commandprocessor",
                 logging.DEBUG,
-                "Sending command: PR with value I",
+                f"Sending command: {OpenThermCommand.REPORT} with value I",
             ),
         ]
         caplog.clear()
@@ -101,17 +104,17 @@ async def test_issue_cmd(caplog, pygw_proto):
         (
             "pyotgw.commandprocessor",
             logging.DEBUG,
-            "Got possible response for command PR: SE",
+            f"Got possible response for command {OpenThermCommand.REPORT}: SE",
         ),
         (
             "pyotgw.commandprocessor",
             logging.WARNING,
-            "Command PR failed with SE, retrying...",
+            f"Command {OpenThermCommand.REPORT} failed with SE, retrying...",
         ),
         (
             "pyotgw.commandprocessor",
             logging.DEBUG,
-            "Got possible response for command PR: SE",
+            f"Got possible response for command {OpenThermCommand.REPORT}: SE",
         ),
     ]
     caplog.clear()
@@ -120,7 +123,7 @@ async def test_issue_cmd(caplog, pygw_proto):
     with caplog.at_level(logging.WARNING):
         task = loop.create_task(
             pygw_proto.command_processor.issue_cmd(
-                v.OTGW_CMD_CONTROL_SETPOINT_2,
+                OpenThermCommand.CONTROL_SETPOINT_2,
                 20.501,
                 1,
             )
@@ -128,7 +131,9 @@ async def test_issue_cmd(caplog, pygw_proto):
         await called_once(pygw_proto.transport.write)
         pygw_proto.transport.write.assert_called_once_with(b"C2=20.50\r\n")
         pygw_proto.command_processor.submit_response("InvalidCommand")
-        pygw_proto.command_processor.submit_response("C2: 20.50")
+        pygw_proto.command_processor.submit_response(
+            f"{OpenThermCommand.CONTROL_SETPOINT_2}: 20.50"
+        )
         assert await task == "20.50"
 
     assert pygw_proto.transport.write.call_args_list == [
@@ -144,7 +149,7 @@ async def test_issue_cmd(caplog, pygw_proto):
         (
             "pyotgw.commandprocessor",
             logging.WARNING,
-            "Command C2 failed with InvalidCommand, retrying...",
+            f"Command {OpenThermCommand.CONTROL_SETPOINT_2} failed with InvalidCommand, retrying...",
         ),
     ]
     caplog.clear()
@@ -153,7 +158,7 @@ async def test_issue_cmd(caplog, pygw_proto):
     with caplog.at_level(logging.WARNING):
         task = loop.create_task(
             pygw_proto.command_processor.issue_cmd(
-                v.OTGW_CMD_CONTROL_HEATING_2,
+                OpenThermCommand.CONTROL_HEATING_2,
                 -1,
                 2,
             )
@@ -161,8 +166,12 @@ async def test_issue_cmd(caplog, pygw_proto):
         await called_once(pygw_proto.transport.write)
         pygw_proto.transport.write.assert_called_once_with(b"H2=-1\r\n")
         pygw_proto.command_processor.submit_response("Error 03")
-        pygw_proto.command_processor.submit_response("H2: BV")
-        pygw_proto.command_processor.submit_response("H2: BV")
+        pygw_proto.command_processor.submit_response(
+            f"{OpenThermCommand.CONTROL_HEATING_2}: BV"
+        )
+        pygw_proto.command_processor.submit_response(
+            f"{OpenThermCommand.CONTROL_HEATING_2}: BV"
+        )
         with pytest.raises(ValueError):
             await task
 
@@ -176,19 +185,19 @@ async def test_issue_cmd(caplog, pygw_proto):
         (
             "pyotgw.commandprocessor",
             logging.WARNING,
-            "Command H2 failed with Error 03, retrying...",
+            f"Command {OpenThermCommand.CONTROL_HEATING_2} failed with Error 03, retrying...",
         ),
         (
             "pyotgw.commandprocessor",
             logging.WARNING,
-            "Command H2 failed with H2: BV, retrying...",
+            f"Command {OpenThermCommand.CONTROL_HEATING_2} failed with {OpenThermCommand.CONTROL_HEATING_2}: BV, retrying...",
         ),
     ]
 
     pygw_proto.transport.write = MagicMock()
     task = loop.create_task(
         pygw_proto.command_processor.issue_cmd(
-            v.OTGW_CMD_MODE,
+            OpenThermCommand.MODE,
             "R",
             0,
         )
@@ -202,13 +211,13 @@ async def test_issue_cmd(caplog, pygw_proto):
     pygw_proto.transport.write = MagicMock()
     task = loop.create_task(
         pygw_proto.command_processor.issue_cmd(
-            v.OTGW_CMD_SUMMARY,
+            OpenThermCommand.SUMMARY,
             1,
             0,
         )
     )
     await called_once(pygw_proto.transport.write)
-    pygw_proto.command_processor.submit_response("PS: 1")
+    pygw_proto.command_processor.submit_response(f"{OpenThermCommand.SUMMARY}: 1")
     pygw_proto.command_processor.submit_response(
         "part_2_will_normally_be_parsed_by_get_status",
     )

@@ -3,6 +3,7 @@
 from types import SimpleNamespace
 
 import pyotgw.vars as v
+from pyotgw.types import OpenThermDataSource, OpenThermMessageID, OpenThermMessageType
 
 _report_responses_51 = {
     v.OTGW_REPORT_ABOUT: "A=OpenTherm Gateway 5.1",
@@ -42,8 +43,8 @@ _report_responses_42 = {
 }
 
 _report_expect_51 = {
-    v.BOILER: {},
-    v.OTGW: {
+    OpenThermDataSource.BOILER: {},
+    OpenThermDataSource.GATEWAY: {
         v.OTGW_ABOUT: "OpenTherm Gateway 5.1",
         v.OTGW_BUILD: "17:44 11-02-2021",
         v.OTGW_CLOCKMHZ: "4 MHz",
@@ -67,12 +68,12 @@ _report_expect_51 = {
         v.OTGW_SB_TEMP: 16.5,
         v.OTGW_VREF: 3,
     },
-    v.THERMOSTAT: {v.DATA_ROOM_SETPOINT_OVRD: 20.5},
+    OpenThermDataSource.THERMOSTAT: {v.DATA_ROOM_SETPOINT_OVRD: 20.5},
 }
 
 _report_expect_42 = {
-    v.BOILER: {},
-    v.OTGW: {
+    OpenThermDataSource.BOILER: {},
+    OpenThermDataSource.GATEWAY: {
         v.OTGW_ABOUT: "OpenTherm Gateway 4.2.5",
         v.OTGW_BUILD: "17:59 20-10-2015",
         v.OTGW_CLOCKMHZ: None,
@@ -96,7 +97,7 @@ _report_expect_42 = {
         v.OTGW_SB_TEMP: 16.5,
         v.OTGW_VREF: 3,
     },
-    v.THERMOSTAT: {v.DATA_ROOM_SETPOINT_OVRD: 20.5},
+    OpenThermDataSource.THERMOSTAT: {v.DATA_ROOM_SETPOINT_OVRD: 20.5},
 }
 
 pygw_reports = SimpleNamespace(
@@ -113,7 +114,7 @@ _status_5 = (
     "7654,6543,54321,43210,32101,21012,10123,99"
 )
 _status_expect_5 = {
-    v.BOILER: {
+    OpenThermDataSource.BOILER: {
         v.DATA_SLAVE_FAULT_IND: 1,
         v.DATA_SLAVE_CH_ACTIVE: 0,
         v.DATA_SLAVE_DHW_ACTIVE: 1,
@@ -159,8 +160,8 @@ _status_expect_5 = {
         v.DATA_DHW_PUMP_HOURS: 10123,
         v.DATA_DHW_BURNER_HOURS: 99,
     },
-    v.OTGW: {},
-    v.THERMOSTAT: {
+    OpenThermDataSource.GATEWAY: {},
+    OpenThermDataSource.THERMOSTAT: {
         v.DATA_MASTER_CH_ENABLED: 0,
         v.DATA_MASTER_DHW_ENABLED: 1,
         v.DATA_MASTER_COOLING_ENABLED: 0,
@@ -185,7 +186,7 @@ _status_4 = (
     "9.09,0.98,12/34,56/78,9.87,8.76,1234,2345,3456,4567,5678,6789,7890,8909"
 )
 _status_expect_4 = {
-    v.BOILER: {
+    OpenThermDataSource.BOILER: {
         v.DATA_SLAVE_FAULT_IND: 1,
         v.DATA_SLAVE_CH_ACTIVE: 0,
         v.DATA_SLAVE_DHW_ACTIVE: 1,
@@ -221,8 +222,8 @@ _status_expect_4 = {
         v.DATA_DHW_PUMP_HOURS: 7890,
         v.DATA_DHW_BURNER_HOURS: 8909,
     },
-    v.OTGW: {},
-    v.THERMOSTAT: {
+    OpenThermDataSource.GATEWAY: {},
+    OpenThermDataSource.THERMOSTAT: {
         v.DATA_MASTER_CH_ENABLED: 0,
         v.DATA_MASTER_DHW_ENABLED: 1,
         v.DATA_MASTER_COOLING_ENABLED: 0,
@@ -250,11 +251,17 @@ pygw_proto_messages = (
     ),
     # _get_flag8
     (
-        ("T", v.READ_DATA, v.MSG_STATUS, b"\x43", b"\x00"),
+        (
+            "T",
+            OpenThermMessageType.READ_DATA,
+            OpenThermMessageID.STATUS,
+            b"\x43",
+            b"\x00",
+        ),
         {
-            v.BOILER: {},
-            v.OTGW: {},
-            v.THERMOSTAT: {
+            OpenThermDataSource.BOILER: {},
+            OpenThermDataSource.GATEWAY: {},
+            OpenThermDataSource.THERMOSTAT: {
                 v.DATA_MASTER_CH_ENABLED: 1,
                 v.DATA_MASTER_DHW_ENABLED: 1,
                 v.DATA_MASTER_COOLING_ENABLED: 0,
@@ -265,20 +272,30 @@ pygw_proto_messages = (
     ),
     # _get_f8_8
     (
-        ("B", v.WRITE_ACK, v.MSG_TDHWSET, b"\x14", b"\x80"),
-        {v.BOILER: {v.DATA_DHW_SETPOINT: 20.5}, v.OTGW: {}, v.THERMOSTAT: {}},
+        (
+            "B",
+            OpenThermMessageType.WRITE_ACK,
+            OpenThermMessageID.TDHWSET,
+            b"\x14",
+            b"\x80",
+        ),
+        {
+            OpenThermDataSource.BOILER: {v.DATA_DHW_SETPOINT: 20.5},
+            OpenThermDataSource.GATEWAY: {},
+            OpenThermDataSource.THERMOSTAT: {},
+        },
     ),
     # _get_flag8 with skipped bits
     (
         (
             "R",
-            v.READ_ACK,
-            v.MSG_STATUSVH,
+            OpenThermMessageType.READ_ACK,
+            OpenThermMessageID.STATUSVH,
             b"\00",
             int("01010101", 2).to_bytes(1, "big"),
         ),
         {
-            v.BOILER: {
+            OpenThermDataSource.BOILER: {
                 v.DATA_VH_SLAVE_FAULT_INDICATE: 1,
                 v.DATA_VH_SLAVE_VENT_MODE: 0,
                 v.DATA_VH_SLAVE_BYPASS_STATUS: 1,
@@ -286,21 +303,21 @@ pygw_proto_messages = (
                 v.DATA_VH_SLAVE_FREE_VENT_STATUS: 1,
                 v.DATA_VH_SLAVE_DIAG_INDICATE: 1,
             },
-            v.OTGW: {},
-            v.THERMOSTAT: {},
+            OpenThermDataSource.GATEWAY: {},
+            OpenThermDataSource.THERMOSTAT: {},
         },
     ),
     # Combined _get_flag8 and _get_u8
     (
         (
             "R",
-            v.WRITE_ACK,
-            v.MSG_SCONFIG,
+            OpenThermMessageType.WRITE_ACK,
+            OpenThermMessageID.SCONFIG,
             int("10101010", 2).to_bytes(1, "big"),
-            b"\xFF",
+            b"\xff",
         ),
         {
-            v.BOILER: {
+            OpenThermDataSource.BOILER: {
                 v.DATA_SLAVE_DHW_PRESENT: 0,
                 v.DATA_SLAVE_CONTROL_TYPE: 1,
                 v.DATA_SLAVE_COOLING_SUPPORTED: 0,
@@ -309,27 +326,56 @@ pygw_proto_messages = (
                 v.DATA_SLAVE_CH2_PRESENT: 1,
                 v.DATA_SLAVE_MEMBERID: 255,
             },
-            v.OTGW: {},
-            v.THERMOSTAT: {},
+            OpenThermDataSource.GATEWAY: {},
+            OpenThermDataSource.THERMOSTAT: {},
         },
     ),
     # _get_u16
     (
-        ("A", v.READ_ACK, v.MSG_BURNSTARTS, b"\x12", b"\xAA"),
-        {v.BOILER: {}, v.OTGW: {}, v.THERMOSTAT: {v.DATA_TOTAL_BURNER_STARTS: 4778}},
+        (
+            "A",
+            OpenThermMessageType.READ_ACK,
+            OpenThermMessageID.BURNSTARTS,
+            b"\x12",
+            b"\xaa",
+        ),
+        {
+            OpenThermDataSource.BOILER: {},
+            OpenThermDataSource.GATEWAY: {},
+            OpenThermDataSource.THERMOSTAT: {v.DATA_TOTAL_BURNER_STARTS: 4778},
+        },
     ),
     # _get_s8
     (
-        ("R", v.WRITE_ACK, v.MSG_TCHSETUL, b"\x50", b"\x1E"),
+        (
+            "R",
+            OpenThermMessageType.WRITE_ACK,
+            OpenThermMessageID.TCHSETUL,
+            b"\x50",
+            b"\x1e",
+        ),
         {
-            v.BOILER: {v.DATA_SLAVE_CH_MAX_SETP: 80, v.DATA_SLAVE_CH_MIN_SETP: 30},
-            v.OTGW: {},
-            v.THERMOSTAT: {},
+            OpenThermDataSource.BOILER: {
+                v.DATA_SLAVE_CH_MAX_SETP: 80,
+                v.DATA_SLAVE_CH_MIN_SETP: 30,
+            },
+            OpenThermDataSource.GATEWAY: {},
+            OpenThermDataSource.THERMOSTAT: {},
         },
     ),
     # _get_s16
     (
-        ("B", v.READ_ACK, v.MSG_TEXHAUST, b"\xFF", b"\x83"),
-        {v.BOILER: {v.DATA_EXHAUST_TEMP: -125}, v.OTGW: {}, v.THERMOSTAT: {}},
+        (
+            "B",
+            OpenThermMessageType.READ_ACK,
+            OpenThermMessageID.TEXHAUST,
+            b"\xff",
+            b"\x83",
+        ),
+        {
+            OpenThermDataSource.BOILER: {v.DATA_EXHAUST_TEMP: -125},
+            OpenThermDataSource.GATEWAY: {},
+            OpenThermDataSource.THERMOSTAT: {},
+        },
     ),
 )

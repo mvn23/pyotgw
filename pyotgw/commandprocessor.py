@@ -9,6 +9,7 @@ from asyncio.queues import QueueFull
 from typing import TYPE_CHECKING
 
 from . import vars as v
+from .types import OpenThermCommand
 
 if TYPE_CHECKING:
     from .status import StatusManager
@@ -31,7 +32,7 @@ class CommandProcessor:
         self.status_manager = status_manager
 
     async def issue_cmd(
-        self, cmd: str, value: str | float | int, retry: int = 3
+        self, cmd: OpenThermCommand, value: str | float | int, retry: int = 3
     ) -> bool | str | list[str] | None:
         """
         Issue a command, then await and return the return value.
@@ -65,7 +66,7 @@ class CommandProcessor:
                         raise v.OTGW_ERRS[msg]
                     await send_again(msg)
                     return
-                if cmd == v.OTGW_CMD_MODE and value == "R":
+                if cmd == OpenThermCommand.MODE and value == "R":
                     # Device was reset, msg contains build info
                     while not re.match(r"OpenTherm Gateway \d+(\.\d+)*", msg):
                         msg = await self._cmdq.get()
@@ -79,7 +80,7 @@ class CommandProcessor:
                         await send_again(msg)
                         return
                     ret = match.group(1)
-                    if cmd == v.OTGW_CMD_SUMMARY and ret == "1":
+                    if cmd == OpenThermCommand.SUMMARY and ret == "1":
                         # Expects a second line
                         part2 = await self._cmdq.get()
                         ret = [ret, part2]
@@ -118,17 +119,17 @@ class CommandProcessor:
             _LOGGER.error("Queue full, discarded message: %s", response)
 
     @staticmethod
-    def _get_expected_response(cmd: str, value: str | int) -> str:
+    def _get_expected_response(cmd: OpenThermCommand, value: str | int) -> str:
         """Return the expected response pattern"""
-        if cmd == v.OTGW_CMD_REPORT:
+        if cmd == OpenThermCommand.REPORT:
             return rf"^{cmd}:\s*([A-Z]{{2}}|{value}=[^$]+)$"
         # OTGW_CMD_CONTROL_HEATING_2 and OTGW_CMD_CONTROL_SETPOINT_2 do not adhere
         # to the standard response format (<cmd>: <value>) at the moment, but report
         # only the value. This will likely be fixed in the future, so we support
         # both formats.
         if cmd in (
-            v.OTGW_CMD_CONTROL_HEATING_2,
-            v.OTGW_CMD_CONTROL_SETPOINT_2,
+            OpenThermCommand.CONTROL_HEATING_2,
+            OpenThermCommand.CONTROL_SETPOINT_2,
         ):
             return rf"^(?:{cmd}:\s*)?(0|1|[0-9]+\.[0-9]{{2}}|[A-Z]{{2}})$"
         return rf"^{cmd}:\s*([^$]+)$"

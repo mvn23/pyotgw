@@ -1,6 +1,7 @@
 """Data related to message processing"""
 
 from . import vars as v
+from .types import OpenThermMessageID, OpenThermMessageType
 
 _GET_FLAG8 = "_get_flag8"
 _GET_FLOAT = "_get_f8_8"
@@ -18,10 +19,10 @@ RETURNS = "returns"
 S2M = "s2m"
 
 MSG_TYPE = {
-    v.READ_DATA: M2S,
-    v.WRITE_DATA: M2S,
-    v.READ_ACK: S2M,
-    v.WRITE_ACK: S2M,
+    OpenThermMessageType.READ_DATA: M2S,
+    OpenThermMessageType.WRITE_DATA: M2S,
+    OpenThermMessageType.READ_ACK: S2M,
+    OpenThermMessageType.WRITE_ACK: S2M,
 }
 
 REGISTRY = {
@@ -34,7 +35,7 @@ REGISTRY = {
     #         },
     #     ],
     # }
-    v.MSG_STATUS: {
+    OpenThermMessageID.STATUS: {
         M2S: [
             {
                 FUNC: _GET_FLAG8,
@@ -64,7 +65,7 @@ REGISTRY = {
             },
         ],
     },
-    v.MSG_TSET: {
+    OpenThermMessageID.TSET: {
         M2S: [],
         S2M: [
             {
@@ -77,11 +78,11 @@ REGISTRY = {
             },
         ],
     },
-    v.MSG_MCONFIG: {
+    OpenThermMessageID.MCONFIG: {
         M2S: [{FUNC: _GET_U8, ARGS: (_LSB,), RETURNS: (v.DATA_MASTER_MEMBERID,)}],
         S2M: [],
     },
-    v.MSG_SCONFIG: {
+    OpenThermMessageID.SCONFIG: {
         M2S: [],
         S2M: [
             {
@@ -99,8 +100,8 @@ REGISTRY = {
             {FUNC: _GET_U8, ARGS: (_LSB,), RETURNS: (v.DATA_SLAVE_MEMBERID,)},
         ],
     },
-    v.MSG_COMMAND: {M2S: [], S2M: []},
-    v.MSG_ASFFLAGS: {
+    OpenThermMessageID.COMMAND: {M2S: [], S2M: []},
+    OpenThermMessageID.ASFFLAGS: {
         M2S: [],
         S2M: [
             {
@@ -118,7 +119,7 @@ REGISTRY = {
             {FUNC: _GET_U8, ARGS: (_LSB,), RETURNS: (v.DATA_SLAVE_OEM_FAULT,)},
         ],
     },
-    v.MSG_RBPFLAGS: {
+    OpenThermMessageID.RBPFLAGS: {
         M2S: [],
         S2M: [
             {
@@ -139,7 +140,7 @@ REGISTRY = {
             },
         ],
     },
-    v.MSG_COOLING: {
+    OpenThermMessageID.COOLING: {
         M2S: [],
         S2M: [
             {
@@ -152,7 +153,7 @@ REGISTRY = {
             },
         ],
     },
-    v.MSG_TSETC2: {
+    OpenThermMessageID.TSETC2: {
         M2S: [],
         S2M: [
             {
@@ -165,7 +166,7 @@ REGISTRY = {
             },
         ],
     },
-    v.MSG_TROVRD: {
+    OpenThermMessageID.TROVRD: {
         M2S: [],
         S2M: [
             {
@@ -180,11 +181,11 @@ REGISTRY = {
             },
         ],
     },
-    v.MSG_TSP: {M2S: [], S2M: []},
-    v.MSG_TSPIDX: {M2S: [], S2M: []},
-    v.MSG_FHBSIZE: {M2S: [], S2M: []},
-    v.MSG_FHBIDX: {M2S: [], S2M: []},
-    v.MSG_MAXRMOD: {
+    OpenThermMessageID.TSP: {M2S: [], S2M: []},
+    OpenThermMessageID.TSPIDX: {M2S: [], S2M: []},
+    OpenThermMessageID.FHBSIZE: {M2S: [], S2M: []},
+    OpenThermMessageID.FHBIDX: {M2S: [], S2M: []},
+    OpenThermMessageID.MAXRMOD: {
         M2S: [],
         S2M: [
             {
@@ -197,14 +198,14 @@ REGISTRY = {
             },
         ],
     },
-    v.MSG_MAXCAPMINMOD: {
+    OpenThermMessageID.MAXCAPMINMOD: {
         M2S: [],
         S2M: [
             {FUNC: _GET_U8, ARGS: (_MSB,), RETURNS: (v.DATA_SLAVE_MAX_CAPACITY,)},
             {FUNC: _GET_U8, ARGS: (_LSB,), RETURNS: (v.DATA_SLAVE_MIN_MOD_LEVEL,)},
         ],
     },
-    v.MSG_TRSET: {
+    OpenThermMessageID.TRSET: {
         M2S: [
             {
                 FUNC: _GET_FLOAT,
@@ -227,7 +228,7 @@ REGISTRY = {
             },
         ],
     },
-    v.MSG_RELMOD: {
+    OpenThermMessageID.RELMOD: {
         M2S: [],
         S2M: [
             {
@@ -240,7 +241,7 @@ REGISTRY = {
             },
         ],
     },
-    v.MSG_CHPRESS: {
+    OpenThermMessageID.CHPRESS: {
         M2S: [],
         S2M: [
             {
@@ -253,7 +254,7 @@ REGISTRY = {
             },
         ],
     },
-    v.MSG_DHWFLOW: {
+    OpenThermMessageID.DHWFLOW: {
         M2S: [],
         S2M: [
             {
@@ -266,10 +267,10 @@ REGISTRY = {
             },
         ],
     },
-    v.MSG_TIME: {M2S: [], S2M: []},
-    v.MSG_DATE: {M2S: [], S2M: []},
-    v.MSG_YEAR: {M2S: [], S2M: []},
-    v.MSG_TRSET2: {
+    OpenThermMessageID.TIME: {M2S: [], S2M: []},
+    OpenThermMessageID.DATE: {M2S: [], S2M: []},
+    OpenThermMessageID.YEAR: {M2S: [], S2M: []},
+    OpenThermMessageID.TRSET2: {
         M2S: [
             {
                 FUNC: _GET_FLOAT,
@@ -282,7 +283,7 @@ REGISTRY = {
         ],
         S2M: [],
     },
-    v.MSG_TROOM: {
+    OpenThermMessageID.TROOM: {
         M2S: [
             {
                 FUNC: _GET_FLOAT,
@@ -295,7 +296,7 @@ REGISTRY = {
         ],
         S2M: [],
     },
-    v.MSG_TBOILER: {
+    OpenThermMessageID.TBOILER: {
         M2S: [],
         S2M: [
             {
@@ -308,7 +309,7 @@ REGISTRY = {
             },
         ],
     },
-    v.MSG_TDHW: {
+    OpenThermMessageID.TDHW: {
         M2S: [],
         S2M: [
             {
@@ -321,7 +322,7 @@ REGISTRY = {
             }
         ],
     },
-    v.MSG_TOUTSIDE: {
+    OpenThermMessageID.TOUTSIDE: {
         M2S: [],
         S2M: [
             {
@@ -334,7 +335,7 @@ REGISTRY = {
             },
         ],
     },
-    v.MSG_TRET: {
+    OpenThermMessageID.TRET: {
         M2S: [],
         S2M: [
             {
@@ -347,7 +348,7 @@ REGISTRY = {
             },
         ],
     },
-    v.MSG_TSTOR: {
+    OpenThermMessageID.TSTOR: {
         M2S: [],
         S2M: [
             {
@@ -360,7 +361,7 @@ REGISTRY = {
             },
         ],
     },
-    v.MSG_TCOLL: {
+    OpenThermMessageID.TCOLL: {
         M2S: [],
         S2M: [
             {
@@ -373,7 +374,7 @@ REGISTRY = {
             },
         ],
     },
-    v.MSG_TFLOWCH2: {
+    OpenThermMessageID.TFLOWCH2: {
         M2S: [],
         S2M: [
             {
@@ -386,7 +387,7 @@ REGISTRY = {
             },
         ],
     },
-    v.MSG_TDHW2: {
+    OpenThermMessageID.TDHW2: {
         M2S: [],
         S2M: [
             {
@@ -399,7 +400,7 @@ REGISTRY = {
             }
         ],
     },
-    v.MSG_TEXHAUST: {
+    OpenThermMessageID.TEXHAUST: {
         M2S: [],
         S2M: [
             {
@@ -412,22 +413,22 @@ REGISTRY = {
             }
         ],
     },
-    v.MSG_TDHWSETUL: {
+    OpenThermMessageID.TDHWSETUL: {
         M2S: [],
         S2M: [
             {FUNC: _GET_S8, ARGS: (_MSB,), RETURNS: (v.DATA_SLAVE_DHW_MAX_SETP,)},
             {FUNC: _GET_S8, ARGS: (_LSB,), RETURNS: (v.DATA_SLAVE_DHW_MIN_SETP,)},
         ],
     },
-    v.MSG_TCHSETUL: {
+    OpenThermMessageID.TCHSETUL: {
         M2S: [],
         S2M: [
             {FUNC: _GET_S8, ARGS: (_MSB,), RETURNS: (v.DATA_SLAVE_CH_MAX_SETP,)},
             {FUNC: _GET_S8, ARGS: (_LSB,), RETURNS: (v.DATA_SLAVE_CH_MIN_SETP,)},
         ],
     },
-    v.MSG_OTCCURVEUL: {M2S: [], S2M: []},
-    v.MSG_TDHWSET: {
+    OpenThermMessageID.OTCCURVEUL: {M2S: [], S2M: []},
+    OpenThermMessageID.TDHWSET: {
         M2S: [],
         S2M: [
             {
@@ -440,7 +441,7 @@ REGISTRY = {
             },
         ],
     },
-    v.MSG_MAXTSET: {
+    OpenThermMessageID.MAXTSET: {
         M2S: [],
         S2M: [
             {
@@ -453,8 +454,8 @@ REGISTRY = {
             },
         ],
     },
-    v.MSG_OTCCURVE: {M2S: [], S2M: []},
-    v.MSG_STATUSVH: {
+    OpenThermMessageID.OTCCURVE: {M2S: [], S2M: []},
+    OpenThermMessageID.STATUSVH: {
         M2S: [
             {
                 FUNC: _GET_FLAG8,
@@ -483,15 +484,15 @@ REGISTRY = {
             },
         ],
     },
-    v.MSG_RELVENTPOS: {
+    OpenThermMessageID.RELVENTPOS: {
         M2S: [{FUNC: _GET_U8, ARGS: (_MSB,), RETURNS: (v.DATA_VH_CONTROL_SETPOINT,)}],
         S2M: [],
     },
-    v.MSG_RELVENT: {
+    OpenThermMessageID.RELVENT: {
         M2S: [],
         S2M: [{FUNC: _GET_U8, ARGS: (_MSB,), RETURNS: (v.DATA_VH_RELATIVE_VENT,)}],
     },
-    v.MSG_ROVRD: {
+    OpenThermMessageID.ROVRD: {
         M2S: [],
         S2M: [
             {
@@ -504,7 +505,7 @@ REGISTRY = {
             },
         ],
     },
-    v.MSG_OEMDIAG: {
+    OpenThermMessageID.OEMDIAG: {
         M2S: [],
         S2M: [
             {
@@ -517,7 +518,7 @@ REGISTRY = {
             }
         ],
     },
-    v.MSG_BURNSTARTS: {
+    OpenThermMessageID.BURNSTARTS: {
         M2S: [],
         S2M: [
             {
@@ -530,7 +531,7 @@ REGISTRY = {
             },
         ],
     },
-    v.MSG_CHPUMPSTARTS: {
+    OpenThermMessageID.CHPUMPSTARTS: {
         M2S: [],
         S2M: [
             {
@@ -543,7 +544,7 @@ REGISTRY = {
             },
         ],
     },
-    v.MSG_DHWPUMPSTARTS: {
+    OpenThermMessageID.DHWPUMPSTARTS: {
         M2S: [],
         S2M: [
             {
@@ -556,7 +557,7 @@ REGISTRY = {
             },
         ],
     },
-    v.MSG_DHWBURNSTARTS: {
+    OpenThermMessageID.DHWBURNSTARTS: {
         M2S: [],
         S2M: [
             {
@@ -569,7 +570,7 @@ REGISTRY = {
             },
         ],
     },
-    v.MSG_BURNHRS: {
+    OpenThermMessageID.BURNHRS: {
         M2S: [],
         S2M: [
             {
@@ -582,7 +583,7 @@ REGISTRY = {
             },
         ],
     },
-    v.MSG_CHPUMPHRS: {
+    OpenThermMessageID.CHPUMPHRS: {
         M2S: [],
         S2M: [
             {
@@ -595,7 +596,7 @@ REGISTRY = {
             }
         ],
     },
-    v.MSG_DHWPUMPHRS: {
+    OpenThermMessageID.DHWPUMPHRS: {
         M2S: [],
         S2M: [
             {
@@ -608,7 +609,7 @@ REGISTRY = {
             },
         ],
     },
-    v.MSG_DHWBURNHRS: {
+    OpenThermMessageID.DHWBURNHRS: {
         M2S: [],
         S2M: [
             {
@@ -621,7 +622,7 @@ REGISTRY = {
             },
         ],
     },
-    v.MSG_OTVERM: {
+    OpenThermMessageID.OTVERM: {
         M2S: [
             {
                 FUNC: _GET_FLOAT,
@@ -634,7 +635,7 @@ REGISTRY = {
         ],
         S2M: [],
     },
-    v.MSG_OTVERS: {
+    OpenThermMessageID.OTVERS: {
         M2S: [],
         S2M: [
             {
@@ -647,14 +648,14 @@ REGISTRY = {
             },
         ],
     },
-    v.MSG_MVER: {
+    OpenThermMessageID.MVER: {
         M2S: [
             {FUNC: _GET_U8, ARGS: (_MSB,), RETURNS: (v.DATA_MASTER_PRODUCT_TYPE,)},
             {FUNC: _GET_U8, ARGS: (_LSB,), RETURNS: (v.DATA_MASTER_PRODUCT_VERSION,)},
         ],
         S2M: [],
     },
-    v.MSG_SVER: {
+    OpenThermMessageID.SVER: {
         M2S: [],
         S2M: [
             {FUNC: _GET_U8, ARGS: (_MSB,), RETURNS: (v.DATA_SLAVE_PRODUCT_TYPE,)},
