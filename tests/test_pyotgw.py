@@ -8,13 +8,15 @@ from unittest.mock import AsyncMock, MagicMock, call, patch
 import pytest
 import serial
 
-import pyotgw.vars as v
+from pyotgw.pyotgw import GPIO_POLL_TASK_NAME
 from pyotgw.types import (
     OpenThermCommand,
     OpenThermDataSource,
     OpenThermGatewayOpMode,
     OpenThermReport,
 )
+import pyotgw.vars as v
+
 from tests.data import pygw_reports, pygw_status
 from tests.helpers import called_once, called_x_times
 
@@ -29,9 +31,9 @@ async def test_cleanup(pygw):
 
     with patch.object(pygw, "_wait_for_cmd"):
         await pygw._poll_gpio()
-        assert pygw._gpio_task
+        assert GPIO_POLL_TASK_NAME in pygw._poll_tasks
         await pygw.cleanup()
-        assert not pygw._gpio_task
+        assert pygw._poll_tasks == {}
 
 
 @pytest.mark.asyncio
@@ -1012,7 +1014,6 @@ async def test_wait_for_cmd(caplog, pygw, pygw_proto):
 @pytest.mark.asyncio
 async def test_poll_gpio(caplog, pygw):
     """Test pyotgw._poll_gpio()"""
-    pygw._gpio_task = None
     pygw.loop = asyncio.get_running_loop()
     pygw.status.submit_partial_update(
         OpenThermDataSource.GATEWAY, {v.OTGW_GPIO_A: 4, v.OTGW_GPIO_B: 1}
@@ -1034,7 +1035,8 @@ async def test_poll_gpio(caplog, pygw):
         await pygw._poll_gpio()
         await called_once(update_status)
 
-    assert isinstance(pygw._gpio_task, asyncio.Task)
+    assert GPIO_POLL_TASK_NAME in pygw._poll_tasks
+    assert isinstance(pygw._poll_tasks[GPIO_POLL_TASK_NAME], asyncio.Task)
     wait_for_cmd.assert_awaited_once_with(
         OpenThermCommand.REPORT, v.OTGW_REPORT_GPIO_STATES
     )
@@ -1055,7 +1057,7 @@ async def test_poll_gpio(caplog, pygw):
         await pygw._poll_gpio()
         await called_once(update_status)
 
-    assert pygw._gpio_task is None
+    assert GPIO_POLL_TASK_NAME not in pygw._poll_tasks
     update_status.assert_called_once_with(
         OpenThermDataSource.GATEWAY,
         {v.OTGW_GPIO_A_STATE: 0, v.OTGW_GPIO_B_STATE: 0},

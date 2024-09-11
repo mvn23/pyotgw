@@ -6,7 +6,7 @@ import asyncio
 import logging
 from collections.abc import Awaitable, Callable
 from datetime import datetime
-from typing import TYPE_CHECKING, Literal
+from typing import TYPE_CHECKING, Final, Literal
 
 from . import vars as v
 from .connection import ConnectionManager
@@ -25,6 +25,9 @@ if TYPE_CHECKING:
 _LOGGER = logging.getLogger(__name__)
 
 
+GPIO_POLL_TASK_NAME: Final = "gpio_poll"
+
+
 class OpenThermGateway:  # pylint: disable=too-many-public-methods
     """Main OpenThermGateway object abstraction"""
 
@@ -32,7 +35,7 @@ class OpenThermGateway:  # pylint: disable=too-many-public-methods
         """Create an OpenThermGateway object."""
         self._transport = None
         self._protocol = None
-        self._gpio_task = None
+        self._poll_tasks = {}
         self._skip_init = False
         self.status = StatusManager()
         self.connection = ConnectionManager(self)
@@ -41,9 +44,9 @@ class OpenThermGateway:  # pylint: disable=too-many-public-methods
         """Clean up tasks."""
         await self.connection.disconnect()
         await self.status.cleanup()
-        if self._gpio_task:
-            self._gpio_task.cancel()
-            await self._gpio_task
+        for task in list(self._poll_tasks.values()):
+            task.cancel()
+            await task
 
     async def connect(
         self,
@@ -857,7 +860,7 @@ class OpenThermGateway:  # pylint: disable=too-many-public-methods
             self.status.status[OpenThermDataSource.GATEWAY].get(v.OTGW_GPIO_A),
             self.status.status[OpenThermDataSource.GATEWAY].get(v.OTGW_GPIO_B),
         )
-        if poll and self._gpio_task is None:
+        if poll and GPIO_POLL_TASK_NAME not in self._poll_tasks:
 
             async def polling_routine() -> None:
                 """Poll GPIO state every @interval seconds."""
@@ -884,14 +887,20 @@ class OpenThermGateway:  # pylint: disable=too-many-public-methods
                     self.status.submit_partial_update(
                         OpenThermDataSource.GATEWAY, status_otgw
                     )
-                    self._gpio_task = None
+                    del self._poll_tasks[GPIO_POLL_TASK_NAME]
                     _LOGGER.debug("GPIO polling routine stopped")
 
             _LOGGER.debug("Starting GPIO polling routine")
-            self._gpio_task = asyncio.get_running_loop().create_task(polling_routine())
-        elif not poll and self._gpio_task is not None:
+            self._poll_tasks.update(
+                {
+                    GPIO_POLL_TASK_NAME: asyncio.get_running_loop().create_task(
+                        polling_routine()
+                    ),
+                }
+            )
+        elif not poll and GPIO_POLL_TASK_NAME in self._poll_tasks:
             _LOGGER.debug("Stopping GPIO polling routine")
-            self._gpio_task.cancel()
+            self._poll_tasks[GPIO_POLL_TASK_NAME].cancel()
 
 
 def process_statusfields_v4(status_fields: list[str]) -> tuple[dict]:
