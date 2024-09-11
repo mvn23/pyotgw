@@ -1,5 +1,16 @@
 # pyotgw Changelog
 
+### master
+- Add pyproject.toml
+- Move tox.ini to pyproject.toml
+- Add OpenThermMessageType class
+- Add OpenThermDataSource class
+- Add OpenThermCommand class, replace OTGW_CMD_* vars
+- Update and clean up pre-commit config
+- Add OpenThermMessageID classm replace MSG_* vars
+- Add OpenThermGatewayOpMode enum
+- Make OpenThermGateway.restart_gateway() a separate method from OpenThermGateway.set_mode()
+
 ### 2.2.0
 - Split status line processing into functions (#65)
 - Various small fixes (#64)

@@ -119,6 +119,14 @@ Returns the full updated status dict.
 This method is a coroutine.
 
 ---
+##### OpenThermGateway.restart_gateway(_self_, timeout=OTGW_DEFAULT_TIMEOUT)
+Restart the OpenTherm Gateway.
+
+Return the status dict after re-initialization.
+
+This method is a coroutine.
+
+---
 ##### OpenThermGateway.set_ch_enable_bit(_self_, ch_bit, timeout=OTGW_DEFAULT_TIMEOUT)
 Set or unset the `Central Heating Enable` bit.
 Control the CH enable status bit when overriding the control setpoint. By default the CH enable bit is set after a call to `OpenThermGateway.set_control_setpoint()` with a value other than 0. With this method, the bit can be manipulated.
@@ -288,12 +296,12 @@ This method is a coroutine.
 ---
 ##### OpenThermGateway.set_mode(_self_, mode, timeout=OTGW_DEFAULT_TIMEOUT)
 Set the operating mode of the gateway.
-The operating mode can be either `gateway` or `monitor` mode. This method can also be used to reset the OpenTherm Gateway.
+The operating mode can be either `gateway` or `monitor` mode.
 This method supports the following arguments:
-- __mode__ The mode to be set on the gateway. Can be `0` or `OTGW_MODE_MONITOR` for `monitor` mode, `1` or `OTGW_MODE_GATEWAY` for `gateway mode, or `OTGW_MODE_RESET` to reset the gateway.
+- __mode__ The mode to be set on the gateway. One of OpenThermGatewayOpMode.GATEWAY or OpenThermGatewayOpMode.MONITOR.
 - __timeout__ The timeout for the request. Defaults to OTGW_DEFAULT_TIMEOUT (3 seconds).
 
-Return the newly activated mode, or the full renewed status dict after a reset.
+Return the newly activated mode.
 
 This method is a coroutine.
 

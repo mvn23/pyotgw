@@ -11,7 +11,7 @@ from typing import TYPE_CHECKING, Literal
 from . import vars as v
 from .connection import ConnectionManager
 from .status import StatusManager
-from .types import OpenThermCommand, OpenThermDataSource
+from .types import OpenThermCommand, OpenThermDataSource, OpenThermGatewayOpMode
 
 if TYPE_CHECKING:
     from .connection import ConnectionConfig
@@ -305,6 +305,24 @@ class OpenThermGateway:  # pylint: disable=too-many-public-methods
         )
         return self.status.status
 
+    async def restart_gateway(
+        self, timeout: asyncio.Timeout = v.OTGW_DEFAULT_TIMEOUT
+    ) -> dict[str, dict] | None:
+        """
+        Restart the OpenTherm Gateway.
+        Return the full renewed status dict.
+
+        This method is a coroutine
+        """
+        cmd = OpenThermCommand.MODE
+        ret = await self._wait_for_cmd(cmd, "R", timeout)
+        if ret is None:
+            return
+        self.status.reset()
+        await self.get_reports()
+        await self.get_status()
+        return self.status.status
+
     async def set_hot_water_ovrd(
         self, state: int | str, timeout: asyncio.Timeout = v.OTGW_DEFAULT_TIMEOUT
     ) -> int | str | None:
@@ -339,31 +357,37 @@ class OpenThermGateway:  # pylint: disable=too-many-public-methods
         return ret
 
     async def set_mode(
-        self, mode: int | str, timeout: asyncio.Timeout = v.OTGW_DEFAULT_TIMEOUT
+        self,
+        mode: OpenThermGatewayOpMode,
+        timeout: asyncio.Timeout = v.OTGW_DEFAULT_TIMEOUT,
     ) -> int | dict[str, dict] | None:
         """
         Set the operating mode to either "Gateway" mode (:mode: =
-        OTGW_MODE_GATEWAY or 1) or "Monitor" mode (:mode: =
-        OTGW_MODE_MONITOR or 0), or use this method to reset the device
-        (:mode: = OTGW_MODE_RESET).
-        Return the newly activated mode, or the full renewed status
-        dict after a reset.
+        OpenThermGatewayOpMode.GATEWAY) or "Monitor" mode (:mode: =
+        OpenThermGatewayOpMode.MONITOR).
+        Return the newly activated mode.
 
         This method is a coroutine
         """
         cmd = OpenThermCommand.MODE
-        status_otgw = {}
-        ret = await self._wait_for_cmd(cmd, mode, timeout)
-        if ret is None:
+        if mode == OpenThermGatewayOpMode.MONITOR:
+            value = 0
+        elif mode == OpenThermGatewayOpMode.GATEWAY:
+            value = 1
+        else:
             return
-        if mode is v.OTGW_MODE_RESET:
-            self.status.reset()
-            await self.get_reports()
-            await self.get_status()
-            return self.status.status
-        status_otgw[v.OTGW_MODE] = ret
+        status_otgw = {}
+        ret = await self._wait_for_cmd(cmd, value, timeout)
+
+        if ret == 0:
+            new_mode = OpenThermGatewayOpMode.MONITOR
+        elif ret == 1:
+            new_mode = OpenThermGatewayOpMode.GATEWAY
+        else:
+            return
+        status_otgw[v.OTGW_MODE] = new_mode
         self.status.submit_partial_update(OpenThermDataSource.GATEWAY, status_otgw)
-        return ret
+        return new_mode
 
     async def set_led_mode(
         self, led_id: str, mode: str, timeout: asyncio.Timeout = v.OTGW_DEFAULT_TIMEOUT

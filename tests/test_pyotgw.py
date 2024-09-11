@@ -9,7 +9,7 @@ import pytest
 import serial
 
 import pyotgw.vars as v
-from pyotgw.types import OpenThermCommand, OpenThermDataSource
+from pyotgw.types import OpenThermCommand, OpenThermDataSource, OpenThermGatewayOpMode
 from tests.data import pygw_reports, pygw_status
 from tests.helpers import called_once, called_x_times
 
@@ -434,6 +434,21 @@ async def test_get_status(pygw):
 
 
 @pytest.mark.asyncio
+async def test_restart_gateway(pygw):
+    """Test pyotgw.restart_gateway()"""
+    with patch.object(pygw, "_wait_for_cmd", side_effect=[True, None]), patch.object(
+        pygw, "get_reports"
+    ) as get_reports, patch.object(
+        pygw,
+        "get_status",
+    ) as get_status:
+        assert await pygw.restart_gateway() == v.DEFAULT_STATUS
+        assert await pygw.restart_gateway() is None
+        get_reports.assert_called_once()
+        get_status.assert_called_once()
+
+
+@pytest.mark.asyncio
 async def test_set_hot_water_ovrd(pygw):
     """Test pyotgw.set_hot_water_ovrd()"""
     with patch.object(
@@ -473,21 +488,12 @@ async def test_set_hot_water_ovrd(pygw):
 @pytest.mark.asyncio
 async def test_set_mode(pygw):
     """Test pyotgw.set_mode()"""
-    with patch.object(pygw, "_wait_for_cmd", side_effect=[None, v.OTGW_MODE_MONITOR]):
-        assert await pygw.set_mode(v.OTGW_MODE_GATEWAY) is None
-        assert await pygw.set_mode(v.OTGW_MODE_MONITOR) == v.OTGW_MODE_MONITOR
-
-    with patch.object(
-        pygw,
-        "_wait_for_cmd",
-        return_value=v.OTGW_MODE_RESET,
-    ), patch.object(pygw, "get_reports") as get_reports, patch.object(
-        pygw,
-        "get_status",
-    ) as get_status:
-        assert await pygw.set_mode(v.OTGW_MODE_RESET) == v.DEFAULT_STATUS
-        get_reports.assert_called_once()
-        get_status.assert_called_once()
+    with patch.object(pygw, "_wait_for_cmd", side_effect=[None, 0]):
+        assert await pygw.set_mode(OpenThermGatewayOpMode.GATEWAY) is None
+        assert (
+            await pygw.set_mode(OpenThermGatewayOpMode.MONITOR)
+            == OpenThermGatewayOpMode.MONITOR
+        )
 
 
 @pytest.mark.asyncio

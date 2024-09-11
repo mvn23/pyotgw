@@ -54,6 +54,13 @@ class OpenThermDataSource(StrEnum):
     THERMOSTAT = "thermostat"
 
 
+class OpenThermGatewayOpMode(StrEnum):
+    """OpenTherm Gateway operating modes."""
+
+    GATEWAY = "G"
+    MONITOR = "M"
+
+
 class OpenThermMessageID(Enum):
     """OpenTherm message IDs."""
 
