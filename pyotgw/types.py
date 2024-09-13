@@ -61,6 +61,45 @@ class OpenThermGatewayOpMode(StrEnum):
     MONITOR = "M"
 
 
+class OpenThermGPIOMode(IntEnum):
+    """OpenTherm Gateway GPIO modes."""
+
+    INPUT = 0
+    GROUND = 1
+    VCC = 2
+    LED_E = 3
+    LED_F = 4
+    HOME = 5
+    AWAY = 6
+    DS1820 = 7
+    DHW_BLOCK = 8
+
+
+class OpenThermHotWaterOverrideMode(StrEnum):
+    """Hot water override modes."""
+
+    FORCE_OFF = "0"
+    FORCE_ON = "1"
+    THERMOSTAT_CONTROLLED = "A"
+
+
+class OpenThermLEDMode(StrEnum):
+    """OpenTherm Gateway LED modes."""
+
+    RX_ANY = "R"
+    TX_ANY = "X"
+    THERMOSTAT_TRAFFIC = "T"
+    BOILER_TRAFFIC = "B"
+    SETPOINT_OVERRIDE_ACTIVE = "O"
+    FLAME_ON = "F"
+    CENTRAL_HEATING_ON = "H"
+    HOT_WATER_ON = "W"
+    COMFORT_MODE_ON = "C"
+    TX_ERROR_DETECTED = "E"
+    BOILER_MAINTENANCE_REQUIRED = "M"
+    RAISED_POWER_MODE_ACTIVE = "P"
+
+
 class OpenThermMessageID(Enum):
     """OpenTherm message IDs."""
 
@@ -138,3 +177,85 @@ class OpenThermMessageType(IntEnum):
     WRITE_ACK = 5
     DATA_INVALID = 6
     UNKNOWN_DATAID = 7
+
+
+class OpenThermReport(StrEnum):
+    """OpenTherm reports."""
+
+    ABOUT = "A"
+    BUILD = "B"
+    CLOCK_SPEED = "C"
+    TEMP_SENSOR_FUNCTION = "D"
+    GPIO_MODES = "G"
+    GPIO_STATES = "I"
+    LED_MODES = "L"
+    OP_MODE = "M"
+    SETPOINT_OVERRIDE = "O"
+    SMART_PWR_MODE = "P"
+    RESET_CAUSE = "Q"
+    THERMOSTAT_DETECTION_STATE = "R"
+    SETBACK_TEMPERATURE = "S"
+    TWEAKS = "T"
+    VREF = "V"
+    DHW = "W"
+
+
+class OpenThermResetCause(StrEnum):
+    """Gateway reset causes."""
+
+    BROWNOUT = "B"
+    SERIAL_COMMAND = "C"
+    RESET_BUTTON = "E"
+    STUCK_IN_LOOP = "L"
+    STACK_OVERFLOW = "O"
+    POWER_ON = "P"
+    SERIAL_BREAK = "S"
+    STACK_UNDERFLOW = "U"
+    WATCHDOG = "W"
+
+
+class OpenThermSetpointOverrideMode(StrEnum):
+    """Setpoint override modes."""
+
+    CONSTANT = "C"
+    NOT_ACTIVE = "N"
+    TEMPORARY = "T"
+
+
+class OpenThermSmartPowerMode(StrEnum):
+    """Smart power modes."""
+
+    LOW = "low power"
+    MEDIUM = "medium power"
+    HIGH = "high power"
+
+
+class OpenThermTemperatureSensorFunction(StrEnum):
+    """Temperature sensor functions."""
+
+    OUTSIDE_TEMPERATURE = "O"
+    RETURN_WATER_TEMPERATURE = "R"
+
+
+class OpenThermThermostatDetection(StrEnum):
+    """Thermostat detection modes."""
+
+    AUTO_DETECT = "D"
+    CELCIA_20 = "C"
+    ISENSE = "I"
+    STANDARD = "S"
+
+
+class OpenThermVoltageReferenceLevel(IntEnum):
+    """Voltage reference levels."""
+
+    LEVEL_0 = 0
+    LEVEL_1 = 1
+    LEVEL_2 = 2
+    LEVEL_3 = 3
+    LEVEL_4 = 4
+    LEVEL_5 = 5
+    LEVEL_6 = 6
+    LEVEL_7 = 7
+    LEVEL_8 = 8
+    LEVEL_9 = 9
