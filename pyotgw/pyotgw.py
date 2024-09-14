@@ -10,8 +10,14 @@ from typing import TYPE_CHECKING, Literal
 
 from . import vars as v
 from .connection import ConnectionManager
+from .reports import convert_report_response_to_status_update
 from .status import StatusManager
-from .types import OpenThermCommand, OpenThermDataSource, OpenThermGatewayOpMode
+from .types import (
+    OpenThermCommand,
+    OpenThermDataSource,
+    OpenThermGatewayOpMode,
+    OpenThermReport,
+)
 
 if TYPE_CHECKING:
     from .connection import ConnectionConfig
@@ -303,6 +309,22 @@ class OpenThermGateway:  # pylint: disable=too-many-public-methods
                 OpenThermDataSource.THERMOSTAT: thermostat_status,
             }
         )
+        return self.status.status
+
+    async def get_report(
+        self,
+        report_type: OpenThermReport,
+        timeout: asyncio.Timeout = v.OTGW_DEFAULT_TIMEOUT,
+    ) -> dict[OpenThermDataSource, dict] | None:
+        """Get the report, update status dict accordingly."""
+        ret = await self._wait_for_cmd(OpenThermCommand.REPORT, report_type, timeout)
+        if (
+            ret is None
+            or (update := convert_report_response_to_status_update(report_type, ret))
+            is None
+        ):
+            return
+        self.status.submit_full_update(update)
         return self.status.status
 
     async def restart_gateway(

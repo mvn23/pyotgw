@@ -3,15 +3,22 @@
 import asyncio
 import logging
 from datetime import datetime
-from unittest.mock import MagicMock, call, patch
+from unittest.mock import AsyncMock, MagicMock, call, patch
 
 import pytest
 import serial
 
 import pyotgw.vars as v
-from pyotgw.types import OpenThermCommand, OpenThermDataSource, OpenThermGatewayOpMode
+from pyotgw.types import (
+    OpenThermCommand,
+    OpenThermDataSource,
+    OpenThermGatewayOpMode,
+    OpenThermReport,
+)
 from tests.data import pygw_reports, pygw_status
 from tests.helpers import called_once, called_x_times
+
+from .test_reports import REPORT_TEST_PARAMETERS, REPORT_TEST_VALUES
 
 
 @pytest.mark.asyncio
@@ -431,6 +438,28 @@ async def test_get_status(pygw):
         assert await pygw.get_status() == pygw_status.expect_5
         pygw.status.reset()
         assert await pygw.get_status() == pygw_status.expect_4
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    REPORT_TEST_PARAMETERS,
+    REPORT_TEST_VALUES,
+)
+async def test_get_report(
+    pygw,
+    report: OpenThermReport,
+    response: str,
+    expected_dict: dict[OpenThermDataSource, dict],
+) -> None:
+    """Test pyotgw.get_report()"""
+    pygw._wait_for_cmd = AsyncMock(return_value=response)
+    pygw.status.submit_full_update = MagicMock()
+
+    assert await pygw.get_report(report) is not None
+    pygw._wait_for_cmd.assert_called_once_with(
+        OpenThermCommand.REPORT, report, v.OTGW_DEFAULT_TIMEOUT
+    )
+    pygw.status.submit_full_update.assert_called_once_with(expected_dict)
 
 
 @pytest.mark.asyncio
