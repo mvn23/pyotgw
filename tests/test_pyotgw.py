@@ -30,7 +30,6 @@ async def test_cleanup(pygw):
 
     pygw._poll_tasks[GPIO_POLL_TASK_NAME].start()
 
-    pygw._wait_for_cmd = AsyncMock(return_value="I=10")
     assert pygw._poll_tasks[GPIO_POLL_TASK_NAME].is_running
     await pygw.cleanup()
     assert not pygw._poll_tasks[GPIO_POLL_TASK_NAME].is_running
@@ -519,14 +518,25 @@ async def test_set_hot_water_ovrd(pygw):
 
 
 @pytest.mark.asyncio
-async def test_set_mode(pygw):
+@pytest.mark.parametrize(
+    ("mode", "response"),
+    [
+        (OpenThermGatewayOpMode.MONITOR, 0),
+        (OpenThermGatewayOpMode.GATEWAY, 1),
+    ],
+)
+async def test_set_mode_valid(pygw, mode, response):
     """Test pyotgw.set_mode()"""
-    with patch.object(pygw, "_wait_for_cmd", side_effect=[None, 0]):
+    with patch.object(pygw, "_wait_for_cmd", return_value=response):
+        assert await pygw.set_mode(mode) == mode
+
+
+@pytest.mark.asyncio
+async def test_set_mode_invalid(pygw):
+    """Test pyotgw.set_mode()"""
+    with patch.object(pygw, "_wait_for_cmd", return_value=None):
         assert await pygw.set_mode(OpenThermGatewayOpMode.GATEWAY) is None
-        assert (
-            await pygw.set_mode(OpenThermGatewayOpMode.MONITOR)
-            == OpenThermGatewayOpMode.MONITOR
-        )
+        assert await pygw.set_mode("invalid") is None
 
 
 @pytest.mark.asyncio

@@ -10,7 +10,7 @@ from typing import TYPE_CHECKING, Final, Literal
 
 from . import vars as v
 from .connection import ConnectionManager
-from .poll_task import OpenThermGpioStatePollTask
+from .poll_task import OpenThermPollTask
 from .reports import convert_report_response_to_status_update
 from .status import StatusManager
 from .types import (
@@ -36,7 +36,28 @@ class OpenThermGateway:  # pylint: disable=too-many-public-methods
         """Create an OpenThermGateway object."""
         self._transport = None
         self._poll_tasks = {
-            GPIO_POLL_TASK_NAME: OpenThermGpioStatePollTask(GPIO_POLL_TASK_NAME, self)
+            GPIO_POLL_TASK_NAME: OpenThermPollTask(
+                GPIO_POLL_TASK_NAME,
+                self,
+                OpenThermReport.GPIO_STATES,
+                {
+                    OpenThermDataSource.GATEWAY: {
+                        v.OTGW_GPIO_A_STATE: 0,
+                        v.OTGW_GPIO_B_STATE: 0,
+                    },
+                },
+                (
+                    lambda: 0
+                    in (
+                        self.status.status[OpenThermDataSource.GATEWAY].get(
+                            v.OTGW_GPIO_A
+                        ),
+                        self.status.status[OpenThermDataSource.GATEWAY].get(
+                            v.OTGW_GPIO_B
+                        ),
+                    )
+                ),
+            )
         }
         self._protocol = None
         self._skip_init = False
@@ -49,9 +70,6 @@ class OpenThermGateway:  # pylint: disable=too-many-public-methods
         await self.status.cleanup()
         for task in self._poll_tasks.values():
             await task.stop()
-        for task in self._poll_tasks.values():
-            while task.is_running:
-                await asyncio.sleep(0)
 
     async def connect(
         self,
@@ -325,7 +343,7 @@ class OpenThermGateway:  # pylint: disable=too-many-public-methods
         report_type: OpenThermReport,
         timeout: asyncio.Timeout = v.OTGW_DEFAULT_TIMEOUT,
     ) -> dict[OpenThermDataSource, dict] | None:
-        """Get the report, update status dict accordingly."""
+        """Get the report, update status dict accordingly. Return updated status dict."""
         ret = await self._wait_for_cmd(OpenThermCommand.REPORT, report_type, timeout)
         if (
             ret is None
@@ -501,9 +519,7 @@ class OpenThermGateway:  # pylint: disable=too-many-public-methods
             var = getattr(v, f"OTGW_GPIO_{gpio_id}")
             status_otgw[var] = ret
             self.status.submit_partial_update(OpenThermDataSource.GATEWAY, status_otgw)
-            asyncio.get_running_loop().call_soon(
-                self._poll_tasks[GPIO_POLL_TASK_NAME].start_or_stop_as_needed
-            )
+            await self._poll_tasks[GPIO_POLL_TASK_NAME].start_or_stop_as_needed()
             return ret
 
     async def set_setback_temp(

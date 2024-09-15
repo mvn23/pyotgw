@@ -3,33 +3,41 @@
 from __future__ import annotations
 
 import asyncio
+from collections.abc import Callable
 import logging
-from abc import ABC, abstractmethod, abstractproperty
 from typing import TYPE_CHECKING
-
-from . import vars as v
 
 if TYPE_CHECKING:
     from .pyotgw import OpenThermGateway
-from .types import OpenThermDataSource
+from .types import OpenThermDataSource, OpenThermReport
 
 _LOGGER = logging.getLogger(__name__)
 
 
-class OpenThermPollTask(ABC):
+class OpenThermPollTask:
     """
-    Describes a task that polls the gateway for certain states.
+    Describes a task that polls the gateway for certain reports.
     Some states aren't being pushed by the gateway, we need to poll
-    if we want updates.
+    the report method if we want updates.
     """
 
-    default_values: dict[OpenThermDataSource, dict]
     _task: asyncio.Task | None = None
 
-    def __init__(self, name: str, gateway: OpenThermGateway, interval: float = 10):
+    def __init__(
+        self,
+        name: str,
+        gateway: OpenThermGateway,
+        report_type: OpenThermReport,
+        default_values: dict[OpenThermDataSource, dict],
+        run_condition: Callable[[], bool],
+        interval: float = 10,
+    ) -> None:
         """Initialize the object."""
         self._gateway = gateway
-        self._interval: float = interval
+        self._interval = interval
+        self._report_type = report_type
+        self._run_condition = run_condition
+        self.default_values = default_values
         self.name = name
 
     def start(self) -> None:
@@ -57,63 +65,19 @@ class OpenThermPollTask(ABC):
         elif self.is_running and not self.should_run:
             await self.stop()
 
-    @abstractproperty
+    @property
     def should_run(self) -> bool:
         """Return whether or not we should be actively polling."""
-        raise NotImplementedError
+        return self._run_condition()
 
     @property
     def is_running(self) -> bool:
         """Return whether or not we are actively polling."""
         return self._task is not None
 
-    @abstractmethod
-    async def get_actual_value(self) -> dict[OpenThermDataSource, dict] | None:
-        """Get the values from the gateway, return status dict update or None."""
-        raise NotImplementedError
-
     async def _polling_routine(self) -> None:
         """The polling mechanism."""
         _LOGGER.debug(f"{self.name} polling routine started")
         while True:
-            update = await self.get_actual_value()
-            if update:
-                self._gateway.status.submit_full_update(update)
+            await self._gateway.get_report(self._report_type)
             await asyncio.sleep(self._interval)
-
-
-class OpenThermGpioStatePollTask(OpenThermPollTask):
-    """
-    Describes a task that polls GPIO states.
-    Some states aren't being pushed by the gateway, we need to poll
-    if we want updates.
-    """
-
-    default_values: dict[OpenThermDataSource, dict] = {
-        OpenThermDataSource.GATEWAY: {
-            v.OTGW_GPIO_A_STATE: None,
-            v.OTGW_GPIO_B_STATE: None,
-        }
-    }
-
-    @property
-    def should_run(self) -> bool:
-        """Return whether or not we should be actively polling."""
-        return 0 in (
-            self._gateway.status.status[OpenThermDataSource.GATEWAY].get(v.OTGW_GPIO_A),
-            self._gateway.status.status[OpenThermDataSource.GATEWAY].get(v.OTGW_GPIO_B),
-        )
-
-    async def get_actual_value(self) -> dict[OpenThermDataSource, dict] | None:
-        """Get the values from the gateway, return status dict update or None."""
-        ret = await self._gateway.get_report(v.OTGW_REPORT_GPIO_STATES)
-        if not ret:
-            return None
-
-        pios = ret[2:]
-        return {
-            OpenThermDataSource.GATEWAY: {
-                v.OTGW_GPIO_A_STATE: int(pios[0]),
-                v.OTGW_GPIO_B_STATE: int(pios[1]),
-            }
-        }
