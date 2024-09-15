@@ -173,9 +173,7 @@ async def test_reconnect_after_connection_loss(caplog, pygw_conn, pygw_proto):
         pygw_conn.watchdog,
         "start",
         side_effect=pygw_conn.watchdog.start,
-    ) as wd_start, caplog.at_level(
-        logging.DEBUG
-    ):
+    ) as wd_start, caplog.at_level(logging.DEBUG):
         assert await pygw_conn.connect("loop://", timeout=0.001)
 
         caplog.clear()
@@ -303,9 +301,7 @@ async def test_attempt_connect_serialexception(caplog, pygw_conn):
         pygw_conn,
         "_get_retry_timeout",
         return_value=0,
-    ) as retry_timeout, caplog.at_level(
-        logging.ERROR
-    ):
+    ) as retry_timeout, caplog.at_level(logging.ERROR):
         task = loop.create_task(pygw_conn._attempt_connect())
         await called_x_times(retry_timeout, 2)
 
@@ -340,9 +336,7 @@ async def test_attempt_connect_timeouterror(caplog, pygw_conn, pygw_proto):
         pygw_conn,
         "_get_retry_timeout",
         return_value=0,
-    ) as retry_timeout, caplog.at_level(
-        logging.ERROR
-    ):
+    ) as retry_timeout, caplog.at_level(logging.ERROR):
         task = loop.create_task(pygw_conn._attempt_connect())
         await called_x_times(retry_timeout, 2)
 
@@ -377,9 +371,7 @@ async def test_attempt_connect_syntaxerror(caplog, pygw_conn, pygw_proto):
         pygw_conn,
         "_get_retry_timeout",
         return_value=0,
-    ) as retry_timeout, caplog.at_level(
-        logging.ERROR
-    ):
+    ) as retry_timeout, caplog.at_level(logging.ERROR):
         task = loop.create_task(pygw_conn._attempt_connect())
         with pytest.raises(SyntaxError):
             await task
@@ -428,9 +420,7 @@ async def test_inform_watchdog(caplog, pygw_watchdog):
     ) as task_cancel, patch.object(
         pygw_watchdog,
         "_watchdog",
-    ) as watchdog, caplog.at_level(
-        logging.DEBUG
-    ):
+    ) as watchdog, caplog.at_level(logging.DEBUG):
         await pygw_watchdog.inform()
 
     task_cancel.assert_called_once()

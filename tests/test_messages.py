@@ -7,7 +7,7 @@ from pyotgw.messageprocessor import MessageProcessor
 def test_message_registry():
     """Test message registry values."""
     for msgid, processing in m.REGISTRY.items():
-        assert 0 <= int.from_bytes(msgid, "big") < 128
+        assert 0 <= int(msgid) < 128
         assert isinstance(processing[m.M2S], list)
         assert isinstance(processing[m.S2M], list)
 

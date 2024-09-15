@@ -1,0 +1,46 @@
+[tool.pytest.ini_options]
+asyncio_default_fixture_loop_scope = "function"
+
+[tool.ruff.lint.isort]
+force-sort-within-sections = true
+known-first-party = [
+    "pyotgw",
+]
+combine-as-imports = true
+split-on-trailing-comma = false
+
+[tool.tox]
+legacy_tox_ini = """
+  [tox]
+  envlist = clean, ruff-lint, py310, py311, py312
+  skip_missing_interpreters = True
+
+  [testenv]
+  commands =
+    pytest --cov --cov-append --cov-report=term-missing {posargs}
+  deps =
+    -rrequirements_test.txt
+
+  [testenv:clean]
+  deps = coverage
+  skip_install = True
+  commands = coverage erase
+
+  [testenv:precommit]
+  deps =
+    -rrequirements_test.txt
+  commands =
+    pre-commit run {posargs: --all-files}
+
+  [testenv:ruff-lint]
+  deps =
+    -rrequirements_test.txt
+  commands =
+    ruff check pyotgw/ tests/
+
+  [testenv:ruff-format]
+  deps =
+    -rrequirements_test.txt
+  commands =
+    ruff format pyotgw/ tests/
+"""

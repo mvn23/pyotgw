@@ -8,9 +8,10 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from functools import partial
-from typing import Awaitable, Callable, Literal, Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING, Literal
 
 import serial
 import serial_asyncio_fast
@@ -34,24 +35,31 @@ _LOGGER = logging.getLogger(__name__)
 class ConnectionConfig:
     """Config for the serial connection."""
 
-    baudrate: Optional[int]
-    bytesize: Optional[
-        Literal[serial.FIVEBITS, serial.SIXBITS, serial.SEVENBITS, serial.EIGHTBITS]
-    ]
-    parity: Optional[
-        Literal[
-            serial.PARITY_NONE,
-            serial.PARITY_EVEN,
-            serial.PARITY_ODD,
-            serial.PARITY_MARK,
-            serial.PARITY_SPACE,
-        ]
-    ]
-    stopbits: Optional[
-        Literal[
-            serial.STOPBITS_ONE, serial.STOPBITS_ONE_POINT_FIVE, serial.STOPBITS_TWO
-        ]
-    ]
+    baudrate: int | None
+    bytesize: (
+        None
+        | (Literal[serial.FIVEBITS, serial.SIXBITS, serial.SEVENBITS, serial.EIGHTBITS])
+    )
+    parity: (
+        None
+        | (
+            Literal[
+                serial.PARITY_NONE,
+                serial.PARITY_EVEN,
+                serial.PARITY_ODD,
+                serial.PARITY_MARK,
+                serial.PARITY_SPACE,
+            ]
+        )
+    )
+    stopbits: (
+        None
+        | (
+            Literal[
+                serial.STOPBITS_ONE, serial.STOPBITS_ONE_POINT_FIVE, serial.STOPBITS_TWO
+            ]
+        )
+    )
 
 
 class ConnectionManager:  # pylint: disable=too-many-instance-attributes
@@ -247,7 +255,9 @@ class ConnectionWatchdog:
                 self._wd_task = self.loop.create_task(self._watchdog(self.timeout))
                 _LOGGER.debug("Watchdog timer reset!")
 
-    def start(self, callback: Callable[[], Awaitable[None]], timeout: asyncio.Timeout) -> bool:
+    def start(
+        self, callback: Callable[[], Awaitable[None]], timeout: asyncio.Timeout
+    ) -> bool:
         """Start the watchdog, return boolean indicating success"""
         if self.is_active:
             return False

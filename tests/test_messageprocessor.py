@@ -1,4 +1,5 @@
 """Test for pyotgw/messageprocessor.py"""
+
 import asyncio
 import logging
 import re
@@ -7,6 +8,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from pyotgw import vars as v
+from pyotgw.types import OpenThermDataSource, OpenThermMessageID, OpenThermMessageType
 from tests.data import pygw_proto_messages
 from tests.helpers import called_once
 
@@ -50,7 +52,7 @@ def test_submit_matched_message(caplog, pygw_message_processor):
     ]
     assert pygw_message_processor._msgq.get_nowait() == (
         "A",
-        v.READ_DATA,
+        OpenThermMessageType.READ_DATA,
         b"\x02",
         b"\x03",
         b"\x04",
@@ -69,7 +71,7 @@ def test_dissect_msg(caplog, pygw_message_processor):
 
     assert pygw_message_processor._dissect_msg(test_matches[0]) == (
         "A",
-        v.WRITE_DATA,
+        OpenThermMessageType.WRITE_DATA,
         b"\x20",
         b"\x30",
         b"\x40",
@@ -101,9 +103,9 @@ async def test_process_msgs(caplog, pygw_message_processor):
     """Test MessageProcessor._process_msgs()"""
     test_case = (
         "B",
-        v.READ_ACK,
+        OpenThermMessageType.READ_ACK,
         b"\x23",
-        b"\x0A",
+        b"\x0a",
         b"\x01",
     )
     with patch.object(
@@ -129,8 +131,8 @@ async def test_process_msg(pygw_message_processor):
     # Test quirks
     test_case = (
         "B",
-        v.READ_ACK,
-        v.MSG_TROVRD,
+        OpenThermMessageType.READ_ACK,
+        OpenThermMessageID.TROVRD,
         b"\x10",
         b"\x80",
     )
@@ -141,7 +143,7 @@ async def test_process_msg(pygw_message_processor):
         await pygw_message_processor._process_msg(test_case)
 
     quirk_trovrd.assert_called_once_with(
-        v.BOILER,
+        OpenThermDataSource.BOILER,
         "B",
         b"\x10",
         b"\x80",
@@ -178,7 +180,7 @@ async def test_quirk_trovrd(pygw_message_processor):
     status_callback = MagicMock(side_effect=empty_coroutine)
     pygw_message_processor.status_manager.subscribe(status_callback)
     pygw_message_processor.status_manager.submit_partial_update(
-        v.OTGW,
+        OpenThermDataSource.GATEWAY,
         {v.OTGW_THRM_DETECT: "I"},
     )
     await called_once(status_callback)
@@ -190,7 +192,7 @@ async def test_quirk_trovrd(pygw_message_processor):
         return_value="O=c19.5",
     ):
         await pygw_message_processor._quirk_trovrd(
-            v.THERMOSTAT,
+            OpenThermDataSource.THERMOSTAT,
             "A",
             b"\x15",
             b"\x40",
@@ -199,9 +201,9 @@ async def test_quirk_trovrd(pygw_message_processor):
     await called_once(status_callback)
     status_callback.assert_called_once_with(
         {
-            v.BOILER: {},
-            v.OTGW: {v.OTGW_THRM_DETECT: "I"},
-            v.THERMOSTAT: {v.DATA_ROOM_SETPOINT_OVRD: 19.5},
+            OpenThermDataSource.BOILER: {},
+            OpenThermDataSource.GATEWAY: {v.OTGW_THRM_DETECT: "I"},
+            OpenThermDataSource.THERMOSTAT: {v.DATA_ROOM_SETPOINT_OVRD: 19.5},
         }
     )
 
@@ -217,7 +219,7 @@ async def test_quirk_trovrd(pygw_message_processor):
         "delete_value",
     ) as delete_value:
         await pygw_message_processor._quirk_trovrd(
-            v.THERMOSTAT,
+            OpenThermDataSource.THERMOSTAT,
             "A",
             b"\x15",
             b"\x40",
@@ -227,12 +229,12 @@ async def test_quirk_trovrd(pygw_message_processor):
     delete_value.assert_not_called()
     assert (
         v.DATA_ROOM_SETPOINT_OVRD
-        in pygw_message_processor.status_manager.status[v.THERMOSTAT]
+        in pygw_message_processor.status_manager.status[OpenThermDataSource.THERMOSTAT]
     )
 
     status_callback.reset_mock()
     await pygw_message_processor._quirk_trovrd(
-        v.THERMOSTAT,
+        OpenThermDataSource.THERMOSTAT,
         "A",
         b"\x00",
         b"\x00",
@@ -240,21 +242,21 @@ async def test_quirk_trovrd(pygw_message_processor):
     await called_once(status_callback)
     status_callback.assert_called_once_with(
         {
-            v.BOILER: {},
-            v.OTGW: {v.OTGW_THRM_DETECT: "I"},
-            v.THERMOSTAT: {},
+            OpenThermDataSource.BOILER: {},
+            OpenThermDataSource.GATEWAY: {v.OTGW_THRM_DETECT: "I"},
+            OpenThermDataSource.THERMOSTAT: {},
         }
     )
 
     status_callback.reset_mock()
     pygw_message_processor.status_manager.submit_partial_update(
-        v.OTGW, {v.OTGW_THRM_DETECT: "D"}
+        OpenThermDataSource.GATEWAY, {v.OTGW_THRM_DETECT: "D"}
     )
     await called_once(status_callback)
     status_callback.reset_mock()
 
     await pygw_message_processor._quirk_trovrd(
-        v.THERMOSTAT,
+        OpenThermDataSource.THERMOSTAT,
         "A",
         b"\x15",
         b"\x40",
@@ -262,15 +264,15 @@ async def test_quirk_trovrd(pygw_message_processor):
     await called_once(status_callback)
     status_callback.assert_called_once_with(
         {
-            v.BOILER: {},
-            v.OTGW: {v.OTGW_THRM_DETECT: "D"},
-            v.THERMOSTAT: {v.DATA_ROOM_SETPOINT_OVRD: 21.25},
+            OpenThermDataSource.BOILER: {},
+            OpenThermDataSource.GATEWAY: {v.OTGW_THRM_DETECT: "D"},
+            OpenThermDataSource.THERMOSTAT: {v.DATA_ROOM_SETPOINT_OVRD: 21.25},
         }
     )
 
     status_callback.reset_mock()
     pygw_message_processor.status_manager.submit_partial_update(
-        v.OTGW, {v.OTGW_THRM_DETECT: "I"}
+        OpenThermDataSource.GATEWAY, {v.OTGW_THRM_DETECT: "I"}
     )
     await called_once(status_callback)
     status_callback.reset_mock()
@@ -281,7 +283,7 @@ async def test_quirk_trovrd(pygw_message_processor):
         return_value="O=N",
     ):
         await pygw_message_processor._quirk_trovrd(
-            v.THERMOSTAT,
+            OpenThermDataSource.THERMOSTAT,
             "A",
             b"\x15",
             b"\x40",
@@ -289,9 +291,9 @@ async def test_quirk_trovrd(pygw_message_processor):
     await called_once(status_callback)
     status_callback.assert_called_once_with(
         {
-            v.BOILER: {},
-            v.OTGW: {v.OTGW_THRM_DETECT: "I"},
-            v.THERMOSTAT: {},
+            OpenThermDataSource.BOILER: {},
+            OpenThermDataSource.GATEWAY: {v.OTGW_THRM_DETECT: "I"},
+            OpenThermDataSource.THERMOSTAT: {},
         }
     )
 
@@ -304,23 +306,19 @@ async def test_quirk_trset_s2m(pygw_message_processor):
         return
 
     with patch.object(
-        pygw_message_processor.status_manager,
-        "submit_partial_update"
+        pygw_message_processor.status_manager, "submit_partial_update"
     ) as partial_update:
         await pygw_message_processor._quirk_trset_s2m(
-            v.THERMOSTAT,
+            OpenThermDataSource.THERMOSTAT,
             b"\x01",
             b"\x02",
         )
         await pygw_message_processor._quirk_trset_s2m(
-            v.BOILER,
-            b"\x14",
-            b"\x80"
+            OpenThermDataSource.BOILER, b"\x14", b"\x80"
         )
 
     partial_update.assert_called_once_with(
-        v.BOILER,
-        {v.DATA_ROOM_SETPOINT: 20.5}
+        OpenThermDataSource.BOILER, {v.DATA_ROOM_SETPOINT: 20.5}
     )
 
 
@@ -373,7 +371,7 @@ def test_get_u8(pygw_message_processor):
             0,
         ),
         (
-            b"\xFF",
+            b"\xff",
             255,
         ),
     )
@@ -390,7 +388,7 @@ def test_get_s8(pygw_message_processor):
             0,
         ),
         (
-            b"\xFF",
+            b"\xff",
             -1,
         ),
     )
@@ -411,7 +409,7 @@ def test_get_f8_8(pygw_message_processor):
         ),
         (
             (
-                b"\xFF",
+                b"\xff",
                 b"\x80",
             ),
             -0.5,
@@ -434,8 +432,8 @@ def test_get_u16(pygw_message_processor):
         ),
         (
             (
-                b"\xFF",
-                b"\xFF",
+                b"\xff",
+                b"\xff",
             ),
             65535,
         ),
@@ -457,8 +455,8 @@ def test_get_s16(pygw_message_processor):
         ),
         (
             (
-                b"\xFF",
-                b"\xFF",
+                b"\xff",
+                b"\xff",
             ),
             -1,
         ),

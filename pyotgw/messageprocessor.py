@@ -9,6 +9,12 @@ from typing import TYPE_CHECKING
 
 from . import messages as m
 from . import vars as v
+from .types import (
+    OpenThermCommand,
+    OpenThermDataSource,
+    OpenThermMessageID,
+    OpenThermMessageType,
+)
 
 if TYPE_CHECKING:
     from .commandprocessor import CommandProcessor
@@ -63,7 +69,10 @@ class MessageProcessor:
 
     def _dissect_msg(
         self, match: re.match
-    ) -> tuple[str, int, bytes, bytes, bytes] | tuple[None, None, None, None, None]:
+    ) -> (
+        tuple[str, OpenThermMessageType, OpenThermMessageID, bytes, bytes]
+        | tuple[None, None, None, None, None]
+    ):
         """
         Split messages into bytes and return a tuple of bytes.
         """
@@ -77,7 +86,12 @@ class MessageProcessor:
             )
             return None, None, None, None, None
         msgtype = self._get_msgtype(frame[0])
-        if msgtype in (v.READ_ACK, v.WRITE_ACK, v.READ_DATA, v.WRITE_DATA):
+        if msgtype in (
+            OpenThermMessageType.READ_ACK,
+            OpenThermMessageType.WRITE_ACK,
+            OpenThermMessageType.READ_DATA,
+            OpenThermMessageType.WRITE_DATA,
+        ):
             # Some info is best read from the READ/WRITE_DATA messages
             # as the boiler may not support the data ID.
             # Slice syntax is used to prevent implicit cast to int.
@@ -88,12 +102,12 @@ class MessageProcessor:
         return None, None, None, None, None
 
     @staticmethod
-    def _get_msgtype(byte: bytes) -> int:
+    def _get_msgtype(byte: bytes) -> OpenThermMessageType:
         """
         Return the message type of Opentherm messages according to
         byte.
         """
-        return (byte >> 4) & 0x7
+        return OpenThermMessageType((byte >> 4) & 0x7)
 
     async def _process_msgs(self) -> None:
         """
@@ -110,7 +124,10 @@ class MessageProcessor:
             )
             await self._process_msg(args)
 
-    async def _process_msg(self, message: tuple[str, int, bytes, bytes, bytes]) -> None:
+    async def _process_msg(
+        self,
+        message: tuple[str, OpenThermMessageType, OpenThermMessageID, bytes, bytes],
+    ) -> None:
         """
         Process message and update status variables where necessary.
         Add status to queue if it was changed in the process.
@@ -126,9 +143,9 @@ class MessageProcessor:
             return
 
         if src in "TA":
-            part = v.THERMOSTAT
+            part = OpenThermDataSource.THERMOSTAT
         else:  # src in "BR"
-            part = v.BOILER
+            part = OpenThermDataSource.BOILER
         update = {}
 
         for action in m.REGISTRY[msgid][m.MSG_TYPE[mtype]]:
@@ -159,7 +176,9 @@ class MessageProcessor:
             update.update({var: val})
         return update
 
-    async def _quirk_trovrd(self, part: str, src: str, msb: bytes, lsb: bytes) -> None:
+    async def _quirk_trovrd(
+        self, part: OpenThermDataSource, src: str, msb: bytes, lsb: bytes
+    ) -> None:
         """Handle MSG_TROVRD with iSense quirk"""
         update = {}
         ovrd_value = self._get_f8_8(msb, lsb)
@@ -167,11 +186,14 @@ class MessageProcessor:
             # iSense quirk: the gateway keeps sending override value
             # even if the thermostat has cancelled the override.
             if (
-                self.status_manager.status[v.OTGW].get(v.OTGW_THRM_DETECT) == "I"
+                self.status_manager.status[OpenThermDataSource.GATEWAY].get(
+                    v.OTGW_THRM_DETECT
+                )
+                == "I"
                 and src == "A"
             ):
                 ovrd = await self.command_processor.issue_cmd(
-                    v.OTGW_CMD_REPORT, v.OTGW_REPORT_SETPOINT_OVRD
+                    OpenThermCommand.REPORT, v.OTGW_REPORT_SETPOINT_OVRD
                 )
                 match = re.match(r"^O=(N|[CT]([0-9]+.[0-9]+))$", ovrd, re.IGNORECASE)
                 if not match:
@@ -186,11 +208,13 @@ class MessageProcessor:
         else:
             self.status_manager.delete_value(part, v.DATA_ROOM_SETPOINT_OVRD)
 
-    async def _quirk_trset_s2m(self, part: str, msb: bytes, lsb: bytes) -> None:
+    async def _quirk_trset_s2m(
+        self, part: OpenThermDataSource, msb: bytes, lsb: bytes
+    ) -> None:
         """Handle MSG_TRSET with gateway quirk"""
         # Ignore s2m messages on thermostat side as they are ALWAYS WriteAcks
         # but may contain invalid data.
-        if part == v.THERMOSTAT:
+        if part == OpenThermDataSource.THERMOSTAT:
             return
 
         self.status_manager.submit_partial_update(
