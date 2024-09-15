@@ -7,9 +7,22 @@
 - Add OpenThermDataSource class
 - Add OpenThermCommand class, replace OTGW_CMD_* vars
 - Update and clean up pre-commit config
-- Add OpenThermMessageID classm replace MSG_* vars
-- Add OpenThermGatewayOpMode enum
+- Add OpenThermMessageID class, replace MSG_* vars
+- Add OpenThermGatewayOpMode class
+- Add OpenThermGPIOMode class
+- Add OpenThermHotWaterOverrideMode class
+- Add OpenThermLEDMode class
+- Add OpenThermReport class
+- Add OpenThermResetCause class
+- Add OpenThermSetpointOverrideMode class
+- Add OpenThermSmartPowerMode class
+- Add OpenThermTemperatureSensorFunction class
+- Add OpenThermThermostatDetection class
+- Add OpenThermVoltageReferenceLevel class
 - Make OpenThermGateway.restart_gateway() a separate method from OpenThermGateway.set_mode()
+- Add reports.py to report report responses to status dict updates
+- Add OpenThermGateway.get_report()
+- Rewrite gpio poll task to generic task poller
 
 ### 2.2.0
 - Split status line processing into functions (#65)
