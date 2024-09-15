@@ -1,5 +1,8 @@
 # pyotgw Changelog
 
+### master
+- Raise minimum python version to 3.11
+
 ### 2.2.0
 - Split status line processing into functions (#65)
 - Various small fixes (#64)
