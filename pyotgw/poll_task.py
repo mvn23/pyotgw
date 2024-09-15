@@ -4,14 +4,51 @@ from __future__ import annotations
 
 import asyncio
 from collections.abc import Callable
+from enum import StrEnum
 import logging
 from typing import TYPE_CHECKING
+
+from . import vars as v
 
 if TYPE_CHECKING:
     from .pyotgw import OpenThermGateway
 from .types import OpenThermDataSource, OpenThermReport
 
 _LOGGER = logging.getLogger(__name__)
+
+
+class OpenThermPollTaskName(StrEnum):
+    """Poll task names."""
+
+    GPIO_STATE = "gpio_state"
+
+
+def get_all_poll_tasks(gateway: OpenThermGateway):
+    """Get all poll tasks for a gateway."""
+    return {
+        OpenThermPollTaskName.GPIO_STATE: OpenThermPollTask(
+            OpenThermPollTaskName.GPIO_STATE,
+            gateway,
+            OpenThermReport.GPIO_STATES,
+            {
+                OpenThermDataSource.GATEWAY: {
+                    v.OTGW_GPIO_A_STATE: 0,
+                    v.OTGW_GPIO_B_STATE: 0,
+                },
+            },
+            (
+                lambda: 0
+                in (
+                    gateway.status.status[OpenThermDataSource.GATEWAY].get(
+                        v.OTGW_GPIO_A
+                    ),
+                    gateway.status.status[OpenThermDataSource.GATEWAY].get(
+                        v.OTGW_GPIO_B
+                    ),
+                )
+            ),
+        )
+    }
 
 
 class OpenThermPollTask:
