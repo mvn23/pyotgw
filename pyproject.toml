@@ -12,7 +12,7 @@ split-on-trailing-comma = false
 [tool.tox]
 legacy_tox_ini = """
   [tox]
-  envlist = clean, ruff-lint, py310, py311, py312
+  envlist = clean, ruff-lint, py311, py312, py313
   skip_missing_interpreters = True
 
   [testenv]

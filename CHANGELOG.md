@@ -1,6 +1,7 @@
 # pyotgw Changelog
 
 ### master
+- Raise minimum python version to 3.11
 - Add pyproject.toml
 - Move tox.ini to pyproject.toml
 - Add OpenThermMessageType class

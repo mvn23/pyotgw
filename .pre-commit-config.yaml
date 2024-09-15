@@ -11,7 +11,7 @@ repos:
   rev: v3.16.0
   hooks:
   - id: pyupgrade
-    args: ['--py310-plus']
+    args: ['--py311-plus']
 - repo: https://github.com/PyCQA/bandit
   rev: 1.7.9
   hooks:

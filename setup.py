@@ -24,7 +24,7 @@ setup(
     keywords="opentherm gateway otgw",
     url="https://github.com/mvn23/pyotgw",
     packages=["pyotgw"],
-    python_requires=">=3.8",
+    python_requires=">=3.11",
     long_description=read("README.md"),
     long_description_content_type="text/markdown",
     install_requires=["pyserial-asyncio-fast"],
