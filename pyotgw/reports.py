@@ -155,6 +155,6 @@ def convert_report_response_to_status_update(
     if report_type not in _CONVERSIONS:
         return
     try:
-        return _CONVERSIONS[report_type](response)
+        return _CONVERSIONS[report_type](response[2:])
     except ValueError:
         return

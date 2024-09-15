@@ -9,6 +9,7 @@ import pytest
 import serial
 
 import pyotgw.vars as v
+from pyotgw.pyotgw import GPIO_POLL_TASK_NAME
 from pyotgw.types import (
     OpenThermCommand,
     OpenThermDataSource,
@@ -16,7 +17,7 @@ from pyotgw.types import (
     OpenThermReport,
 )
 from tests.data import pygw_reports, pygw_status
-from tests.helpers import called_once, called_x_times
+from tests.helpers import called_x_times, respond_to_reports
 
 from .test_reports import REPORT_TEST_PARAMETERS, REPORT_TEST_VALUES
 
@@ -27,32 +28,35 @@ async def test_cleanup(pygw):
     pygw.status.submit_partial_update(OpenThermDataSource.GATEWAY, {v.OTGW_GPIO_A: 0})
     pygw.loop = asyncio.get_running_loop()
 
-    with patch.object(pygw, "_wait_for_cmd"):
-        await pygw._poll_gpio()
-        assert pygw._gpio_task
-        await pygw.cleanup()
-        assert not pygw._gpio_task
+    pygw._poll_tasks[GPIO_POLL_TASK_NAME].start()
+
+    assert pygw._poll_tasks[GPIO_POLL_TASK_NAME].is_running
+    await pygw.cleanup()
+    assert not pygw._poll_tasks[GPIO_POLL_TASK_NAME].is_running
 
 
 @pytest.mark.asyncio
 async def test_connect_success_and_reconnect_with_gpio(caplog, pygw, pygw_proto):
     """Test pyotgw.connect()"""
-    with patch.object(pygw, "get_reports", return_value={}), patch.object(
+    pygw._wait_for_cmd = AsyncMock(
+        side_effect=respond_to_reports([OpenThermReport.GPIO_MODES], ["G=10"])
+    )
+
+    with patch.object(
         pygw,
         "get_status",
         return_value={},
-    ), patch.object(pygw, "_poll_gpio") as poll_gpio, patch.object(
+    ), patch.object(
         pygw_proto,
         "init_and_wait_for_activity",
     ) as init_and_wait, patch(
         "serial_asyncio_fast.create_serial_connection",
         return_value=(pygw_proto.transport, pygw_proto),
     ), caplog.at_level(logging.DEBUG):
-        status = await pygw.connect("loop://")
+        await pygw.connect("loop://")
 
-        assert status == v.DEFAULT_STATUS
         init_and_wait.assert_called_once()
-        poll_gpio.assert_called_once()
+        assert pygw._poll_tasks[GPIO_POLL_TASK_NAME].is_running
 
         await pygw.connection.watchdog.stop()
         await pygw.connection.watchdog._callback()
@@ -75,7 +79,7 @@ async def test_connect_skip_init(caplog, pygw, pygw_proto):
         pygw,
         "get_status",
         return_value={},
-    ) as get_status, patch.object(pygw, "_poll_gpio") as poll_gpio, patch.object(
+    ) as get_status, patch.object(
         pygw_proto,
         "init_and_wait_for_activity",
     ) as init_and_wait, patch(
@@ -86,7 +90,6 @@ async def test_connect_skip_init(caplog, pygw, pygw_proto):
 
         assert status == v.DEFAULT_STATUS
         init_and_wait.assert_called_once()
-        poll_gpio.assert_called_once()
         get_reports.assert_not_awaited()
         get_status.assert_not_awaited()
 
@@ -515,14 +518,25 @@ async def test_set_hot_water_ovrd(pygw):
 
 
 @pytest.mark.asyncio
-async def test_set_mode(pygw):
+@pytest.mark.parametrize(
+    ("mode", "response"),
+    [
+        (OpenThermGatewayOpMode.MONITOR, 0),
+        (OpenThermGatewayOpMode.GATEWAY, 1),
+    ],
+)
+async def test_set_mode_valid(pygw, mode, response):
     """Test pyotgw.set_mode()"""
-    with patch.object(pygw, "_wait_for_cmd", side_effect=[None, 0]):
+    with patch.object(pygw, "_wait_for_cmd", return_value=response):
+        assert await pygw.set_mode(mode) == mode
+
+
+@pytest.mark.asyncio
+async def test_set_mode_invalid(pygw):
+    """Test pyotgw.set_mode()"""
+    with patch.object(pygw, "_wait_for_cmd", return_value=None):
         assert await pygw.set_mode(OpenThermGatewayOpMode.GATEWAY) is None
-        assert (
-            await pygw.set_mode(OpenThermGatewayOpMode.MONITOR)
-            == OpenThermGatewayOpMode.MONITOR
-        )
+        assert await pygw.set_mode("invalid") is None
 
 
 @pytest.mark.asyncio
@@ -1006,61 +1020,4 @@ async def test_wait_for_cmd(caplog, pygw, pygw_proto):
             logging.ERROR,
             f"Command {OpenThermCommand.MAX_MOD} with value -1 raised exception: ",
         ),
-    ]
-
-
-@pytest.mark.asyncio
-async def test_poll_gpio(caplog, pygw):
-    """Test pyotgw._poll_gpio()"""
-    pygw._gpio_task = None
-    pygw.loop = asyncio.get_running_loop()
-    pygw.status.submit_partial_update(
-        OpenThermDataSource.GATEWAY, {v.OTGW_GPIO_A: 4, v.OTGW_GPIO_B: 1}
-    )
-
-    with caplog.at_level(logging.DEBUG):
-        await pygw._poll_gpio()
-    assert len(caplog.records) == 0
-
-    pygw.status.submit_partial_update(OpenThermDataSource.GATEWAY, {v.OTGW_GPIO_B: 0})
-    with patch.object(
-        pygw,
-        "_wait_for_cmd",
-        return_value="I=10",
-    ) as wait_for_cmd, patch.object(
-        pygw.status,
-        "submit_partial_update",
-    ) as update_status, caplog.at_level(logging.DEBUG):
-        await pygw._poll_gpio()
-        await called_once(update_status)
-
-    assert isinstance(pygw._gpio_task, asyncio.Task)
-    wait_for_cmd.assert_awaited_once_with(
-        OpenThermCommand.REPORT, v.OTGW_REPORT_GPIO_STATES
-    )
-    update_status.assert_called_once_with(
-        OpenThermDataSource.GATEWAY,
-        {v.OTGW_GPIO_A_STATE: 1, v.OTGW_GPIO_B_STATE: 0},
-    )
-    assert caplog.record_tuples == [
-        ("pyotgw.pyotgw", logging.DEBUG, "Starting GPIO polling routine"),
-    ]
-
-    caplog.clear()
-    pygw.status.submit_partial_update(OpenThermDataSource.GATEWAY, {v.OTGW_GPIO_B: 1})
-    with patch.object(
-        pygw.status,
-        "submit_partial_update",
-    ) as update_status, caplog.at_level(logging.DEBUG):
-        await pygw._poll_gpio()
-        await called_once(update_status)
-
-    assert pygw._gpio_task is None
-    update_status.assert_called_once_with(
-        OpenThermDataSource.GATEWAY,
-        {v.OTGW_GPIO_A_STATE: 0, v.OTGW_GPIO_B_STATE: 0},
-    )
-    assert caplog.record_tuples == [
-        ("pyotgw.pyotgw", logging.DEBUG, "Stopping GPIO polling routine"),
-        ("pyotgw.pyotgw", logging.DEBUG, "GPIO polling routine stopped"),
     ]

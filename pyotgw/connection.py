@@ -8,10 +8,10 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from functools import partial
-from typing import Literal, TYPE_CHECKING
-from collections.abc import Awaitable, Callable
+from typing import TYPE_CHECKING, Literal
 
 import serial
 import serial_asyncio_fast

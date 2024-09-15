@@ -4,6 +4,7 @@ from collections.abc import Callable
 
 import pytest
 
+import pyotgw.vars as v
 from pyotgw.reports import _CONVERSIONS, convert_report_response_to_status_update
 from pyotgw.types import (
     OpenThermDataSource,
@@ -19,30 +20,28 @@ from pyotgw.types import (
     OpenThermThermostatDetection,
     OpenThermVoltageReferenceLevel,
 )
-import pyotgw.vars as v
-
 
 REPORT_TEST_PARAMETERS = ("report", "response", "expected_dict")
 
 REPORT_TEST_VALUES = [
     (
         OpenThermReport.ABOUT,
-        "Test version 1.0",
+        "A=Test version 1.0",
         {OpenThermDataSource.GATEWAY: {v.OTGW_ABOUT: "Test version 1.0"}},
     ),
     (
         OpenThermReport.BUILD,
-        "17:52 12-03-2023",
+        "B=17:52 12-03-2023",
         {OpenThermDataSource.GATEWAY: {v.OTGW_BUILD: "17:52 12-03-2023"}},
     ),
     (
         OpenThermReport.CLOCK_SPEED,
-        "4 MHz",
+        "C=4 MHz",
         {OpenThermDataSource.GATEWAY: {v.OTGW_CLOCKMHZ: "4 MHz"}},
     ),
     (
         OpenThermReport.TEMP_SENSOR_FUNCTION,
-        "R",
+        "D=R",
         {
             OpenThermDataSource.GATEWAY: {
                 v.OTGW_TEMP_SENSOR: OpenThermTemperatureSensorFunction.RETURN_WATER_TEMPERATURE
@@ -51,7 +50,7 @@ REPORT_TEST_VALUES = [
     ),
     (
         OpenThermReport.GPIO_MODES,
-        "46",
+        "G=46",
         {
             OpenThermDataSource.GATEWAY: {
                 v.OTGW_GPIO_A: OpenThermGPIOMode.LED_F,
@@ -61,7 +60,7 @@ REPORT_TEST_VALUES = [
     ),
     (
         OpenThermReport.GPIO_STATES,
-        "10",
+        "I=10",
         {
             OpenThermDataSource.GATEWAY: {
                 v.OTGW_GPIO_A_STATE: 1,
@@ -71,7 +70,7 @@ REPORT_TEST_VALUES = [
     ),
     (
         OpenThermReport.LED_MODES,
-        "HWCEMP",
+        "L=HWCEMP",
         {
             OpenThermDataSource.GATEWAY: {
                 v.OTGW_LED_A: OpenThermLEDMode.CENTRAL_HEATING_ON,
@@ -85,12 +84,12 @@ REPORT_TEST_VALUES = [
     ),
     (
         OpenThermReport.OP_MODE,
-        "G",
+        "M=G",
         {OpenThermDataSource.GATEWAY: {v.OTGW_MODE: OpenThermGatewayOpMode.GATEWAY}},
     ),
     (
         OpenThermReport.SETPOINT_OVERRIDE,
-        "c17.25",
+        "O=c17.25",
         {
             OpenThermDataSource.GATEWAY: {
                 v.OTGW_SETP_OVRD_MODE: OpenThermSetpointOverrideMode.CONSTANT,
@@ -102,7 +101,7 @@ REPORT_TEST_VALUES = [
     ),
     (
         OpenThermReport.SMART_PWR_MODE,
-        "Medium power",
+        "P=Medium power",
         {
             OpenThermDataSource.GATEWAY: {
                 v.OTGW_SMART_PWR: OpenThermSmartPowerMode.MEDIUM
@@ -111,12 +110,12 @@ REPORT_TEST_VALUES = [
     ),
     (
         OpenThermReport.RESET_CAUSE,
-        "B",
+        "Q=B",
         {OpenThermDataSource.GATEWAY: {v.OTGW_RST_CAUSE: OpenThermResetCause.BROWNOUT}},
     ),
     (
         OpenThermReport.THERMOSTAT_DETECTION_STATE,
-        "C",
+        "R=C",
         {
             OpenThermDataSource.GATEWAY: {
                 v.OTGW_THRM_DETECT: OpenThermThermostatDetection.CELCIA_20
@@ -125,12 +124,12 @@ REPORT_TEST_VALUES = [
     ),
     (
         OpenThermReport.SETBACK_TEMPERATURE,
-        "15.1",
+        "S=15.1",
         {OpenThermDataSource.GATEWAY: {v.OTGW_SB_TEMP: 15.1}},
     ),
     (
         OpenThermReport.TWEAKS,
-        "10",
+        "T=10",
         {
             OpenThermDataSource.GATEWAY: {
                 v.OTGW_IGNORE_TRANSITIONS: 1,
@@ -140,7 +139,7 @@ REPORT_TEST_VALUES = [
     ),
     (
         OpenThermReport.VREF,
-        "6",
+        "V=6",
         {
             OpenThermDataSource.GATEWAY: {
                 v.OTGW_VREF: OpenThermVoltageReferenceLevel.LEVEL_6
@@ -149,7 +148,7 @@ REPORT_TEST_VALUES = [
     ),
     (
         OpenThermReport.DHW,
-        "1",
+        "W=1",
         {
             OpenThermDataSource.GATEWAY: {
                 v.OTGW_DHW_OVRD: OpenThermHotWaterOverrideMode.FORCE_ON
