@@ -3,8 +3,8 @@
 import pytest
 from unittest.mock import call, AsyncMock
 
-from pyotgw.poll_task import OpenThermPollTask
-from pyotgw.pyotgw import OpenThermGateway, GPIO_POLL_TASK_NAME
+from pyotgw.poll_task import OpenThermPollTask, OpenThermPollTaskName
+from pyotgw.pyotgw import OpenThermGateway
 from pyotgw.types import OpenThermDataSource, OpenThermReport
 import pyotgw.vars as v
 
@@ -12,7 +12,7 @@ from .helpers import called_x_times
 
 TASK_TEST_PARAMETERS = ("task_name",)
 TASK_TEST_VALUES = [
-    (GPIO_POLL_TASK_NAME,),
+    (OpenThermPollTaskName.GPIO_STATE,),
 ]
 
 
@@ -31,7 +31,7 @@ async def test_init(pygw: OpenThermGateway, task_name: str) -> None:
 @pytest.mark.asyncio
 async def test_gpio_start_stop(pygw: OpenThermGateway) -> None:
     """Test task.start() and task.stop()"""
-    task = pygw._poll_tasks[GPIO_POLL_TASK_NAME]
+    task = pygw._poll_tasks[OpenThermPollTaskName.GPIO_STATE]
     assert not task.is_running
     pygw.status.submit_partial_update(OpenThermDataSource.GATEWAY, {v.OTGW_GPIO_A: 0})
     task.start()
@@ -43,7 +43,7 @@ async def test_gpio_start_stop(pygw: OpenThermGateway) -> None:
 @pytest.mark.asyncio
 async def test_gpio_start_or_stop_as_needed(pygw: OpenThermGateway) -> None:
     """Test task.start_or_stop_as_needed()"""
-    task = pygw._poll_tasks[GPIO_POLL_TASK_NAME]
+    task = pygw._poll_tasks[OpenThermPollTaskName.GPIO_STATE]
     assert task.is_running is False
     await task.start_or_stop_as_needed()
     assert task.is_running is False
@@ -59,7 +59,7 @@ async def test_gpio_start_or_stop_as_needed(pygw: OpenThermGateway) -> None:
 
 def test_gpio_should_run(pygw: OpenThermGateway) -> None:
     """Test task.should_run()"""
-    task = pygw._poll_tasks[GPIO_POLL_TASK_NAME]
+    task = pygw._poll_tasks[OpenThermPollTaskName.GPIO_STATE]
     assert task.should_run is False
     pygw.status.submit_partial_update(OpenThermDataSource.GATEWAY, {v.OTGW_GPIO_A: 0})
     assert task.should_run is True
@@ -68,7 +68,7 @@ def test_gpio_should_run(pygw: OpenThermGateway) -> None:
 @pytest.mark.asyncio
 async def test_gpio_is_running(pygw: OpenThermGateway) -> None:
     """Test task.should_run()"""
-    task = pygw._poll_tasks[GPIO_POLL_TASK_NAME]
+    task = pygw._poll_tasks[OpenThermPollTaskName.GPIO_STATE]
     assert task.is_running is False
     pygw.status.submit_partial_update(OpenThermDataSource.GATEWAY, {v.OTGW_GPIO_A: 0})
     task.start()
@@ -79,7 +79,7 @@ async def test_gpio_is_running(pygw: OpenThermGateway) -> None:
 async def test_gpio_polling_routing(pygw: OpenThermGateway) -> None:
     """Test task._polling_routing()"""
     pygw.get_report = AsyncMock()
-    task = pygw._poll_tasks[GPIO_POLL_TASK_NAME]
+    task = pygw._poll_tasks[OpenThermPollTaskName.GPIO_STATE]
     task._interval = 0.01
     pygw.status.submit_partial_update(OpenThermDataSource.GATEWAY, {v.OTGW_GPIO_A: 0})
     task.start()

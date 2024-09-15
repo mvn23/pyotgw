@@ -9,7 +9,7 @@ import pytest
 import serial
 
 import pyotgw.vars as v
-from pyotgw.pyotgw import GPIO_POLL_TASK_NAME
+from pyotgw.poll_task import OpenThermPollTaskName
 from pyotgw.types import (
     OpenThermCommand,
     OpenThermDataSource,
@@ -28,11 +28,11 @@ async def test_cleanup(pygw):
     pygw.status.submit_partial_update(OpenThermDataSource.GATEWAY, {v.OTGW_GPIO_A: 0})
     pygw.loop = asyncio.get_running_loop()
 
-    pygw._poll_tasks[GPIO_POLL_TASK_NAME].start()
+    pygw._poll_tasks[OpenThermPollTaskName.GPIO_STATE].start()
 
-    assert pygw._poll_tasks[GPIO_POLL_TASK_NAME].is_running
+    assert pygw._poll_tasks[OpenThermPollTaskName.GPIO_STATE].is_running
     await pygw.cleanup()
-    assert not pygw._poll_tasks[GPIO_POLL_TASK_NAME].is_running
+    assert not pygw._poll_tasks[OpenThermPollTaskName.GPIO_STATE].is_running
 
 
 @pytest.mark.asyncio
@@ -56,7 +56,7 @@ async def test_connect_success_and_reconnect_with_gpio(caplog, pygw, pygw_proto)
         await pygw.connect("loop://")
 
         init_and_wait.assert_called_once()
-        assert pygw._poll_tasks[GPIO_POLL_TASK_NAME].is_running
+        assert pygw._poll_tasks[OpenThermPollTaskName.GPIO_STATE].is_running
 
         await pygw.connection.watchdog.stop()
         await pygw.connection.watchdog._callback()
