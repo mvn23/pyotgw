@@ -149,7 +149,8 @@ async def test_issue_cmd(caplog, pygw_proto):
         (
             "pyotgw.commandprocessor",
             logging.WARNING,
-            f"Command {OpenThermCommand.CONTROL_SETPOINT_2} failed with InvalidCommand, retrying...",
+            f"Command {OpenThermCommand.CONTROL_SETPOINT_2} failed with InvalidCommand,"
+            " retrying...",
         ),
     ]
     caplog.clear()
@@ -185,12 +186,14 @@ async def test_issue_cmd(caplog, pygw_proto):
         (
             "pyotgw.commandprocessor",
             logging.WARNING,
-            f"Command {OpenThermCommand.CONTROL_HEATING_2} failed with Error 03, retrying...",
+            f"Command {OpenThermCommand.CONTROL_HEATING_2} failed with Error 03,"
+            " retrying...",
         ),
         (
             "pyotgw.commandprocessor",
             logging.WARNING,
-            f"Command {OpenThermCommand.CONTROL_HEATING_2} failed with {OpenThermCommand.CONTROL_HEATING_2}: BV, retrying...",
+            f"Command {OpenThermCommand.CONTROL_HEATING_2} failed with"
+            f" {OpenThermCommand.CONTROL_HEATING_2}: BV, retrying...",
         ),
     ]
 
