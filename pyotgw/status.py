@@ -3,9 +3,9 @@
 from __future__ import annotations
 
 import asyncio
-import logging
 from collections.abc import Awaitable, Callable
 from copy import deepcopy
+import logging
 
 from . import vars as v
 from .types import OpenThermDataSource

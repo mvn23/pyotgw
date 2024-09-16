@@ -7,10 +7,10 @@ to the gateway goes here.
 from __future__ import annotations
 
 import asyncio
-import logging
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from functools import partial
+import logging
 from typing import TYPE_CHECKING, Literal
 
 import serial
@@ -181,7 +181,7 @@ class ConnectionManager:  # pylint: disable=too-many-instance-attributes
                     )
                     self._error = err
 
-            except asyncio.TimeoutError as err:
+            except TimeoutError as err:
                 if not isinstance(err, type(self._error)):
                     _LOGGER.error(
                         "The serial device on %s is not responding. "

@@ -3,9 +3,9 @@
 from __future__ import annotations
 
 import asyncio
-import logging
 from collections.abc import Awaitable, Callable
 from datetime import datetime
+import logging
 from typing import TYPE_CHECKING, Final, Literal
 
 from . import vars as v
@@ -207,7 +207,7 @@ class OpenThermGateway:  # pylint: disable=too-many-public-methods
 
     async def set_clock(
         self,
-        date: datetime = datetime.now(),
+        date: datetime | None = None,
         timeout: asyncio.Timeout = v.OTGW_DEFAULT_TIMEOUT,
     ) -> str | None:
         """
@@ -221,6 +221,8 @@ class OpenThermGateway:  # pylint: disable=too-many-public-methods
         This method is a coroutine
         """
         cmd = OpenThermCommand.SET_CLOCK
+        if date is None:
+            date = datetime.now()
         value = f"{date.strftime('%H:%M')}/{date.isoweekday()}"
         return await self._wait_for_cmd(cmd, value, timeout)
 
@@ -343,7 +345,8 @@ class OpenThermGateway:  # pylint: disable=too-many-public-methods
         report_type: OpenThermReport,
         timeout: asyncio.Timeout = v.OTGW_DEFAULT_TIMEOUT,
     ) -> dict[OpenThermDataSource, dict] | None:
-        """Get the report, update status dict accordingly. Return updated status dict."""
+        """Get the report, update status dict accordingly.
+        Return updated status dict."""
         ret = await self._wait_for_cmd(OpenThermCommand.REPORT, report_type, timeout)
         if (
             ret is None
@@ -865,7 +868,7 @@ class OpenThermGateway:  # pylint: disable=too-many-public-methods
                 self._protocol.command_processor.issue_cmd(cmd, value),
                 timeout,
             )
-        except asyncio.TimeoutError:
+        except TimeoutError:
             _LOGGER.error("Timed out waiting for command: %s, value: %s.", cmd, value)
             return
         except (RuntimeError, SyntaxError, ValueError) as exc:

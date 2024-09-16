@@ -8,7 +8,12 @@ from unittest.mock import AsyncMock, MagicMock, call, patch
 import pytest
 import serial
 
+<<<<<<< HEAD
+import pyotgw.vars as v
 from pyotgw.pyotgw import GPIO_POLL_TASK_NAME
+=======
+from pyotgw.poll_task import OpenThermPollTaskName
+>>>>>>> 5a02ca7 (* Configure ruff linter)
 from pyotgw.types import (
     OpenThermCommand,
     OpenThermDataSource,

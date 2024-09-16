@@ -1,7 +1,7 @@
 """Tests for pyotgw/messages.py"""
 
-import pyotgw.messages as m
 from pyotgw.messageprocessor import MessageProcessor
+import pyotgw.messages as m
 
 
 def test_message_registry():
