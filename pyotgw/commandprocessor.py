@@ -3,9 +3,9 @@
 from __future__ import annotations
 
 import asyncio
+from asyncio.queues import QueueFull
 import logging
 import re
-from asyncio.queues import QueueFull
 from typing import TYPE_CHECKING
 
 from . import vars as v

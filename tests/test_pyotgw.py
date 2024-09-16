@@ -1,14 +1,13 @@
 """Tests for pyotgw/pyotgw.py"""
 
 import asyncio
-import logging
 from datetime import datetime
+import logging
 from unittest.mock import AsyncMock, MagicMock, call, patch
 
 import pytest
 import serial
 
-import pyotgw.vars as v
 from pyotgw.poll_task import OpenThermPollTaskName
 from pyotgw.types import (
     OpenThermCommand,
@@ -16,6 +15,7 @@ from pyotgw.types import (
     OpenThermGatewayOpMode,
     OpenThermReport,
 )
+import pyotgw.vars as v
 from tests.data import pygw_reports, pygw_status
 from tests.helpers import called_x_times, respond_to_reports
 
@@ -402,8 +402,8 @@ async def test_get_reports(pygw):
         """Get response from dict or raise ValueError"""
         try:
             return pygw_reports.report_responses_42[val]
-        except KeyError:
-            raise ValueError
+        except KeyError as e:
+            raise ValueError from e
 
     with patch.object(
         pygw,

@@ -1,7 +1,8 @@
 """Tests for pyotgw/poll_tasks.py"""
 
+from unittest.mock import AsyncMock, call
+
 import pytest
-from unittest.mock import call, AsyncMock
 
 from pyotgw.poll_task import OpenThermPollTask, OpenThermPollTaskName
 from pyotgw.pyotgw import OpenThermGateway

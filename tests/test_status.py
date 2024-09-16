@@ -6,8 +6,8 @@ from unittest.mock import MagicMock
 
 import pytest
 
-import pyotgw.vars as v
 from pyotgw.types import OpenThermDataSource
+import pyotgw.vars as v
 from tests.helpers import called_once
 
 

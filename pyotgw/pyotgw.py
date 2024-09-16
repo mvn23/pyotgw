@@ -3,14 +3,14 @@
 from __future__ import annotations
 
 import asyncio
-import logging
 from collections.abc import Awaitable, Callable
 from datetime import datetime
+import logging
 from typing import TYPE_CHECKING, Literal
 
 from . import vars as v
 from .connection import ConnectionManager
-from .poll_task import get_all_poll_tasks, OpenThermPollTaskName
+from .poll_task import OpenThermPollTaskName, get_all_poll_tasks
 from .reports import convert_report_response_to_status_update
 from .status import StatusManager
 from .types import (
@@ -181,7 +181,7 @@ class OpenThermGateway:  # pylint: disable=too-many-public-methods
 
     async def set_clock(
         self,
-        date: datetime = datetime.now(),
+        date: datetime | None = None,
         timeout: asyncio.Timeout = v.OTGW_DEFAULT_TIMEOUT,
     ) -> str | None:
         """
@@ -195,6 +195,8 @@ class OpenThermGateway:  # pylint: disable=too-many-public-methods
         This method is a coroutine
         """
         cmd = OpenThermCommand.SET_CLOCK
+        if date is None:
+            date = datetime.now()
         value = f"{date.strftime('%H:%M')}/{date.isoweekday()}"
         return await self._wait_for_cmd(cmd, value, timeout)
 
@@ -317,7 +319,8 @@ class OpenThermGateway:  # pylint: disable=too-many-public-methods
         report_type: OpenThermReport,
         timeout: asyncio.Timeout = v.OTGW_DEFAULT_TIMEOUT,
     ) -> dict[OpenThermDataSource, dict] | None:
-        """Get the report, update status dict accordingly. Return updated status dict."""
+        """Get the report, update status dict accordingly.
+        Return updated status dict."""
         ret = await self._wait_for_cmd(OpenThermCommand.REPORT, report_type, timeout)
         if (
             ret is None
