@@ -1,4 +1,5 @@
 bandit
+freezegun
 pre-commit
 pytest
 pytest-asyncio
