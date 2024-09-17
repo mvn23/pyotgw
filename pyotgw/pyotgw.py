@@ -6,11 +6,11 @@ import asyncio
 from collections.abc import Awaitable, Callable
 from datetime import datetime
 import logging
-from typing import TYPE_CHECKING, Final, Literal
+from typing import TYPE_CHECKING, Literal
 
 from . import vars as v
 from .connection import ConnectionManager
-from .poll_task import get_all_poll_tasks, OpenThermPollTaskName
+from .poll_task import OpenThermPollTaskName, get_all_poll_tasks
 from .reports import convert_report_response_to_status_update
 from .status import StatusManager
 from .types import (
