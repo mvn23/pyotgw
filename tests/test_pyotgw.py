@@ -5,6 +5,7 @@ from datetime import datetime
 import logging
 from unittest.mock import AsyncMock, MagicMock, call, patch
 
+from freezegun import freeze_time
 import pytest
 import serial
 
@@ -390,8 +391,16 @@ async def test_set_clock(pygw):
 
     with patch.object(pygw, "_wait_for_cmd", return_value="12:34/5") as wait_for_cmd:
         assert await pygw.set_clock(dt, timeout=5) == "12:34/5"
+        with freeze_time("2021-03-12 12:34:56"):
+            assert await pygw.set_clock() == "12:34/5"
 
-    wait_for_cmd.assert_called_once_with(OpenThermCommand.SET_CLOCK, "12:34/5", 5)
+    assert wait_for_cmd.await_count == 2
+    wait_for_cmd.assert_has_awaits(
+        [
+            call(OpenThermCommand.SET_CLOCK, "12:34/5", 5),
+            call(OpenThermCommand.SET_CLOCK, "12:34/5", v.OTGW_DEFAULT_TIMEOUT),
+        ]
+    )
 
 
 @pytest.mark.asyncio
