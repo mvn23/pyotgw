@@ -4,7 +4,6 @@ from collections.abc import Callable
 
 import pytest
 
-import pyotgw.vars as v
 from pyotgw.reports import _CONVERSIONS, convert_report_response_to_status_update
 from pyotgw.types import (
     OpenThermDataSource,
@@ -20,6 +19,7 @@ from pyotgw.types import (
     OpenThermThermostatDetection,
     OpenThermVoltageReferenceLevel,
 )
+import pyotgw.vars as v
 
 REPORT_TEST_PARAMETERS = ("report", "response", "expected_dict")
 
@@ -44,7 +44,9 @@ REPORT_TEST_VALUES = [
         "D=R",
         {
             OpenThermDataSource.GATEWAY: {
-                v.OTGW_TEMP_SENSOR: OpenThermTemperatureSensorFunction.RETURN_WATER_TEMPERATURE
+                v.OTGW_TEMP_SENSOR: (
+                    OpenThermTemperatureSensorFunction.RETURN_WATER_TEMPERATURE
+                )
             }
         },
     ),

@@ -7,8 +7,7 @@ import logging
 import re
 from typing import TYPE_CHECKING
 
-from . import messages as m
-from . import vars as v
+from . import messages as m, vars as v
 from .types import (
     OpenThermCommand,
     OpenThermDataSource,

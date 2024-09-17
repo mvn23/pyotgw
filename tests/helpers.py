@@ -32,12 +32,22 @@ async def let_queue_drain(queue, timeout=10):
 
 
 def respond_to_reports(
-    cmds: list[OpenThermReport] = [], responses: list[str] = []
+    cmds: list[OpenThermReport] | None = None, responses: list[str] | None = None
 ) -> Callable[[OpenThermCommand, str, float | None], str]:
     """
     Respond to PR= commands with test values.
     Override response values by specifying cmds and responses in order.
     """
+
+    if len(cmds) != len(responses):
+        raise ValueError(
+            "There should be an equal amount of provided cmds and responses"
+        )
+
+    if cmds is None:
+        cmds = []
+    if responses is None:
+        responses = []
 
     default_responses = {
         OpenThermReport.ABOUT: "A=OpenTherm Gateway 5.8",
@@ -57,11 +67,6 @@ def respond_to_reports(
         OpenThermReport.VREF: "V=6",
         OpenThermReport.DHW: "W=1",
     }
-
-    if len(cmds) != len(responses):
-        raise ValueError(
-            "There should be an equal amount of provided cmds and responses"
-        )
 
     for cmd, response in zip(cmds, responses):
         if cmd not in default_responses:

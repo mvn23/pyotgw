@@ -2,8 +2,8 @@
 
 from types import SimpleNamespace
 
-import pyotgw.vars as v
 from pyotgw.types import OpenThermDataSource, OpenThermMessageID, OpenThermMessageType
+import pyotgw.vars as v
 
 _report_responses_51 = {
     v.OTGW_REPORT_ABOUT: "A=OpenTherm Gateway 5.1",
