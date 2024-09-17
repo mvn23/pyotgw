@@ -6,11 +6,11 @@ import asyncio
 from collections.abc import Awaitable, Callable
 from datetime import datetime
 import logging
-from typing import TYPE_CHECKING, Final, Literal
+from typing import TYPE_CHECKING, Literal
 
 from . import vars as v
 from .connection import ConnectionManager
-from .poll_task import OpenThermPollTask
+from .poll_task import OpenThermPollTaskName, get_all_poll_tasks
 from .reports import convert_report_response_to_status_update
 from .status import StatusManager
 from .types import (
@@ -26,39 +26,13 @@ if TYPE_CHECKING:
 _LOGGER = logging.getLogger(__name__)
 
 
-GPIO_POLL_TASK_NAME: Final = "gpio"
-
-
 class OpenThermGateway:  # pylint: disable=too-many-public-methods
     """Main OpenThermGateway object abstraction"""
 
     def __init__(self) -> None:
         """Create an OpenThermGateway object."""
         self._transport = None
-        self._poll_tasks = {
-            GPIO_POLL_TASK_NAME: OpenThermPollTask(
-                GPIO_POLL_TASK_NAME,
-                self,
-                OpenThermReport.GPIO_STATES,
-                {
-                    OpenThermDataSource.GATEWAY: {
-                        v.OTGW_GPIO_A_STATE: 0,
-                        v.OTGW_GPIO_B_STATE: 0,
-                    },
-                },
-                (
-                    lambda: 0
-                    in (
-                        self.status.status[OpenThermDataSource.GATEWAY].get(
-                            v.OTGW_GPIO_A
-                        ),
-                        self.status.status[OpenThermDataSource.GATEWAY].get(
-                            v.OTGW_GPIO_B
-                        ),
-                    )
-                ),
-            )
-        }
+        self._poll_tasks = get_all_poll_tasks(self)
         self._protocol = None
         self._skip_init = False
         self.status = StatusManager()
@@ -522,7 +496,9 @@ class OpenThermGateway:  # pylint: disable=too-many-public-methods
             var = getattr(v, f"OTGW_GPIO_{gpio_id}")
             status_otgw[var] = ret
             self.status.submit_partial_update(OpenThermDataSource.GATEWAY, status_otgw)
-            await self._poll_tasks[GPIO_POLL_TASK_NAME].start_or_stop_as_needed()
+            await self._poll_tasks[
+                OpenThermPollTaskName.GPIO_STATE
+            ].start_or_stop_as_needed()
             return ret
 
     async def set_setback_temp(
