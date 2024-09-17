@@ -21,6 +21,7 @@ class OpenThermPollTaskName(StrEnum):
     """Poll task names."""
 
     GPIO_STATE = "gpio_state"
+    SMART_POWER_MODE = "smart_power_mode"
 
 
 def get_all_poll_tasks(gateway: OpenThermGateway):
@@ -47,7 +48,18 @@ def get_all_poll_tasks(gateway: OpenThermGateway):
                     ),
                 )
             ),
-        )
+        ),
+        OpenThermPollTaskName.SMART_POWER_MODE: OpenThermPollTask(
+            OpenThermPollTaskName.SMART_POWER_MODE,
+            gateway,
+            OpenThermReport.SMART_PWR_MODE,
+            {
+                OpenThermDataSource.GATEWAY: {
+                    v.OTGW_SMART_PWR: None,
+                },
+            },
+            lambda: True,
+        ),
     }
 
 
