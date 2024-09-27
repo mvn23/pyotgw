@@ -131,7 +131,7 @@ class ConnectionManager:  # pylint: disable=too-many-instance-attributes
                 )
                 return transport, protocol
 
-            except serial.SerialException as err:
+            except (serial.SerialException, OSError) as err:
                 if not isinstance(err, type(self._error)):
                     _LOGGER.error(
                         "Could not connect to serial device on %s. "

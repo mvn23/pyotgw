@@ -291,6 +291,40 @@ async def test_attempt_connect_success(pygw_conn, pygw_proto):
 
 
 @pytest.mark.asyncio
+async def test_attempt_connect_oserror(caplog, pygw_conn):
+    """Test ConnectionManager._attempt_connect() with OSError"""
+    loop = asyncio.get_running_loop()
+    pygw_conn._port = "loop://"
+
+    with patch(
+        "serial_asyncio_fast.create_serial_connection",
+        side_effect=OSError,
+    ) as create_serial_connection, patch.object(
+        pygw_conn,
+        "_get_retry_timeout",
+        return_value=0,
+    ) as retry_timeout, caplog.at_level(
+        logging.ERROR
+    ):
+        task = loop.create_task(pygw_conn._attempt_connect())
+        await called_x_times(retry_timeout, 2)
+
+        assert create_serial_connection.call_count >= 2
+        assert caplog.record_tuples == [
+            (
+                "pyotgw.connection",
+                logging.ERROR,
+                "Could not connect to serial device on loop://. "
+                "Will keep trying. Reported error was: ",
+            )
+        ]
+
+        task.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await task
+
+
+@pytest.mark.asyncio
 async def test_attempt_connect_serialexception(caplog, pygw_conn):
     """Test ConnectionManager._attempt_connect() with SerialException"""
     loop = asyncio.get_running_loop()
