@@ -1,5 +1,8 @@
 # pyotgw Changelog
 
+### 2.2.1
+- Catch OSError when trying to establish a connection
+
 ### 2.2.0
 - Split status line processing into functions (#65)
 - Various small fixes (#64)
