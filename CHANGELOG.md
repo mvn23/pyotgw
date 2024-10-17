@@ -1,5 +1,9 @@
 # pyotgw Changelog
 
+### 2.2.2
+- Fix exception order in _attempt_connect()
+- Update CI actions
+
 ### 2.2.1
 - Catch OSError when trying to establish a connection
 
