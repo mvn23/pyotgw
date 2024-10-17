@@ -131,6 +131,17 @@ class ConnectionManager:  # pylint: disable=too-many-instance-attributes
                 )
                 return transport, protocol
 
+            except asyncio.TimeoutError as err:
+                if not isinstance(err, type(self._error)):
+                    _LOGGER.error(
+                        "The serial device on %s is not responding. "
+                        "Will keep trying.",
+                        self._port,
+                    )
+                    self._error = err
+                if protocol:
+                    await protocol.cleanup()
+
             except (serial.SerialException, OSError) as err:
                 if not isinstance(err, type(self._error)):
                     _LOGGER.error(
@@ -138,15 +149,6 @@ class ConnectionManager:  # pylint: disable=too-many-instance-attributes
                         "Will keep trying. Reported error was: %s",
                         self._port,
                         err,
-                    )
-                    self._error = err
-
-            except asyncio.TimeoutError as err:
-                if not isinstance(err, type(self._error)):
-                    _LOGGER.error(
-                        "The serial device on %s is not responding. "
-                        "Will keep trying.",
-                        self._port,
                     )
                     self._error = err
                 if protocol:
