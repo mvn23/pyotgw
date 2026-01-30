@@ -1,5 +1,8 @@
 # pyotgw Changelog
 
+### 2.2.3
+- Fix status while disconnected (#96)
+
 ### 2.2.2
 - Fix exception order in _attempt_connect()
 - Update CI actions
