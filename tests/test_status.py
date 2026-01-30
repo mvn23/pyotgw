@@ -1,4 +1,5 @@
 """Tests for pyotgw/status.py"""
+
 import asyncio
 import logging
 from unittest.mock import MagicMock
@@ -21,6 +22,7 @@ def test_reset(pygw_status):
     pygw_status.reset()
 
     assert pygw_status.status == v.DEFAULT_STATUS
+    assert pygw_status._updateq.get_nowait() == v.DEFAULT_STATUS
     assert pygw_status._updateq.empty()
 
 
