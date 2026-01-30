@@ -1,4 +1,5 @@
 """Test for pyotgw/messageprocessor.py"""
+
 import asyncio
 import logging
 import re
@@ -103,7 +104,7 @@ async def test_process_msgs(caplog, pygw_message_processor):
         "B",
         v.READ_ACK,
         b"\x23",
-        b"\x0A",
+        b"\x0a",
         b"\x01",
     )
     with patch.object(
@@ -155,6 +156,7 @@ async def test_process_msg(pygw_message_processor):
 
     for test_case, expected_result in pygw_proto_messages:
         pygw_message_processor.status_manager.reset()
+        pygw_message_processor.status_manager._updateq.get_nowait()
         await pygw_message_processor._process_msg(test_case)
         if expected_result is not None:
             await called_once(status_callback)
@@ -304,24 +306,16 @@ async def test_quirk_trset_s2m(pygw_message_processor):
         return
 
     with patch.object(
-        pygw_message_processor.status_manager,
-        "submit_partial_update"
+        pygw_message_processor.status_manager, "submit_partial_update"
     ) as partial_update:
         await pygw_message_processor._quirk_trset_s2m(
             v.THERMOSTAT,
             b"\x01",
             b"\x02",
         )
-        await pygw_message_processor._quirk_trset_s2m(
-            v.BOILER,
-            b"\x14",
-            b"\x80"
-        )
+        await pygw_message_processor._quirk_trset_s2m(v.BOILER, b"\x14", b"\x80")
 
-    partial_update.assert_called_once_with(
-        v.BOILER,
-        {v.DATA_ROOM_SETPOINT: 20.5}
-    )
+    partial_update.assert_called_once_with(v.BOILER, {v.DATA_ROOM_SETPOINT: 20.5})
 
 
 def test_get_flag8(pygw_message_processor):
@@ -373,7 +367,7 @@ def test_get_u8(pygw_message_processor):
             0,
         ),
         (
-            b"\xFF",
+            b"\xff",
             255,
         ),
     )
@@ -390,7 +384,7 @@ def test_get_s8(pygw_message_processor):
             0,
         ),
         (
-            b"\xFF",
+            b"\xff",
             -1,
         ),
     )
@@ -411,7 +405,7 @@ def test_get_f8_8(pygw_message_processor):
         ),
         (
             (
-                b"\xFF",
+                b"\xff",
                 b"\x80",
             ),
             -0.5,
@@ -434,8 +428,8 @@ def test_get_u16(pygw_message_processor):
         ),
         (
             (
-                b"\xFF",
-                b"\xFF",
+                b"\xff",
+                b"\xff",
             ),
             65535,
         ),
@@ -457,8 +451,8 @@ def test_get_s16(pygw_message_processor):
         ),
         (
             (
-                b"\xFF",
-                b"\xFF",
+                b"\xff",
+                b"\xff",
             ),
             -1,
         ),

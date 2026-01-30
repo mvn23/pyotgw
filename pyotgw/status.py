@@ -25,6 +25,7 @@ class StatusManager:
         while not self._updateq.empty():
             self._updateq.get_nowait()
         self._status = deepcopy(v.DEFAULT_STATUS)
+        self._updateq.put_nowait(deepcopy(v.DEFAULT_STATUS))
 
     @property
     def status(self):

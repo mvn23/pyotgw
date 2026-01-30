@@ -112,18 +112,19 @@ class ConnectionManager:  # pylint: disable=too-many-instance-attributes
         self._retry_timeout = MIN_RETRY_TIMEOUT
         while transport is None:
             try:
-                transport, protocol = await (
-                    serial_asyncio_fast.create_serial_connection(
-                        loop,
-                        partial(
-                            OpenThermProtocol,
-                            self._otgw.status,
-                            self.watchdog.inform,
-                        ),
-                        self._port,
-                        write_timeout=0,
-                        **self._config,
-                    )
+                (
+                    transport,
+                    protocol,
+                ) = await serial_asyncio_fast.create_serial_connection(
+                    loop,
+                    partial(
+                        OpenThermProtocol,
+                        self._otgw.status,
+                        self.watchdog.inform,
+                    ),
+                    self._port,
+                    write_timeout=0,
+                    **self._config,
                 )
                 await asyncio.wait_for(
                     protocol.init_and_wait_for_activity(),
@@ -169,6 +170,7 @@ class ConnectionManager:  # pylint: disable=too-many-instance-attributes
     async def _cleanup(self):
         """Cleanup possible leftovers from old connections"""
         await self.watchdog.stop()
+        self._otgw.status.reset()
         if self.protocol:
             await self.protocol.cleanup()
         if self._connecting_task is not None:
