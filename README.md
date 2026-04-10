@@ -443,6 +443,8 @@ pre-commit install
 in the repository.
 
 ### Status Dict Structure
+The status dict is split up in 3 parts. It contains a `boiler` (`vars.BOILER`) part, a `thermostat` (`vars.THERMOSTAT`) part and a `gateway` (`vars.OTGW`) part.
+We use a device-based approach to determine where a value is stored: each part contains values as they are seen by the respective device. A value that is reported by the boiler but overridden by the gateway before it is sent to the thermostat will result in a status dict that contains the originally reported value in the `boiler` part and the override value in the `thermostat` part.
 The full possible status dict with some example values looks like below. Note that not all keys will always be present and that the presence of a key does not guarantee that it contains useful information.
 
 ```python
