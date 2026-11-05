@@ -209,8 +209,24 @@ async def test_issue_cmd(caplog, pygw_proto):
     )
     await called_once(pygw_proto.transport.write)
     pygw_proto.command_processor.submit_response("PS: 1")
+    pygw_proto.command_processor.submit_response("PR: V=5")
     pygw_proto.command_processor.submit_response(
-        "part_2_will_normally_be_parsed_by_get_status",
+        "part_2_will_normally_be_parsed_by_get_status,PS: 0",
     )
 
     assert await task == ["1", "part_2_will_normally_be_parsed_by_get_status"]
+
+    pygw_proto.transport.write = MagicMock()
+    task = loop.create_task(
+        pygw_proto.command_processor.issue_cmd(
+            v.OTGW_CMD_REPORT,
+            "I",
+            1,
+        )
+    )
+    await called_once(pygw_proto.transport.write)
+    pygw_proto.command_processor.submit_response("PR: A=OpenTherm Gateway 6.8")
+    pygw_proto.command_processor.submit_response("InvalidLine1")
+    pygw_proto.command_processor.submit_response("InvalidLine2")
+    with pytest.raises(RuntimeError):
+        await task

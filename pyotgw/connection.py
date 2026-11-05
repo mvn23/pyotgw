@@ -170,6 +170,8 @@ class ConnectionManager:  # pylint: disable=too-many-instance-attributes
     async def _cleanup(self):
         """Cleanup possible leftovers from old connections"""
         await self.watchdog.stop()
+        if hasattr(self._otgw, "_cleanup_gpio"):
+            await self._otgw._cleanup_gpio()
         self._otgw.status.reset()
         if self.protocol:
             await self.protocol.cleanup()

@@ -44,6 +44,10 @@ class CommandProcessor:
             async def send_again(err):
                 """Resend the command."""
                 nonlocal retry
+                if retry <= 0:
+                    raise RuntimeError(
+                        f"Command {cmd}={value} failed after retries with: {err}"
+                    )
                 _LOGGER.warning("Command %s failed with %s, retrying...", cmd, err)
                 retry -= 1
                 self.protocol.transport.write(f"{cmd}={value}\r\n".encode("ascii"))
@@ -74,8 +78,26 @@ class CommandProcessor:
                     if cmd == v.OTGW_CMD_SUMMARY and ret == "1":
                         # Expects a second line
                         part2 = await self._cmdq.get()
+                        while re.match(r"^[A-Z]{2}:", part2):
+                            _LOGGER.debug(
+                                "Ignoring stale command response before PS=1 "
+                                "summary: %s",
+                                part2,
+                            )
+                            part2 = await self._cmdq.get()
+                        if part2.endswith(",PS: 0") or part2.endswith(",PS: 1"):
+                            part2 = part2[:-6]
                         ret = [ret, part2]
                     return ret
+                if re.match(r"^[A-Z]{2}:\s*[^$]+$", msg):
+                    # Stale response from an earlier command or retry; ignore
+                    _LOGGER.debug(
+                        "Ignoring stale response while waiting for %s=%s: %s",
+                        cmd,
+                        value,
+                        msg,
+                    )
+                    return
                 if re.match(r"Error 0[1-4]", msg):
                     _LOGGER.warning(
                         "Received %s. If this happens during a "

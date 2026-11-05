@@ -25,11 +25,19 @@ class OpenThermGateway:  # pylint: disable=too-many-public-methods
 
     async def cleanup(self):
         """Clean up tasks."""
+        await self._cleanup_gpio()
         await self.connection.disconnect()
         await self.status.cleanup()
+
+    async def _cleanup_gpio(self):
+        """Cancel and clean up the GPIO polling task if running."""
         if self._gpio_task:
             self._gpio_task.cancel()
-            await self._gpio_task
+            try:
+                await self._gpio_task
+            except asyncio.CancelledError:
+                pass
+            self._gpio_task = None
 
     async def connect(
         self,
@@ -48,6 +56,7 @@ class OpenThermGateway:  # pylint: disable=too-many-public-methods
 
         This method is a coroutine
         """
+        await self._cleanup_gpio()
         if skip_init is not None:
             self._skip_init = skip_init
         if not await self.connection.connect(port, timeout):
@@ -179,9 +188,12 @@ class OpenThermGateway:  # pylint: disable=too-many-public-methods
         for value in v.OTGW_REPORTS:
 
             ver = reports.get(v.OTGW_REPORT_ABOUT)
-            if ver and int(ver[18]) < 5 and value == "D":
-                # Added in v5
-                continue
+            try:
+                if ver and int(ver[18]) < 5 and value == "D":
+                    # Added in v5
+                    continue
+            except (IndexError, ValueError):
+                pass
             if value == v.OTGW_REPORT_ABOUT:
                 continue
 
@@ -261,17 +273,32 @@ class OpenThermGateway:  # pylint: disable=too-many-public-methods
         # Return to 'reporting' mode
         if ret is None:
             return
-        asyncio.get_running_loop().create_task(self._wait_for_cmd(cmd, 0))
+        await self._wait_for_cmd(cmd, 0)
         fields = ret[1].split(",")
-        if len(fields) == 34:
-            # OpenTherm Gateway 5.0
-            boiler_status, thermostat_status = process_statusfields_v5(fields)
-        else:
-            boiler_status, thermostat_status = process_statusfields_v4(fields)
-        self.status.submit_full_update({
-            v.BOILER: boiler_status,
-            v.THERMOSTAT: thermostat_status
-        })
+        try:
+            if len(fields) == 34:
+                # OpenTherm Gateway 5.0+
+                boiler_status, thermostat_status = process_statusfields_v5(fields)
+            elif len(fields) == 25:
+                # OpenTherm Gateway 4.x
+                boiler_status, thermostat_status = process_statusfields_v4(fields)
+            else:
+                _LOGGER.warning(
+                    "Unexpected number of status fields (%d): %s",
+                    len(fields),
+                    ret[1],
+                )
+                return
+        except (ValueError, IndexError) as err:
+            _LOGGER.warning(
+                "Failed to parse status fields (%s): %s",
+                err,
+                ret[1],
+            )
+            return
+        self.status.submit_full_update(
+            {v.BOILER: boiler_status, v.THERMOSTAT: thermostat_status}
+        )
         return self.status.status
 
     async def set_hot_water_ovrd(self, state, timeout=v.OTGW_DEFAULT_TIMEOUT):

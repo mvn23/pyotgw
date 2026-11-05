@@ -408,24 +408,48 @@ async def test_get_reports(pygw):
     with patch.object(
         pygw,
         "_wait_for_cmd",
+        side_effect=["A=OpenTherm Gatew", None] + [None] * len(v.OTGW_REPORTS),
+    ):
+        await pygw.get_reports()
+
+    with patch.object(
+        pygw,
+        "_wait_for_cmd",
         side_effect=["OpenTherm Gateway 5.1", ValueError],
     ), pytest.raises(ValueError):
         await pygw.get_reports()
 
 
 @pytest.mark.asyncio
-async def test_get_status(pygw):
+async def test_get_status(caplog, pygw):
     """Test pyotgw.get_status()"""
     pygw.loop = asyncio.get_running_loop()
+    corrupted_v5 = pygw_status.status_5.replace(",9.87,", ",100.020.39,", 1)
+    truncated_v5 = ",".join(pygw_status.status_5.split(",")[:31])
     with patch.object(
         pygw,
         "_wait_for_cmd",
-        side_effect=[None, (None, pygw_status.status_5), (None, pygw_status.status_4)],
-    ):
+        side_effect=[
+            None,
+            (None, pygw_status.status_5),
+            "0",
+            (None, pygw_status.status_4),
+            "0",
+            (None, truncated_v5),
+            "0",
+            (None, corrupted_v5),
+            "0",
+        ],
+    ), caplog.at_level(logging.WARNING):
         assert await pygw.get_status() is None
         assert await pygw.get_status() == pygw_status.expect_5
         pygw.status.reset()
         assert await pygw.get_status() == pygw_status.expect_4
+        pygw.status.reset()
+        assert await pygw.get_status() is None
+        assert await pygw.get_status() is None
+
+    assert len(caplog.records) == 2
 
 
 @pytest.mark.asyncio
