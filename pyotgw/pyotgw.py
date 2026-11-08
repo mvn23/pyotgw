@@ -252,26 +252,29 @@ class OpenThermGateway:  # pylint: disable=too-many-public-methods
     async def get_status(self):
         """
         Update the OpenThermGateway object with the information from the
-        PS command and return the updated status dict.
+        PS command and return the updated status dict or None on error.
 
         This method is a coroutine
         """
         cmd = v.OTGW_CMD_SUMMARY
         ret = await self._wait_for_cmd(cmd, 1)
         # Return to 'reporting' mode
+        asyncio.get_running_loop().create_task(self._wait_for_cmd(cmd, 0))
         if ret is None:
             return
-        asyncio.get_running_loop().create_task(self._wait_for_cmd(cmd, 0))
         fields = ret[1].split(",")
         if len(fields) == 34:
-            # OpenTherm Gateway 5.0
+            # OpenTherm Gateway >=5.0
             boiler_status, thermostat_status = process_statusfields_v5(fields)
-        else:
+        elif len(fields) == 25:
+            # OpenTherm Gateway <5.0
             boiler_status, thermostat_status = process_statusfields_v4(fields)
-        self.status.submit_full_update({
-            v.BOILER: boiler_status,
-            v.THERMOSTAT: thermostat_status
-        })
+        else:
+            _LOGGER.error("Received malformed status line: %s", ret[1])
+            return
+        self.status.submit_full_update(
+            {v.BOILER: boiler_status, v.THERMOSTAT: thermostat_status}
+        )
         return self.status.status
 
     async def set_hot_water_ovrd(self, state, timeout=v.OTGW_DEFAULT_TIMEOUT):
@@ -770,7 +773,7 @@ def process_statusfields_v4(status_fields):
     """
     Process the fields of a split status line for OpenTherm Gateway firmware
     version <5.0.
-    
+
     Return a tuple of (boiler_status, thermostat_status).
     """
     device_status = status_fields[0].split("/")
@@ -833,7 +836,7 @@ def process_statusfields_v5(status_fields):
     """
     Process the fields of a split status line for OpenTherm Gateway firmware
     version >=5.0.
-    
+
     Return a tuple of (boiler_status, thermostat_status).
     """
     device_status = status_fields[0].split("/")

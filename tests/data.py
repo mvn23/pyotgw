@@ -234,11 +234,16 @@ _status_expect_4 = {
     },
 }
 
+_status_malformed = (
+    "10101010/01010101,1.23,01010101/10101010,2.34,0/1,3.45,4.56,5.67,6.78,7.89,8.90,"
+)
+
 pygw_status = SimpleNamespace(
     expect_4=_status_expect_4,
     expect_5=_status_expect_5,
     status_4=_status_4,
     status_5=_status_5,
+    status_malformed=_status_malformed,
 )
 
 
@@ -297,7 +302,7 @@ pygw_proto_messages = (
             v.WRITE_ACK,
             v.MSG_SCONFIG,
             int("10101010", 2).to_bytes(1, "big"),
-            b"\xFF",
+            b"\xff",
         ),
         {
             v.BOILER: {
@@ -315,12 +320,12 @@ pygw_proto_messages = (
     ),
     # _get_u16
     (
-        ("A", v.READ_ACK, v.MSG_BURNSTARTS, b"\x12", b"\xAA"),
+        ("A", v.READ_ACK, v.MSG_BURNSTARTS, b"\x12", b"\xaa"),
         {v.BOILER: {}, v.OTGW: {}, v.THERMOSTAT: {v.DATA_TOTAL_BURNER_STARTS: 4778}},
     ),
     # _get_s8
     (
-        ("R", v.WRITE_ACK, v.MSG_TCHSETUL, b"\x50", b"\x1E"),
+        ("R", v.WRITE_ACK, v.MSG_TCHSETUL, b"\x50", b"\x1e"),
         {
             v.BOILER: {v.DATA_SLAVE_CH_MAX_SETP: 80, v.DATA_SLAVE_CH_MIN_SETP: 30},
             v.OTGW: {},
@@ -329,7 +334,7 @@ pygw_proto_messages = (
     ),
     # _get_s16
     (
-        ("B", v.READ_ACK, v.MSG_TEXHAUST, b"\xFF", b"\x83"),
+        ("B", v.READ_ACK, v.MSG_TEXHAUST, b"\xff", b"\x83"),
         {v.BOILER: {v.DATA_EXHAUST_TEMP: -125}, v.OTGW: {}, v.THERMOSTAT: {}},
     ),
 )
