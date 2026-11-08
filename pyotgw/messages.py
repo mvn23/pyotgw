@@ -412,6 +412,53 @@ REGISTRY = {
             }
         ],
     },
+    v.MSG_THEATEXCH: {
+        M2S: [],
+        S2M: [
+            {FUNC: _GET_FLOAT, ARGS: (_MSB, _LSB), RETURNS: (v.DATA_HEATEXCH_TEMP,)},
+        ],
+    },
+    v.MSG_BOILERFANSPD: {
+        M2S: [],
+        S2M: [
+            {FUNC: _GET_U8, ARGS: (_MSB,), RETURNS: (v.DATA_BOILER_FANSPD_SETP,)},
+            {FUNC: _GET_U8, ARGS: (_LSB,), RETURNS: (v.DATA_BOILER_FANSPD,)},
+        ],
+    },
+    v.MSG_FLAMECURRENT: {
+        M2S: [],
+        S2M: [
+            {
+                FUNC: _GET_FLOAT,
+                ARGS: (
+                    _MSB,
+                    _LSB,
+                ),
+                RETURNS: (v.DATA_BOILER_FLAME_CURRENT,),
+            },
+        ],
+    },
+    v.MSG_TROOMCH2: {
+        M2S: [{FUNC: _GET_FLOAT, ARGS: (_MSB, _LSB), RETURNS: (v.DATA_ROOM_TEMP_2,)}],
+        S2M: [],
+    },
+    v.MSG_RELHUMIDITY: {
+        M2S: [{FUNC: _GET_FLOAT, ARGS: (_MSB, _LSB), RETURNS: (v.DATA_REL_HUMIDITY,)}],
+        S2M: [],
+    },
+    v.MSG_TROVRD2: {
+        M2S: [],
+        S2M: [
+            {
+                FUNC: _GET_FLOAT,
+                ARGS: (
+                    _MSB,
+                    _LSB,
+                ),
+                RETURNS: (v.DATA_ROOM_SETPOINT_OVRD_2,),
+            },
+        ],
+    },
     v.MSG_TDHWSETUL: {
         M2S: [],
         S2M: [
