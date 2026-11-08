@@ -429,6 +429,25 @@ async def test_get_status(pygw):
 
 
 @pytest.mark.asyncio
+async def test_get_status_malformed_status_line(caplog, pygw):
+    """Test pyotgw.get_status() when the status line is malformed"""
+    pygw.loop = asyncio.get_running_loop()
+    with patch.object(
+        pygw,
+        "_wait_for_cmd",
+        return_value=(None, pygw_status.status_malformed),
+    ), caplog.at_level(logging.ERROR):
+        assert await pygw.get_status() is None
+        assert caplog.record_tuples == [
+            (
+                "pyotgw.pyotgw",
+                logging.ERROR,
+                f"Received malformed status line: {pygw_status.status_malformed}",
+            ),
+        ]
+
+
+@pytest.mark.asyncio
 async def test_set_hot_water_ovrd(pygw):
     """Test pyotgw.set_hot_water_ovrd()"""
     with patch.object(
