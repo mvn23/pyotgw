@@ -191,6 +191,25 @@ DATA_DHW_TEMP_2 = "dhw_temp_2"
 # MSG_TEXHAUST
 DATA_EXHAUST_TEMP = "exhaust_temp"
 
+# MSG_THEATEXCH
+DATA_HEATEXCH_TEMP = "heat_exchanger_temp"
+
+# MSG_BOILERFANSPD
+DATA_BOILER_FANSPD_SETP = "boiler_fan_speed_setpoint"
+DATA_BOILER_FANSPD = "boiler_fan_speed"
+
+# MSG_FLAMECURRENT
+DATA_BOILER_FLAME_CURRENT = "boiler_flame_current"
+
+# MSG_TROOMCH2
+DATA_ROOM_TEMP_2 = "room_temp_2"
+
+# MSG_RELHUMIDITY
+DATA_REL_HUMIDITY = "relative_humidity"
+
+# MSG_TROVRD2
+DATA_ROOM_SETPOINT_OVRD_2 = "room_setpoint_ovrd_2"
+
 # MSG_TDHWSETUL
 DATA_SLAVE_DHW_MAX_SETP = "slave_dhw_max_setp"
 DATA_SLAVE_DHW_MIN_SETP = "slave_dhw_min_setp"
