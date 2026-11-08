@@ -44,8 +44,12 @@ class CommandProcessor:
             async def send_again(err):
                 """Resend the command."""
                 nonlocal retry
+                if retry <= 0:
+                    raise err
                 _LOGGER.warning("Command %s failed with %s, retrying...", cmd, err)
+                await asyncio.sleep(0.5)
                 retry -= 1
+                self.clear_queue()
                 self.protocol.transport.write(f"{cmd}={value}\r\n".encode("ascii"))
 
             async def process(msg):
@@ -53,9 +57,7 @@ class CommandProcessor:
                 _LOGGER.debug("Got possible response for command %s: %s", cmd, msg)
                 if msg in v.OTGW_ERRS:
                     # Some errors appear by themselves on one line.
-                    if retry == 0:
-                        raise v.OTGW_ERRS[msg]
-                    await send_again(msg)
+                    await send_again(v.OTGW_ERRS[msg])
                     return
                 if cmd == v.OTGW_CMD_MODE and value == "R":
                     # Device was reset, msg contains build info
@@ -66,9 +68,7 @@ class CommandProcessor:
                 if match:
                     if match.group(1) in v.OTGW_ERRS:
                         # Some errors are considered a response.
-                        if retry == 0:
-                            raise v.OTGW_ERRS[match.group(1)]
-                        await send_again(msg)
+                        await send_again(v.OTGW_ERRS[match.group(1)])
                         return
                     ret = match.group(1)
                     if cmd == v.OTGW_CMD_SUMMARY and ret == "1":
@@ -77,15 +77,16 @@ class CommandProcessor:
                         ret = [ret, part2]
                     return ret
                 if re.match(r"Error 0[1-4]", msg):
-                    _LOGGER.warning(
-                        "Received %s. If this happens during a "
-                        "reset of the gateway it can be safely "
-                        "ignored.",
-                        msg,
+                    if cmd == v.OTGW_CMD_MODE and value == "R":
+                        return
+                    error_message = (
+                        f"Received {msg}. If this happens during a reset of the "
+                        "gateway it can be safely ignored."
                     )
                 else:
-                    _LOGGER.warning("Unknown message in command queue: %s", msg)
-                await send_again(msg)
+                    error_message = f"Unknown message in command queue: {msg}"
+                _LOGGER.warning(error_message)
+                await send_again(RuntimeError(error_message))
 
             while True:
                 msg = await self._cmdq.get()
