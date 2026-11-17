@@ -73,7 +73,11 @@ class CommandProcessor:
                     ret = match.group(1)
                     if cmd == v.OTGW_CMD_SUMMARY and ret == "1":
                         # Expects a second line
+                        # The second line should match the basic structure of a status
+                        # report. If not, we discard the message.
                         part2 = await self._cmdq.get()
+                        while not re.match(r"^[01]{8}/[01]{8}(,[\d./]*)+$", part2):
+                            part2 = await self._cmdq.get()
                         ret = [ret, part2]
                     return ret
                 if re.match(r"Error 0[1-4]", msg):

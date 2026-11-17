@@ -7,6 +7,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 import pyotgw.vars as v
+from tests.data import pygw_status
 from tests.helpers import called_once, called_x_times, let_queue_drain
 
 
@@ -281,7 +282,44 @@ async def test_issue_cmd_reset(caplog, pygw_proto):
 
 
 @pytest.mark.asyncio
-async def test_issue_cmd_summary(caplog, pygw_proto):
+@pytest.mark.parametrize(
+    ["lines", "expected_response"],
+    [
+        (
+            [
+                "PS: 1",
+                pygw_status.status_5,
+            ],
+            [
+                "1",
+                pygw_status.status_5,
+            ],
+        ),
+        (
+            [
+                "PS: 1",
+                "intermittent unrelated line",
+                pygw_status.status_5,
+            ],
+            [
+                "1",
+                pygw_status.status_5,
+            ],
+        ),
+        (
+            [
+                "PS: 1",
+                "intermittent unrelated line",
+                pygw_status.status_malformed,
+            ],
+            [
+                "1",
+                pygw_status.status_malformed,
+            ],
+        ),
+    ],
+)
+async def test_issue_cmd_summary(caplog, pygw_proto, lines, expected_response):
     """Test PS command handling."""
     loop = asyncio.get_running_loop()
 
@@ -294,9 +332,7 @@ async def test_issue_cmd_summary(caplog, pygw_proto):
         )
     )
     await called_once(pygw_proto.transport.write)
-    pygw_proto.command_processor.submit_response("PS: 1")
-    pygw_proto.command_processor.submit_response(
-        "part_2_will_normally_be_parsed_by_get_status",
-    )
+    for line in lines:
+        pygw_proto.command_processor.submit_response(line)
 
-    assert await task == ["1", "part_2_will_normally_be_parsed_by_get_status"]
+    assert await task == expected_response
