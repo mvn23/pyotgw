@@ -1,4 +1,5 @@
 """OpenTherm Protocol message handler"""
+
 import asyncio
 import logging
 import re

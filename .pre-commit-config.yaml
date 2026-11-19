@@ -9,32 +9,16 @@ repos:
   - id: debug-statements
   - id: check-ast
 - repo: https://github.com/psf/black
-  rev: 26.1.0
+  rev: 26.10.1
   hooks:
   - id: black
-- repo: https://github.com/pycqa/flake8
-  rev: 7.3.0
-  hooks:
-  - id: flake8
-    args:
-    - --max-line-length=88
 - repo: https://github.com/asottile/pyupgrade
-  rev: v3.21.2
+  rev: v3.22.0
   hooks:
   - id: pyupgrade
-    args: ['--py38-plus']
-- repo: https://github.com/pre-commit/mirrors-isort
-  rev: v5.10.1
-  hooks:
-  - id: isort
-    args:
-      - --multi-line=3
-      - --trailing-comma
-      - --force-grid-wrap=0
-      - --use-parentheses
-      - --line-width=88
+    args: ['--py313-plus']
 - repo: https://github.com/PyCQA/bandit
-  rev: 1.9.3
+  rev: 1.9.4
   hooks:
   - id: bandit
     args:

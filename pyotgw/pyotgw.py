@@ -717,7 +717,7 @@ class OpenThermGateway:  # pylint: disable=too-many-public-methods
                 self._protocol.command_processor.issue_cmd(cmd, value),
                 timeout,
             )
-        except asyncio.TimeoutError:
+        except TimeoutError:
             _LOGGER.error("Timed out waiting for command: %s, value: %s.", cmd, value)
             return
         except (RuntimeError, SyntaxError, ValueError) as exc:

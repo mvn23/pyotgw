@@ -132,7 +132,7 @@ class ConnectionManager:  # pylint: disable=too-many-instance-attributes
                 )
                 return transport, protocol
 
-            except asyncio.TimeoutError as err:
+            except TimeoutError as err:
                 if not isinstance(err, type(self._error)):
                     _LOGGER.error(
                         "The serial device on %s is not responding. "
