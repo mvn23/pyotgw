@@ -2,6 +2,7 @@
 
 import asyncio
 import logging
+from contextlib import suppress
 from datetime import datetime
 
 from pyotgw import vars as v
@@ -553,8 +554,10 @@ class OpenThermGateway:  # pylint: disable=too-many-public-methods
 
         This method is a coroutine
         """
-        if isinstance(max_mod, int) and not 0 <= max_mod <= 100:
-            return None
+        with suppress(ValueError):
+            max_mod = int(max_mod)
+            if not 0 <= max_mod <= 100:
+                return
         cmd = v.OTGW_CMD_MAX_MOD
         status_boiler = {}
         ret = await self._wait_for_cmd(cmd, max_mod, timeout)
