@@ -287,6 +287,11 @@ class OpenThermGateway:  # pylint: disable=too-many-public-methods
         state, or any other single character to disable the override.
         Return the accepted value, 'A' if the override is disabled
         or None on failure.
+        On PIC16F1847, special state 'P' requests a DHW push. In this
+        case, 'P' is returned on success and None on failure.
+        This special state is never reflected in the status dict as we
+        have no way to determine when this state is no longer active.
+        ('PR=W' never returns 'P')
 
         This method is a coroutine
         """
@@ -295,12 +300,11 @@ class OpenThermGateway:  # pylint: disable=too-many-public-methods
         ret = await self._wait_for_cmd(cmd, state, timeout)
         if ret is None:
             return None
-        if ret == "A":
-            status_otgw[v.OTGW_DHW_OVRD] = None
-        elif ret in ["0", "1"]:
+        if ret in ["0", "1"]:
             ret = int(ret)
+        if ret != "P":
             status_otgw[v.OTGW_DHW_OVRD] = ret
-        self.status.submit_partial_update(v.OTGW, status_otgw)
+            self.status.submit_partial_update(v.OTGW, status_otgw)
         return ret
 
     async def set_mode(self, mode, timeout=v.OTGW_DEFAULT_TIMEOUT):
